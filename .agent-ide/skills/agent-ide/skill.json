@@ -16,5 +16,15 @@
     "directories": [
         "src",
         "tests"
-    ]
+    ],
+    "replicas": {
+        "root": "~/.agent-ide/replicas",
+        "mode": "mirror",
+        "include": [
+            "data/config.json"
+        ],
+        "triggers": [
+            "on_config_write"
+        ]
+    }
 }

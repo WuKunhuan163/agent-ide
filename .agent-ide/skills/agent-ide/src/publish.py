@@ -34,7 +34,7 @@ def run(project_root: Path, names: list[str], *, from_github: bool) -> None:
 
     with tempfile.TemporaryDirectory(prefix="agent-ide-publish-") as tmp:
         clone = Path(tmp)
-        _clone(_remote(repo), clone)
+        _clone(_remote(repo, config.github_host(project_root)), clone)
         skills_in_repo = clone / paths.IDE_DIR / "skills"
 
         if from_github:
@@ -67,11 +67,12 @@ def run(project_root: Path, names: list[str], *, from_github: bool) -> None:
         print(f"publish: {targets} -> {repo}")
 
 
-def _remote(repo: str) -> str:
+def _remote(repo: str, host: str) -> str:
+    """`owner/repo` becomes `git@<host>:owner/repo.git`; anything else is used as-is."""
     raw = repo.strip()
-    if raw.startswith(("/", "./", "../", "~")) or "://" in raw or raw.startswith("git@"):
+    if raw.startswith(("/", "./", "../", "~")) or "://" in raw or "@" in raw:
         return raw
-    return f"git@github.com:{raw}.git"
+    return f"git@{host}:{raw}.git"
 
 
 def _clone(remote: str, into: Path) -> None:

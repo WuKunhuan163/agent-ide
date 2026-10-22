@@ -1,7 +1,12 @@
 """`agent-ide/data/config.json`: the global project pointer and the publish repo.
 
-    {"paths": {"global_home": "~/agent_ide_global_project"},
-     "github": {"publish_repo": "owner/repo"}}
+    {"paths": {"global_home": "<global project>"},
+     "github": {"publish_repo": "owner/repo", "host": "github.com"}}
+
+Everything that belongs to a person or a machine — where the global project
+lives, which account and repo to publish to — is data here, never a constant in
+the code. `data/` is git-ignored and mirrored into the replica shard, so this
+file is both private and recoverable.
 
 `global_home` is valid when the path it names holds `.agent-ide/skills`. When it
 is absent, the project is its own global project: that is the shape a fresh
@@ -32,6 +37,27 @@ def write(project_root: Path, cfg: dict) -> None:
     (folder / CONFIG).write_text(
         json.dumps(cfg, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
+    _replicate(project_root)
+
+
+def _replicate(project_root: Path) -> None:
+    """Keep the shard's copy of this state current; never block the write.
+
+    The path of the global project and the publish repo live here, so losing
+    them means losing the ability to push and publish at all.
+    """
+    pkg_dir = paths.package_dir(project_root, paths.AGENT_IDE)
+    import sys
+
+    sys.path.insert(0, str(pkg_dir))
+    try:
+        from replicas import ReplicaError, Replicator
+    except ImportError:
+        return
+    try:
+        Replicator.for_skill(pkg_dir).sync_quietly()
+    except ReplicaError:
+        pass
 
 
 def _section(cfg: dict, key: str) -> dict:
@@ -92,6 +118,19 @@ def inherit_global_home(launcher_root: Path, target_root: Path) -> None:
     if existing is not None and existing != target_root.resolve():
         return
     set_global_home(target_root, home)
+
+
+def github_host(project_root: Path) -> str:
+    """The host `owner/repo` is expanded against; data, with a public default."""
+    raw = _section(read(project_root), "github").get("host")
+    if raw and str(raw).strip():
+        return str(raw).strip()
+    home = valid_global_home(_section(read(project_root), "paths").get("global_home"))
+    if home is not None:
+        raw = _section(read(home), "github").get("host")
+        if raw and str(raw).strip():
+            return str(raw).strip()
+    return "github.com"
 
 
 def publish_repo(project_root: Path) -> str | None:

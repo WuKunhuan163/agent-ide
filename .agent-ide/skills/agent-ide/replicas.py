@@ -32,7 +32,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 MANIFEST = "skill.json"
-MODE = "append_only"
+APPEND_ONLY = "append_only"
+MIRROR = "mirror"
+MODES = (APPEND_ONLY, MIRROR)
 
 
 class ReplicaError(RuntimeError):
@@ -45,9 +47,12 @@ class Report:
 
     skill: str
     shard: Path
+    mode: str = APPEND_ONLY
     declared: int = 0
     copied: int = 0
+    updated: int = 0
     missing: int = 0
+    stale: int = 0
     same: int = 0
     conflicts: list[str] = field(default_factory=list)
 
@@ -59,9 +64,12 @@ class Report:
         out = [
             self.skill,
             f"  shard     {self.shard}",
+            f"  mode      {self.mode}",
             f"  declared  {self.declared} files",
             f"  copied    {self.copied}",
+            f"  updated   {self.updated}",
             f"  missing   {self.missing}",
+            f"  stale     {self.stale}",
             f"  unchanged {self.same}",
         ]
         if self.conflicts:
@@ -84,6 +92,7 @@ class Replicator:
         self.pkg_dir = Path(pkg_dir).resolve()
         self.manifest = manifest
         self.block = _block(self.pkg_dir, manifest)
+        self.mode = str(self.block.get("mode") or APPEND_ONLY)
         self.shard = self._shard()
 
     @classmethod
@@ -147,28 +156,42 @@ class Replicator:
     # ------------------------------------------------------------------- jobs
 
     def status(self) -> Report:
-        """Nothing is written: `missing` is how far the copy has fallen behind."""
+        """Nothing is written: `missing`/`stale` is how far the copy has fallen behind."""
         files = self.sources()
-        report = Report(skill=self.pkg_dir.name, shard=self.shard, declared=len(files))
+        report = Report(
+            skill=self.pkg_dir.name, shard=self.shard, mode=self.mode, declared=len(files)
+        )
         for rel, source in files.items():
             target = self.shard / rel
             if not target.exists():
                 report.missing += 1
             elif _same(source, target):
                 report.same += 1
+            elif self.mode == MIRROR:
+                report.stale += 1
             else:
                 report.conflicts.append(rel)
         return report
 
     def sync(self) -> Report:
-        """Copy what is missing; never overwrite and never delete."""
+        """Copy what is missing.
+
+        `append_only` never overwrites (archives are facts); `mirror` refreshes
+        a changed file in place (state has one current value). Neither deletes.
+        """
         files = self.sources()
-        report = Report(skill=self.pkg_dir.name, shard=self.shard, declared=len(files))
+        report = Report(
+            skill=self.pkg_dir.name, shard=self.shard, mode=self.mode, declared=len(files)
+        )
         for rel, source in files.items():
             target = self.shard / rel
             if target.exists():
                 if _same(source, target):
                     report.same += 1
+                elif self.mode == MIRROR:
+                    _ensure(target.parent)
+                    shutil.copy2(source, target)
+                    report.updated += 1
                 else:
                     report.conflicts.append(rel)
                 continue
@@ -229,9 +252,12 @@ def _block(pkg_dir: Path, manifest: dict) -> dict:
             f"{Path(pkg_dir).name}: skill.json declares no replicas block, so "
             "this skill's data/ has no disaster-recovery copy"
         )
-    mode = str(raw.get("mode") or MODE)
-    if mode != MODE:
-        raise ReplicaError(f"{Path(pkg_dir).name}: unsupported replicas.mode {mode!r}")
+    mode = str(raw.get("mode") or APPEND_ONLY)
+    if mode not in MODES:
+        raise ReplicaError(
+            f"{Path(pkg_dir).name}: unsupported replicas.mode {mode!r} "
+            f"(expected {' or '.join(MODES)})"
+        )
     return raw
 
 
