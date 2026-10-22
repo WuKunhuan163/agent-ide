@@ -2,10 +2,13 @@
 """agent-ide — move skill packages between project, global project and GitHub.
 
     install       write .agent-tools/<skill> launchers for local packages
-    init-project  pull the default skills into a target project, then install
-    push          project -> global (or --from-global)
+    push          project -> global (default) or global -> project (--from-global)
     publish       global -> GitHub (or --from-github)
     inject        link a package's SKILL.md into an IDE domain
+
+`--project` names the project a command acts on, defaulting to the one holding
+this script. `--global` names the global project to import from, so joining the
+ecosystem is `push --from-global --global <path> <skill>...` and nothing else.
 """
 from __future__ import annotations
 import argparse
@@ -13,29 +16,53 @@ import sys
 from pathlib import Path
 
 from replicas import ReplicaError, Replicator, targets
-from src import config, init, install, inject, paths, publish, transfer
+from src import config, install, inject, paths, publish, transfer
 from src.errors import AgentIdeError, Exit, fail
 
 
 # ------------------------------------------------------------------- commands
 
 
+def _project(args: argparse.Namespace) -> Path:
+    """The project a command acts on: `--project`, else the script's own."""
+    if args.project:
+        return Path(args.project).expanduser().resolve()
+    return paths.project_root(Path(__file__))
+
+
 def cmd_install(args: argparse.Namespace) -> None:
-    install.run(paths.project_root(Path(__file__)), args.skills)
-
-
-def cmd_init_project(args: argparse.Namespace) -> None:
-    init.run(paths.project_root(Path(__file__)), Path(args.project), args.skills or None)
+    install.run(_project(args), args.skills)
 
 
 def cmd_push(args: argparse.Namespace) -> None:
-    root = paths.project_root(Path(__file__))
-    home = config.global_home(root, seed=True)
-    local, shared = paths.skills_dir(root), paths.skills_dir(home)
+    root = _project(args)
+    if args.global_home is not None and not args.from_global:
+        raise fail(Exit.Cli.USAGE, "--global names the import source; use it with --from-global")
     if args.from_global:
-        transfer.batch(args.skills, shared, local, "push --from-global")
+        home = _named_global(args.global_home) or config.global_home(root, seed=True)
+        paths.skills_dir(root).mkdir(parents=True, exist_ok=True)
+        transfer.batch(args.skills, paths.skills_dir(home), paths.skills_dir(root),
+                       "push --from-global")
+        # The path the user gave is the answer to "where is the global project",
+        # so it is recorded — never over a different global the project already
+        # points at, and never only when some particular package came along with
+        # it: the pointer is what `install` needs to find that project's runtime.
+        config.adopt_global_home(root, home)
     else:
-        transfer.batch(args.skills, local, shared, "push")
+        home = config.global_home(root, seed=True)
+        transfer.batch(args.skills, paths.skills_dir(root), paths.skills_dir(home), "push")
+
+
+def _named_global(raw: str | None) -> Path | None:
+    if raw is None:
+        return None
+    home = config.valid_global_home(raw)
+    if home is None:
+        raise fail(
+            Exit.Config.MISSING_GLOBAL,
+            f"--global is not a project (no {paths.IDE_DIR}/skills there): {raw}",
+        )
+    return home
 
 
 def cmd_publish(args: argparse.Namespace) -> None:
@@ -92,17 +119,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("install", help="write .agent-tools launchers for local packages")
     p.add_argument("skills", nargs="+", metavar="SKILL")
+    p.add_argument("--project", metavar="PATH", help="project to act on")
     p.set_defaults(run=cmd_install)
-
-    p = sub.add_parser("init-project", help="bootstrap a project from the global project")
-    p.add_argument("project", metavar="PATH")
-    p.add_argument("skills", nargs="*", metavar="SKILL",
-                   help=f"default: {' '.join(init.DEFAULT_SKILLS)}")
-    p.set_defaults(run=cmd_init_project)
 
     p = sub.add_parser("push", help="copy packages project <-> global")
     p.add_argument("skills", nargs="+", metavar="SKILL")
     p.add_argument("--from-global", action="store_true", help="global -> project")
+    p.add_argument("--global", dest="global_home", metavar="PATH",
+                   help="the global project to import from (recorded in the project's config)")
+    p.add_argument("--project", metavar="PATH", help="project to act on")
     p.set_defaults(run=cmd_push)
 
     p = sub.add_parser("publish", help="copy packages global <-> GitHub")

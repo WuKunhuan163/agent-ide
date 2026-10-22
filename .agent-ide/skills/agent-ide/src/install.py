@@ -6,7 +6,6 @@ path is baked in at install time, so the launcher never parses JSON itself; if
 the global project moves, reinstall (one command) and the path is rewritten.
 """
 from __future__ import annotations
-import json
 import shlex
 import shutil
 import subprocess
@@ -15,8 +14,6 @@ from pathlib import Path
 
 from . import config, manifest as manif, paths
 from .errors import Exit, fail
-
-RECORDS = ".agent-ide-records.json"
 
 
 def run(project_root: Path, names: list[str]) -> None:
@@ -31,7 +28,7 @@ def package(project_root: Path, name: str) -> None:
     if not pkg.is_dir():
         raise fail(Exit.Install.FAILED, f"install: missing package directory: {pkg}")
     spec = manif.load(pkg)
-    kind = manif.install_kind(spec)
+    kind = manif.kind(spec)
     if kind is None:
         return  # nothing to launch
     if kind != "python":
@@ -42,12 +39,10 @@ def package(project_root: Path, name: str) -> None:
         raise fail(Exit.Install.FAILED, f"{name}: missing entry file: {entry}")
 
     home = config.global_home(project_root, seed=True)
-    interpreter, warnings = _provision_runtime(home, name, spec)
+    interpreter = _provision_runtime(home, name, manif.python_spec(spec))
     _write_launcher(project_root, name, interpreter)
 
-    print(f"install: {name} -> .agent-tools/{name}")
-    for warning in warnings:
-        print(warning, file=sys.stderr)
+    print(f"install: {name} -> .agent-tools/{name} ({paths.pretty(interpreter)})")
 
 
 # ------------------------------------------------------------------- launcher
@@ -91,10 +86,10 @@ exec "$_BIN" "$_ENTRY" "$@"
 # -------------------------------------------------------------------- runtime
 
 
-def _provision_runtime(global_home: Path, name: str, spec: dict) -> tuple[Path, list[str]]:
-    prefix = paths.runtime_root(global_home) / paths.platform_tag() / manif.runtime_name(spec)
+def _provision_runtime(global_home: Path, name: str, py: dict) -> Path:
+    prefix = paths.runtime_root(global_home) / paths.platform_tag() / py["runtime"]
     interpreter = prefix / "bin" / prefix.name
-    wanted = manif.requirements(spec)
+    wanted = py["requirements"]
 
     if not interpreter.is_file():
         # `python3.11` has suffix `.11`, so with_suffix would give `python3.gz`.
@@ -106,17 +101,15 @@ def _provision_runtime(global_home: Path, name: str, spec: dict) -> tuple[Path, 
                     f"{name}: interpreter missing at {interpreter} and {archive.name} is "
                     f"absent, so its requirements cannot be installed",
                 )
-            # No bundled runtime, nothing to install: the launcher can name the
+            # No bundled runtime, nothing to install: the launcher names the
             # interpreter that is running this command. Without this a fresh
             # checkout cannot bootstrap at all, since the archive only exists
             # after the first provisioned install.
-            return Path(sys.executable), [
-                f"{name}: no bundled {prefix.name}, launcher uses {paths.pretty(sys.executable)}"
-            ]
+            return Path(sys.executable)
         _unpack(archive, prefix)
 
-    _pip(interpreter, wanted, prefix / RECORDS)
-    return interpreter, _missing_stdlib(interpreter, manif.stdlib(spec))
+    _pip(interpreter, wanted)
+    return interpreter
 
 
 def _unpack(archive: Path, prefix: Path) -> None:
@@ -136,41 +129,17 @@ def _unpack(archive: Path, prefix: Path) -> None:
         )
 
 
-def _pip(interpreter: Path, specs: list[str], records: Path) -> None:
-    done = _records(records)
-    todo = [spec for spec in specs if spec not in done]
-    if not todo:
+def _pip(interpreter: Path, specs: list[str]) -> None:
+    """Install what the manifest asks for; pip itself skips satisfied specs."""
+    if not specs:
         return
     pip = subprocess.run(
-        [str(interpreter), "-m", "pip", "install", *todo],
+        [str(interpreter), "-m", "pip", "install", *specs],
         capture_output=True,
         text=True,
     )
     if pip.returncode != 0:
-        raise fail(Exit.Install.DEP_FAILED, f"pip install {' '.join(todo)} failed: {_tail(pip)}")
-    records.write_text(
-        json.dumps({"installed": sorted(done | set(todo))}, indent=2) + "\n", encoding="utf-8"
-    )
-
-
-def _records(path: Path) -> set[str]:
-    try:
-        doc = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return set()
-    items = doc.get("installed") if isinstance(doc, dict) else None
-    return {str(item) for item in items} if isinstance(items, list) else set()
-
-
-def _missing_stdlib(interpreter: Path, modules: list[str]) -> list[str]:
-    warnings = []
-    for module in modules:
-        probe = subprocess.run(
-            [str(interpreter), "-c", f"import {module}"], capture_output=True, text=True
-        )
-        if probe.returncode != 0:
-            warnings.append(f"[WARN] agent-ide: stdlib module missing in {interpreter}: {module}")
-    return warnings
+        raise fail(Exit.Install.DEP_FAILED, f"pip install {' '.join(specs)} failed: {_tail(pip)}")
 
 
 def _tail(done: subprocess.CompletedProcess) -> str:

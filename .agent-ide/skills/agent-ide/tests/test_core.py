@@ -1,4 +1,4 @@
-"""Boundaries of the four primitives: manifest, transfer, install, config, inject, init."""
+"""Boundaries of the four primitives: manifest, transfer, install, config, inject."""
 from __future__ import annotations
 import json
 import os
@@ -8,7 +8,7 @@ import unittest
 
 from helpers import PY, Base, make_package, make_runtime
 
-from src import config, init, inject, install, manifest as manif, paths
+from src import config, inject, install, manifest as manif, paths
 from src.errors import Exit
 
 
@@ -60,9 +60,12 @@ class ManifestTests(Base):
         self.assertEqual(manif.packages(self.skills, ["demo", "demo ", ""]), ["demo"])
         self.expect(Exit.Package.FAILED, manif.packages, self.skills, [])
 
-    def test_runtime_name(self):
-        self.assertEqual(manif.runtime_name({"python": {"runtime": {"version": "3.12.1"}}}), "python3.12")
-        self.assertEqual(manif.runtime_name({}), "python3.11")
+    def test_python_spec(self):
+        spec = manif.python_spec({"python": {"runtime": {"version": "3.12.1"},
+                                             "requirements": ["x==1"]}})
+        self.assertEqual(spec["runtime"], "python3.12")
+        self.assertEqual(spec["requirements"], ["x==1"])
+        self.assertEqual(manif.python_spec({})["runtime"], "python3.11")
 
 
 class TransferTests(Base):
@@ -165,7 +168,6 @@ class InstallTests(Base):
                 "install": {"kind": "python"},
                 "python": {
                     "requirements": ["requests"],
-                    "stdlib": [],
                     "runtime": {"version": "3.11.9"},
                 },
             },
@@ -241,33 +243,23 @@ class ConfigTests(Base):
         self.expect(Exit.Config.MISSING_GLOBAL, config.global_home, self.local, seed=True)
         self.assertEqual(config.read(self.local)["paths"]["global_home"], str(gone))
 
-    def test_inherit_copies_launcher_home(self):
-        config.set_global_home(self.global_root, self.global_root)
-        config.inherit_global_home(self.global_root, self.local)
+    def test_adopt_records_named_home(self):
+        config.adopt_global_home(self.local, self.global_root)
         self.assertEqual(config.global_home(self.local), self.global_root.resolve())
 
-    def test_inherit_keeps_own_home(self):
+    def test_adopt_keeps_own_home(self):
         other = self.tmp / "other"
         third = self.tmp / "third"
         for project in (other, third):
             (project / ".agent-ide" / "skills").mkdir(parents=True)
         config.set_global_home(other, third)
-        config.inherit_global_home(self.global_root, other)
+        config.adopt_global_home(other, self.global_root)
         self.assertEqual(config.global_home(other), third.resolve())
 
-    def test_inherit_overwrites_self_reference(self):
+    def test_adopt_overwrites_self_reference(self):
         config.set_global_home(self.local, self.local)
-        config.inherit_global_home(self.global_root, self.local)
+        config.adopt_global_home(self.local, self.global_root)
         self.assertEqual(config.global_home(self.local), self.global_root.resolve())
-
-    def test_publish_repo_falls_back_to_global(self):
-        config.set_global_home(self.local, self.global_root)
-        config.set_global_home(self.global_root, self.global_root)
-        cfg = config.read(self.global_root)
-        cfg["github"] = {"publish_repo": "owner/repo"}
-        config.write(self.global_root, cfg)
-        self.assertEqual(config.publish_repo(self.local), "owner/repo")
-
 
 class InjectTests(Base):
     def test_add_and_remove(self):
@@ -308,31 +300,6 @@ class InjectTests(Base):
 
     def test_unknown_action(self):
         self.expect(Exit.Inject.FAILED, inject.run, self.local, ".cursor", "bogus", [])
-
-
-class InitTests(Base):
-    def test_missing_essential(self):
-        config.set_global_home(self.global_root, self.global_root)
-        make_package(self.skills, name="contact-user")
-        self.expect(Exit.Package.FAILED, init.run, self.global_root, self.local)
-
-    def test_optional_missing_warns_only(self):
-        make_runtime(self.global_root)
-        make_package(self.skills, name="agent-ide")
-        config.set_global_home(self.global_root, self.global_root)
-        _, _, err = self.quiet(init.run, self.global_root, self.local)
-        self.assertIn("[WARN] init-project", err)
-        self.assertTrue((paths.skills_dir(self.local) / "agent-ide").is_dir())
-        self.assertTrue((paths.tools_dir(self.local) / "agent-ide").is_file())
-
-    def test_gitignore_seeded_once(self):
-        make_runtime(self.global_root)
-        make_package(self.skills, name="agent-ide")
-        config.set_global_home(self.global_root, self.global_root)
-        self.quiet(init.run, self.global_root, self.local)
-        first = (self.local / ".gitignore").read_text(encoding="utf-8")
-        self.quiet(init.run, self.global_root, self.local)
-        self.assertEqual(first, (self.local / ".gitignore").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

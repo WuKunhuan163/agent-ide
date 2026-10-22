@@ -1,0 +1,19 @@
+{
+    "install": {
+        "kind": "python"
+    },
+    "python": {
+        "requirements": [
+            "requests"
+        ]
+    },
+    "files": [
+        "SKILL.md",
+        "crossref.py"
+    ],
+    "directories": [
+        "skills",
+        "src",
+        "tests"
+    ]
+}

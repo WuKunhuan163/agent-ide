@@ -22,9 +22,6 @@
         "mode": "mirror",
         "include": [
             "data/config.json"
-        ],
-        "triggers": [
-            "on_config_write"
         ]
     }
 }

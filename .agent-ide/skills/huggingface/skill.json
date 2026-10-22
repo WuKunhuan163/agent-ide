@@ -1,0 +1,18 @@
+{
+    "install": {
+        "kind": "python"
+    },
+    "python": {
+        "requirements": [
+            "requests"
+        ]
+    },
+    "files": [
+        "SKILL.md",
+        "huggingface.py"
+    ],
+    "directories": [
+        "src",
+        "tests"
+    ]
+}

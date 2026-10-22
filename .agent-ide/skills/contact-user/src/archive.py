@@ -11,8 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .exit_codes import Exit
-from .paths import CONTACT, RESPONSE, archived, data, input_text, project_root
-from .utils import trash
+from .paths import CONTACT, RESPONSE, archived, data, input_text, project_root, stamp
 
 
 # ---------------------------------------------------------------------- recent
@@ -103,7 +102,7 @@ def _move(source: str, target: str, kind: str, start: str | None, end: str | Non
             shutil.copy2(path, destination)
         except OSError:
             continue
-        trash(path)
+        _trash(path)
     try:
         if not any(folder.iterdir()):
             folder.rmdir()
@@ -128,6 +127,21 @@ def delete(agent_id: str) -> int:
     for kind in (RESPONSE, CONTACT, "autosave"):
         folder = data(kind, agent_id)
         if folder.is_dir():
-            trash(folder)
+            _trash(folder)
     print(f"moved {agent_id} to the trash")
     return Exit.OK
+
+
+# --------------------------------------------------------------------- trash
+
+
+def _trash(path: Path) -> None:
+    """Move `path` under `data/.trash/<stamp>/` instead of deleting it."""
+    if not path.exists():
+        return
+    try:
+        folder = data(".trash", stamp(), create=True)
+        folder.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(path), str(_free_name(folder / path.name)))
+    except OSError:
+        pass

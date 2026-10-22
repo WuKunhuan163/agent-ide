@@ -1,4 +1,4 @@
-"""The real CLI, end to end: init-project -> push -> publish (local bare repo)."""
+"""The real CLI, end to end: push --from-global -> install -> push -> publish."""
 from __future__ import annotations
 import subprocess
 import unittest
@@ -23,24 +23,55 @@ class EndToEndTests(Base):
             [PY, str(self.cli), *args], capture_output=True, text=True, cwd=str(self.tmp)
         )
 
-    def test_init_project_pulls_and_installs(self):
+    def bootstrap(self) -> subprocess.CompletedProcess:
+        """Join the ecosystem the way a user does: name the global, then import."""
+        pushed = self.run_cli("push", "--from-global", "--global", str(self.global_root),
+                              "--project", str(self.local), "agent-ide")
+        if pushed.returncode == 0:
+            pushed = self.run_cli("install", "--project", str(self.local), "agent-ide")
+        return pushed
+
+    def test_named_global_imports_and_installs(self):
         marker = paths.data_dir(self.global_root) / "secret.txt"
         marker.parent.mkdir(parents=True, exist_ok=True)
         marker.write_text("x", encoding="utf-8")
 
-        done = self.run_cli("init-project", str(self.local))
+        done = self.bootstrap()
         self.assertEqual(done.returncode, 0, done.stderr)
-        self.assertTrue((paths.tools_dir(self.local) / "agent-ide").is_file())
         self.assertTrue((paths.skills_dir(self.local) / "agent-ide" / "src" / "install.py").is_file())
         self.assertFalse(
             (paths.data_dir(self.local) / "secret.txt").exists(), "data/ pulled"
         )
+        self.assertEqual(config.global_home(self.local), self.global_root.resolve())
         launcher = paths.tools_dir(self.local) / "agent-ide"
         help_done = subprocess.run([str(launcher), "--help"], capture_output=True, text=True)
         self.assertEqual(help_done.returncode, 0, help_done.stderr)
 
+    def test_invalid_global_is_rejected(self):
+        done = self.run_cli("push", "--from-global", "--global", str(self.tmp / "nowhere"),
+                            "--project", str(self.local), "agent-ide")
+        self.assertEqual(done.returncode, Exit.Config.MISSING_GLOBAL, done.stdout)
+        self.assertIn("--global is not a project", done.stderr)
+        self.assertFalse(paths.skills_dir(self.local).joinpath("agent-ide").exists())
+
+    def test_global_without_from_global_is_a_usage_error(self):
+        done = self.run_cli("push", "--global", str(self.global_root), "agent-ide")
+        self.assertEqual(done.returncode, Exit.Cli.USAGE, done.stdout)
+        self.assertIn("--from-global", done.stderr)
+
+    def test_named_global_keeps_an_existing_pointer(self):
+        self.assertEqual(self.bootstrap().returncode, 0)
+        other = self.tmp / "other"
+        (other / ".agent-ide" / "skills").mkdir(parents=True)
+        config.set_global_home(self.local, other)
+
+        done = self.run_cli("push", "--from-global", "--global", str(self.global_root),
+                            "--project", str(self.local), "agent-ide")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(config.global_home(self.local), other.resolve())
+
     def test_push_local_to_global(self):
-        self.assertEqual(self.run_cli("init-project", str(self.local)).returncode, 0)
+        self.assertEqual(self.bootstrap().returncode, 0)
         local_cli = paths.tools_dir(self.local) / "agent-ide"
         local_pkg = paths.skills_dir(self.local) / "agent-ide"
         marker = local_pkg / "SKILL.md"
@@ -56,7 +87,7 @@ class EndToEndTests(Base):
         self.assertFalse((global_pkg / "data" / "secret.txt").exists(), "data/ pushed")
 
     def test_push_from_global_restores_local(self):
-        self.assertEqual(self.run_cli("init-project", str(self.local)).returncode, 0)
+        self.assertEqual(self.bootstrap().returncode, 0)
         local_cli = paths.tools_dir(self.local) / "agent-ide"
         marker = paths.skills_dir(self.local) / "agent-ide" / "SKILL.md"
         marker.write_text("# LOCAL BROKEN 9f3\n", encoding="utf-8")

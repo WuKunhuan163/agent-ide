@@ -58,15 +58,12 @@ def package(name: str, src_root: Path, dest_root: Path, *, validate: bool = True
         ) from exc
 
 
-def batch(
-    names: list[str], src_root: Path, dest_root: Path, verb: str, *, echo: bool = True
-) -> list[str]:
+def batch(names: list[str], src_root: Path, dest_root: Path, verb: str) -> list[str]:
     """Copy every named package; the first failure aborts with its own message."""
     targets = manif.packages(src_root, names)
     if src_root.resolve() != dest_root.resolve():
         dest_root.mkdir(parents=True, exist_ok=True)
         for name in targets:
             package(name, src_root, dest_root)
-    if echo:
-        print(f"{verb}: {' '.join(targets)} -> {paths.pretty(dest_root)}")
+    print(f"{verb}: {' '.join(targets)} -> {paths.pretty(dest_root)}")
     return targets

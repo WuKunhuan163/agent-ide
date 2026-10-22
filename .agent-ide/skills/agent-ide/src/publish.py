@@ -4,7 +4,7 @@ The remote is a shallow clone in a temporary directory: the whitelisted packages
 are copied in, committed, and pushed. `--from-github` reverses it — the clone is
 the source and the global project is the destination.
 
-`github.publish_repo` is either `owner/repo` (GitHub over SSH) or any git URL /
+`github.publish_repo` is either `owner/repo` (GitHub over SSH) or a git URL or
 path, which is what makes the mechanism testable without a network.
 """
 from __future__ import annotations
@@ -34,7 +34,7 @@ def run(project_root: Path, names: list[str], *, from_github: bool) -> None:
 
     with tempfile.TemporaryDirectory(prefix="agent-ide-publish-") as tmp:
         clone = Path(tmp)
-        _clone(_remote(repo, config.github_host(project_root)), clone)
+        _clone(_remote(repo), clone)
         skills_in_repo = clone / paths.IDE_DIR / "skills"
 
         if from_github:
@@ -43,11 +43,10 @@ def run(project_root: Path, names: list[str], *, from_github: bool) -> None:
                     Exit.Publish.FAILED,
                     f"publish --from-github: {repo} has no {paths.IDE_DIR}/skills directory",
                 )
-            transfer.batch(names, skills_in_repo, global_skills, "publish --from-github", echo=False)
-            print(f"publish --from-github: {' '.join(names)} <- {repo}")
+            transfer.batch(names, skills_in_repo, global_skills, "publish --from-github")
             return
 
-        transfer.batch(names, global_skills, skills_in_repo, "publish", echo=False)
+        transfer.batch(names, global_skills, skills_in_repo, "publish")
         summary = " ".join(names)
         if _git("add", "-A", cwd=clone).returncode != 0:
             raise fail(Exit.Publish.FAILED, "publish: git add failed in the clone")
@@ -68,12 +67,12 @@ def run(project_root: Path, names: list[str], *, from_github: bool) -> None:
         print(f"publish: {summary} -> {repo} ({head})")
 
 
-def _remote(repo: str, host: str) -> str:
-    """`owner/repo` becomes `git@<host>:owner/repo.git`; anything else is used as-is."""
+def _remote(repo: str) -> str:
+    """`owner/repo` becomes `git@github.com:owner/repo.git`; anything else is used as-is."""
     raw = repo.strip()
     if raw.startswith(("/", "./", "../", "~")) or "://" in raw or "@" in raw:
         return raw
-    return f"git@{host}:{raw}.git"
+    return f"git@github.com:{raw}.git"
 
 
 def _clone(remote: str, into: Path) -> None:

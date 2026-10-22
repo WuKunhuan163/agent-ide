@@ -47,13 +47,10 @@ class Report:
 
     skill: str
     shard: Path
-    mode: str = APPEND_ONLY
-    declared: int = 0
     copied: int = 0
     updated: int = 0
     missing: int = 0
-    stale: int = 0
-    same: int = 0
+    drift: int = 0
     conflicts: list[str] = field(default_factory=list)
 
     @property
@@ -62,20 +59,18 @@ class Report:
 
     def line(self) -> str:
         """One shell-friendly line: only the counts that are not zero."""
-        parts = [f"{self.declared} file" + ("" if self.declared == 1 else "s")]
+        parts = []
         if self.copied:
             parts.append(f"+{self.copied} copied")
         if self.updated:
             parts.append(f"{self.updated} updated")
         if self.missing:
             parts.append(f"{self.missing} missing")
-        if self.stale:
-            parts.append(f"{self.stale} stale")
+        if self.drift:
+            parts.append(f"{self.drift} to refresh")
         if self.conflicts:
             parts.append(f"{len(self.conflicts)} conflict")
-        if len(parts) == 1:
-            parts.append("ok")
-        return f"replicas: {self.skill} {' '.join(parts)}"
+        return f"replicas: {self.skill} {' '.join(parts) or 'ok'}"
 
 
 class Replicator:
@@ -155,20 +150,13 @@ class Replicator:
 
     def status(self) -> Report:
         """Nothing is written: `missing`/`stale` is how far the copy has fallen behind."""
-        files = self.sources()
-        report = Report(
-            skill=self.pkg_dir.name, shard=self.shard, mode=self.mode, declared=len(files)
-        )
-        for rel, source in files.items():
+        report = Report(skill=self.pkg_dir.name, shard=self.shard)
+        for rel, source in self.sources().items():
             target = self.shard / rel
             if not target.exists():
                 report.missing += 1
-            elif _same(source, target):
-                report.same += 1
-            elif self.mode == MIRROR:
-                report.stale += 1
-            else:
-                report.conflicts.append(rel)
+            elif not _same(source, target):
+                report.drift += 1
         return report
 
     def sync(self) -> Report:
@@ -177,16 +165,13 @@ class Replicator:
         `append_only` never overwrites (archives are facts); `mirror` refreshes
         a changed file in place (state has one current value). Neither deletes.
         """
-        files = self.sources()
-        report = Report(
-            skill=self.pkg_dir.name, shard=self.shard, mode=self.mode, declared=len(files)
-        )
-        for rel, source in files.items():
+        report = Report(skill=self.pkg_dir.name, shard=self.shard)
+        for rel, source in self.sources().items():
             target = self.shard / rel
             if target.exists():
                 if _same(source, target):
-                    report.same += 1
-                elif self.mode == MIRROR:
+                    continue
+                if self.mode == MIRROR:
                     _ensure(target.parent)
                     shutil.copy2(source, target)
                     report.updated += 1

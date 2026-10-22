@@ -1,0 +1,15 @@
+{
+    "files": [
+        "SKILL.md"
+    ],
+    "directories": [],
+    "install": {
+        "kind": "python"
+    },
+    "python": {
+        "requirements": [],
+        "runtime": {
+            "version": "3.11.9"
+        }
+    }
+}

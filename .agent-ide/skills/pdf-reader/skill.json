@@ -1,0 +1,27 @@
+{
+    "install": {
+        "kind": "python"
+    },
+    "python": {
+        "requirements": [
+            "pymupdf"
+        ],
+        "stdlib": [],
+        "runtime": {
+            "version": "3.11.9"
+        },
+        "notes": [
+            "No HTTP library is required: the client uses the standard library and ships its own error and TLS handling.",
+            "PyMuPDF is declared because it is what lets a local file's page count be known before submission; the tool still works without it, by discovering the limit from the endpoint's own refusal and walking the file window by window.",
+            "data/ holds runtime state only (credential, ledger, runs) and is deliberately not part of the package."
+        ]
+    },
+    "files": [
+        "SKILL.md"
+    ],
+    "directories": [
+        "docs",
+        "src",
+        "tests"
+    ]
+}

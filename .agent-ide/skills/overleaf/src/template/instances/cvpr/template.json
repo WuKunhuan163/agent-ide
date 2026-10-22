@@ -1,0 +1,94 @@
+{
+    "name": "cvpr",
+    "version": 1,
+    "description": "IEEE/CVF CVPR proceedings (two-column article)",
+    "python": "preamble.py",
+    "required_metadata": ["title", "authors", "abstract"],
+    "abstract_environment": true,
+    "assets": ["assets"],
+    "preamble_header": [
+        "\\documentclass[10pt,twocolumn,letterpaper]{article}",
+        "\\usepackage{cvpr}",
+        "\\usepackage{times}",
+        "\\usepackage{epsfig}",
+        "\\usepackage{graphicx}",
+        "\\usepackage{amsmath}",
+        "\\usepackage{amssymb}",
+        "\\usepackage[T1]{fontenc}",
+        "\\usepackage{textcomp}",
+        "\\usepackage{xcolor}",
+        "\\usepackage{capt-of}",
+        "\\usepackage{listings}",
+        "\\usepackage[pagebackref=true,breaklinks=true,letterpaper=true,colorlinks,urlcolor=magenta,bookmarks=false]{hyperref}",
+        "\\renewcommand{\\ttdefault}{txtt}"
+    ],
+    "blocks": {
+        "section": {
+            "required": ["title"],
+            "optional": ["label", "unnumbered", "align", "margin_top", "margin_bottom"],
+            "container": true,
+            "allowed_children": ["text", "figure", "equation", "math", "subsection", "subsubsection", "teaser", "code", "list", "table"]
+        },
+        "subsection": {
+            "required": ["title"],
+            "optional": ["label", "align"],
+            "container": true,
+            "allowed_children": ["text", "figure", "equation", "math", "subsubsection", "code", "list", "table"]
+        },
+        "subsubsection": {
+            "required": ["title"],
+            "optional": ["label", "align"],
+            "container": true,
+            "allowed_children": ["text", "figure", "equation", "math", "code", "list", "table"]
+        },
+        "table": {
+            "required": ["rows"],
+            "optional": ["header", "caption", "label", "columns", "placement", "span_columns", "size", "midrules", "notes", "align", "margin_top", "margin_bottom"],
+            "leaf": true
+        },
+        "list": {
+            "required": ["items"],
+            "optional": ["style", "compact", "align", "margin_top", "margin_bottom"],
+            "leaf": true
+        },
+        "text": {
+            "required": ["text"],
+            "optional": ["align", "margin_top", "margin_bottom"]
+        },
+        "figure": {
+            "required": [],
+            "optional": ["path", "images", "caption", "label", "width", "columns", "span_columns", "use_subfigures", "placement", "is_teaser", "caption_margin_top"],
+            "leaf": true
+        },
+        "teaser": {
+            "required": [],
+            "optional": ["path", "paths", "caption", "label"],
+            "leaf": true
+        },
+        "equation": {
+            "required": ["math"],
+            "optional": ["label"]
+        },
+        "math": {
+            "required": ["math"]
+        },
+        "code": {
+            "required": ["code"],
+            "optional": ["language", "caption", "label", "align"]
+        },
+        "bibliography": {
+            "required": ["bibtex"],
+            "optional": ["style"]
+        },
+        "acknowledgements": {
+            "required": ["text"],
+            "optional": [],
+            "container": true,
+            "allowed_children": ["text", "figure", "equation", "math", "list"]
+        },
+        "arxiv_margin": {
+            "required": ["text"],
+            "leaf": true
+        }
+    }
+}

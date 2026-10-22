@@ -1,7 +1,7 @@
 """`agent-ide/data/config.json`: the global project pointer and the publish repo.
 
     {"paths": {"global_home": "<global project>"},
-     "github": {"publish_repo": "owner/repo", "host": "github.com"}}
+     "github": {"publish_repo": "owner/repo"}}
 
 Everything that belongs to a person or a machine — where the global project
 lives, which account and repo to publish to — is data here, never a constant in
@@ -37,27 +37,6 @@ def write(project_root: Path, cfg: dict) -> None:
     (folder / CONFIG).write_text(
         json.dumps(cfg, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
-    _replicate(project_root)
-
-
-def _replicate(project_root: Path) -> None:
-    """Keep the shard's copy of this state current; never block the write.
-
-    The path of the global project and the publish repo live here, so losing
-    them means losing the ability to push and publish at all.
-    """
-    pkg_dir = paths.package_dir(project_root, paths.AGENT_IDE)
-    import sys
-
-    sys.path.insert(0, str(pkg_dir))
-    try:
-        from replicas import ReplicaError, Replicator
-    except ImportError:
-        return
-    try:
-        Replicator.for_skill(pkg_dir).sync_quietly()
-    except ReplicaError:
-        pass
 
 
 def _section(cfg: dict, key: str) -> dict:
@@ -104,7 +83,7 @@ def global_home(project_root: Path, *, seed: bool = False) -> Path:
             Exit.Config.MISSING_GLOBAL,
             f"paths.global_home is missing or not a project "
             f"({paths.data_dir(project_root) / CONFIG}); "
-            "run init-project from the global project, or set it there",
+            "name it with `agent-ide push --from-global --global <path> <skill>`",
         )
     set_global_home(project_root, project_root)
     return project_root.resolve()
@@ -116,37 +95,19 @@ def set_global_home(project_root: Path, home: Path | str) -> None:
     write(project_root, cfg)
 
 
-def inherit_global_home(launcher_root: Path, target_root: Path) -> None:
-    """Give `target_root` the launcher's global home, unless it has its own.
+def adopt_global_home(project_root: Path, home: Path) -> None:
+    """Record `home` as the project's global project, unless it has one already.
 
     A self-reference is treated as unset: it is the seeded default, not a choice
-    the user made, so a real global home replaces it.
+    the user made, so a real global home replaces it. A project that already
+    points at a different, existing global project keeps its own pointer.
     """
-    home = global_home(launcher_root, seed=True)
-    raw = _section(read(target_root), "paths").get("global_home")
-    existing = valid_global_home(raw)
-    if existing is not None and existing != target_root.resolve():
+    existing = valid_global_home(_section(read(project_root), "paths").get("global_home"))
+    if existing is not None and existing != project_root.resolve():
         return
-    set_global_home(target_root, home)
-
-
-def github_host(project_root: Path) -> str:
-    """The host `owner/repo` is expanded against; data, with a public default."""
-    raw = _section(read(project_root), "github").get("host")
-    if raw and str(raw).strip():
-        return str(raw).strip()
-    home = valid_global_home(_section(read(project_root), "paths").get("global_home"))
-    if home is not None:
-        raw = _section(read(home), "github").get("host")
-        if raw and str(raw).strip():
-            return str(raw).strip()
-    return "github.com"
+    set_global_home(project_root, home)
 
 
 def publish_repo(project_root: Path) -> str | None:
     raw = _section(read(project_root), "github").get("publish_repo")
-    if raw and str(raw).strip():
-        return str(raw).strip()
-    home = global_home(project_root, seed=False)
-    raw = _section(read(home), "github").get("publish_repo")
     return str(raw).strip() if raw and str(raw).strip() else None

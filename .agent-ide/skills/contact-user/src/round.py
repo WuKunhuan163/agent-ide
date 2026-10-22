@@ -14,11 +14,10 @@ import subprocess
 import sys
 import time
 
-from . import checkpoint, gate, handshake, paths, session_mirror
+from . import checkpoint, config, gate, handshake, paths, session_mirror
 from .exit_codes import Exit
 from .process import is_alive
 
-GUI_ATTEMPTS = 5
 POLL_SECS = 0.5
 
 
@@ -39,13 +38,13 @@ def run(agent_id: str) -> int:
     contact_text, commit_text = _load_inputs(agent_id)
     _discard_inputs(agent_id)
 
-    if not _bell():
-        print("contact-user: bell failed (no sound)", file=sys.stderr)
-
     _take_lock(agent_id)
-    reply = _open_gui(agent_id)
+    reply = _open_gui(agent_id, contact_text)
     if reply is None:
-        print(f"contact-user: no reply after {GUI_ATTEMPTS} windows", file=sys.stderr)
+        print(
+            f"contact-user: no reply after {config.gui_attempts()} windows",
+            file=sys.stderr,
+        )
         return Exit.Runtime.GUI_ABORTED
 
     _finalize(agent_id, reply, contact_text, commit_text)
@@ -151,23 +150,36 @@ def _discard_inputs(agent_id: str) -> None:
 # ------------------------------------------------------------------ gui round
 
 
-def _bell() -> bool:
-    from .bell import play
+def _gui_executable(agent_id: str) -> str:
+    """The agent's `.app` bundle when it can be built, so the Dock shows the id
+    and the skill icon instead of a bare Python interpreter."""
+    from .app_bundle import ensure_agent_app
 
-    return play()
+    try:
+        bundle = ensure_agent_app(agent_id)
+    except (OSError, RuntimeError):
+        bundle = None
+    return str(bundle) if bundle is not None else sys.executable
 
 
-def _open_gui(agent_id: str) -> str | None:
-    """Spawn the window until the user submits; None when every attempt failed."""
+def _open_gui(agent_id: str, contact_text: str) -> str | None:
+    """Spawn the window until the user submits; None when every attempt failed.
+
+    The draft the agent wrote is handed over in the environment, not on the
+    command line: it is the text the user must see when the window opens, and it
+    can be long, multiline and full of quotes.
+    """
     code = "from src.gui import main; main()"
-    for _ in range(GUI_ATTEMPTS):
+    env = dict(os.environ, CONTACT_USER_HINT=contact_text)
+    for _ in range(config.gui_attempts()):
         handshake.clear(agent_id)
         try:
             subprocess.run(
-                [sys.executable, "-c", code, agent_id],
+                [_gui_executable(agent_id), "-c", code, agent_id],
                 cwd=str(paths.pkg_dir()),
                 capture_output=True,
                 text=True,
+                env=env,
             )
         except OSError as exc:
             print(f"contact-user: window failed to start: {exc}", file=sys.stderr)

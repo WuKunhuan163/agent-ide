@@ -14,26 +14,36 @@ ls -d <local>/.agent-tools/agent-ide <local>/.agent-tools/contact-user <local>/.
 | Probe result | Branch |
 |---|---|
 | all three exist | equipped: skip to §2. Do not run `install`/`inject` "to be safe" |
-| `.agent-tools/agent-ide` missing | bootstrap: locate the global project, then `init-project` |
-| nothing anywhere (no global project, no `.agent-ide/skills`) | clone the publish repo as the global project, then `init-project` |
+| `.agent-tools/agent-ide` missing | bootstrap: get `<global>` (ask the user for the path), then import |
+| nothing anywhere (no global project anywhere) | clone the publish repo as `<global>`, then import |
 | only `.agent-tools/contact-user` missing | repair: `agent-ide install contact-user` |
 | the IDE link is missing | repair: `agent-ide inject <IDE domain> add-skill contact-user` |
 
 ```bash
-git clone <publish repo> <global> && bash <global>/.agent-ide/skills/agent-ide/install.command   # no ecosystem yet
-<global>/.agent-tools/agent-ide init-project <local>      # bootstrap
-<local>/.agent-tools/agent-ide install contact-user       # launcher only
+<global>/.agent-tools/agent-ide push --from-global --global <global> --project <local> \
+    agent-ide contact-user collaboration                   # import
+<global>/.agent-tools/agent-ide install --project <local> agent-ide contact-user collaboration
+<local>/.agent-tools/agent-ide install contact-user        # launcher only
 <local>/.agent-tools/agent-ide inject <domain> add-skill contact-user
 ```
 
-On a machine with nothing installed, `install.command` needs only a system `python3` (≥3.10) and this file: it writes the launcher and, when the package declares no requirements, points it at that interpreter. A bundled runtime is optional; `install` reports which interpreter it chose.
+Bootstrap is the ordinary `push --from-global` / `install` pair; there is no
+separate bootstrap command. The one thing you have to know is `<global>`: the
+user's prompt usually names it, otherwise probe `~/agent_ide_global_project`.
 
-`<global>` is normally named in the user's prompt; if not, probe
-`~/agent_ide_global_project` before searching. `<domain>` is the directory of the
-IDE the user actually works in — probe the project (`.cursor`, `.codebuddy`,
-`.vscode`, `.claude`, …) rather than assuming one; `inject` creates the directory
-when it is missing. A non-zero `init-project` means the bootstrap did not
-happen: report it instead of continuing.
+`<global>` must already exist. Only when the machine has no global project at all
+do you clone the publish repo into it, and only after the user confirms the URL:
+`git clone <publish repo> <global> && bash <global>/.agent-ide/skills/agent-ide/install.command`.
+`install.command` needs just a system `python3` (≥3.10) and this file: it writes
+the launcher and, when the package declares no requirements, points it at that
+interpreter. A bundled runtime is optional; `install` reports which interpreter
+it chose.
+
+`<domain>` is the directory of the IDE the user actually works in — probe the
+project (`.cursor`, `.codebuddy`, `.vscode`, `.claude`, …) rather than assuming
+one; `inject` creates the directory when it is missing. A non-zero
+`push --from-global` means the import did not happen: report it instead of
+continuing.
 
 The `agent-ide` skill's `## Cold start` section is the authority; this section is
 its branch selector, not a replacement.
@@ -47,9 +57,10 @@ and report the resolved path.
   one ("this project is its own global project" — a legitimate shape, its
   `push` is a no-op).
 - Missing, invalid, or naming a project that is not installed: a defect. Do not
-  hand-edit `config.json`; repair by re-bootstrapping from the expected global
-  project. Defer that repair until after §5 unless the user's prompt is itself a
-  push/publish — nothing before §6 needs the field.
+  hand-edit `config.json`; repair it with
+  `agent-ide push --from-global --global <expected global> <skill>...`, which
+  records the path it is given. Defer that repair until after §5 unless the
+  user's prompt is itself a push/publish — nothing before §6 needs the field.
 - A valid pointer to a *different* global project is a fact to confirm with the
   user, not a defect.
 
@@ -91,24 +102,29 @@ exist). **# latest directive** is the binding cue — answer that, use earlier
 rounds for reference only. If the history is empty, this is a new project: write
 the two input files and contact.
 
-Then pin and read the session store, which is what a later report must be based
-on:
+Then pin the session store. `--ide-context` is the read a report must be based
+on; it prints the last 100 rounds by default, counted in rounds rather than time,
+and takes a larger number (`--ide-context 250`) when the work spans more:
 
 ```bash
 <local>/.agent-tools/contact-user --detect-history-root
 <local>/.agent-tools/contact-user --set-history-root <abs path>
-<local>/.agent-tools/contact-user --id <id> --session-status
+<local>/.agent-tools/contact-user --id <id> --ide-context
 ```
 
-Also read `<local>/.agent-ide/skills/collaboration/SKILL.md` and the booklets it
-names (notably `skills/01_contact_patch_rules.md`).
+Also read `<local>/.agent-ide/skills/collaboration/SKILL.md`. It names its
+booklets and the condition each one applies under; do not open a booklet whose
+condition is not met (advisor mode, for instance, is entered only when the user
+holds the keyboard and will apply the edits themselves).
 
 ## 6. Contact loop
 
 1. `--id <id> --ide-context` — read the session; only this stdout form unlocks
    the round (`--out` exports a copy without unlocking, `--conversation` narrows
-   the scope and also keeps it locked).
-2. Write `data/input/contact_msg_<id>.txt` and `commit_msg_<id>.txt`.
+   the scope and also keeps it locked). Its last line is this round's anchor.
+2. Write `data/input/contact_msg_<id>.txt` and `commit_msg_<id>.txt`. The contact
+   file must contain the anchor line verbatim (`report anchor: <digest8> · <n>
+   msgs`); without it `--id` refuses to open the window.
 3. `--id <id>` — as its own command; it blocks until the user submits.
 4. Act on the reply in the same turn, then go to 1.
 

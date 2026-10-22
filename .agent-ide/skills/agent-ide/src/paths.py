@@ -10,6 +10,8 @@ import os
 import platform
 from pathlib import Path
 
+from .errors import Exit, fail
+
 IDE_DIR = ".agent-ide"
 SKILL_MD = "SKILL.md"
 MANIFEST = "skill.json"
@@ -22,9 +24,10 @@ def project_root(anchor: Path | None = None) -> Path:
     for parent in script.parents:
         if skills_dir(parent).is_dir():
             return parent
-    from .errors import missing_root
-
-    raise missing_root()
+    raise fail(
+        Exit.Cli.MISSING_PROJECT_ROOT,
+        f"no {IDE_DIR}/skills above {script} (is this a project?)",
+    )
 
 
 def skills_dir(project_root: Path) -> Path:

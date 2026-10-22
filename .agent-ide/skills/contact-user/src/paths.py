@@ -74,7 +74,7 @@ def config() -> Path:
 
 
 def marker(agent_id: str) -> Path:
-    """Start of the next `--changes` window."""
+    """When the previous round ended: the next read starts here."""
     return data("last_round", f"{agent_id}.json")
 
 

@@ -6,6 +6,7 @@ pin it explicitly once, and every later read uses exactly that path.
 from __future__ import annotations
 import json
 import os
+import re
 from pathlib import Path
 
 from .ide import registry
@@ -15,8 +16,35 @@ from .paths import config as config_path
 HISTORY_ROOT = "session_history_root"
 SESSION_IDE = "session_ide"
 MIRROR = "session_mirror_enabled"
+WINDOW_GEOMETRY = "window_geometry"
+WINDOW_FONT = "window_font"
+WINDOW_FONT_SIZE = "window_font_size"
+WINDOW_ROWS = "window_rows"
+BELL_INTERVAL = "bell_interval"
+GUI_ATTEMPTS = "gui_attempts"
+AUTOSAVE_MS = "autosave_ms"
 
-DEFAULTS = {HISTORY_ROOT: "", SESSION_IDE: registry.DEFAULT_IDE, MIRROR: True}
+FALLBACK_GEOMETRY = "360x280"
+FALLBACK_FONT = "Arial"
+FALLBACK_FONT_SIZE = 14
+FALLBACK_ROWS = 15
+FALLBACK_BELL = 90
+FALLBACK_ATTEMPTS = 5
+FALLBACK_AUTOSAVE = 1000
+GEOMETRY_SPEC = re.compile(r"^\d+x\d+([+-]\d+[+-]\d+)?$")
+
+DEFAULTS = {
+    HISTORY_ROOT: "",
+    SESSION_IDE: registry.DEFAULT_IDE,
+    MIRROR: True,
+    WINDOW_GEOMETRY: FALLBACK_GEOMETRY,
+    WINDOW_FONT: FALLBACK_FONT,
+    WINDOW_FONT_SIZE: FALLBACK_FONT_SIZE,
+    WINDOW_ROWS: FALLBACK_ROWS,
+    BELL_INTERVAL: FALLBACK_BELL,
+    GUI_ATTEMPTS: FALLBACK_ATTEMPTS,
+    AUTOSAVE_MS: FALLBACK_AUTOSAVE,
+}
 
 
 class ConfigError(RuntimeError):
@@ -132,3 +160,48 @@ def mirror_enabled() -> bool:
 
 def set_mirror_enabled(enabled: bool) -> None:
     save({**load(), MIRROR: bool(enabled)})
+
+
+# ------------------------------------------------------------------- ui defaults
+
+
+def window() -> dict:
+    """The contact window's defaults: geometry, font, and editor rows.
+
+    A value that cannot be used falls back to the built-in one instead of
+    failing the round: a typo in `data/config.json` must not cost a reply.
+    """
+    cfg = load()
+    geometry = str(cfg.get(WINDOW_GEOMETRY) or "").strip()
+    if not GEOMETRY_SPEC.match(geometry):
+        geometry = FALLBACK_GEOMETRY
+    font = str(cfg.get(WINDOW_FONT) or "").strip() or FALLBACK_FONT
+    return {
+        "geometry": geometry,
+        "font": font,
+        "font_size": _number(cfg.get(WINDOW_FONT_SIZE), FALLBACK_FONT_SIZE, 8, 72),
+        "rows": _number(cfg.get(WINDOW_ROWS), FALLBACK_ROWS, 3, 200),
+    }
+
+
+def bell_interval() -> int:
+    """Seconds between bells while a window is open; 0 rings once."""
+    return _number(load().get(BELL_INTERVAL), FALLBACK_BELL, 0, 3600)
+
+
+def gui_attempts() -> int:
+    """How many windows a round opens before it gives up (1..10)."""
+    return _number(load().get(GUI_ATTEMPTS), FALLBACK_ATTEMPTS, 1, 10)
+
+
+def autosave_ms() -> int:
+    """Draft autosave period in milliseconds; 0 saves only on change/close."""
+    return _number(load().get(AUTOSAVE_MS), FALLBACK_AUTOSAVE, 0, 60000)
+
+
+def _number(value: object, fallback: int, low: int, high: int) -> int:
+    try:
+        number = int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return fallback
+    return number if low <= number <= high else fallback

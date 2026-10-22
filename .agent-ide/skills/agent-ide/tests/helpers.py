@@ -46,7 +46,6 @@ def make_package(
             doc["install"] = {"kind": kind}
             doc["python"] = {
                 "requirements": [],
-                "stdlib": [],
                 "runtime": {"version": "3.11.9"},
             }
     else:

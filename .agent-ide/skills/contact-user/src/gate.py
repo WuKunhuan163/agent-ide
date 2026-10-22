@@ -2,16 +2,17 @@
 
 State is two small JSON files per agent id:
 
-* `data/last_round/<id>.json`  — when the previous round ended (window start).
+* `data/last_round/<id>.json`  — when the previous round ended; an older read is stale.
 * `data/session_context/<id>.json` — proof of a full read, and its scope.
 """
 from __future__ import annotations
 import hashlib
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from . import config
 from .ide.base import iso, parse_ts
+from .paths import input_text
 from .paths import marker as marker_path
 from .paths import stamp, token as token_path
 
@@ -33,24 +34,6 @@ def write_marker(agent_id: str) -> None:
     marker_path(agent_id).write_text(
         json.dumps({"at": iso(now), "round": stamp()}, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
-    )
-
-
-def window_start(agent_id: str, since_raw: str | None, *, first_hours: int | None) -> tuple[datetime | None, str]:
-    """Window start plus a human label for it."""
-    if since_raw:
-        return parse_when(since_raw), f"--since {since_raw}"
-    marker = read_marker(agent_id)
-    if marker is not None:
-        return marker, "since the previous round"
-    if first_hours is None:
-        raise config.ConfigError(
-            "no completed round for this agent id, so there is no "
-            "'since last contact' window; pass --since <when>"
-        )
-    return (
-        datetime.now(tz=timezone.utc) - timedelta(hours=first_hours),
-        f"last {first_hours}h (first start; pass --since to widen)",
     )
 
 
@@ -83,8 +66,10 @@ def write_token(agent_id: str, *, ide: str, store: str, since, until, window: st
                 scope: str, conversations: int, messages: int, text: str,
                 delivery: str = "stdout") -> dict:
     now = datetime.now(tz=timezone.utc)
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
     token = {
         "at": iso(now),
+        "anchor": digest[:8],
         "delivery": delivery,
         "scope": scope,
         "ide": ide,
@@ -95,7 +80,7 @@ def write_token(agent_id: str, *, ide: str, store: str, since, until, window: st
         "conversations": conversations,
         "messages": messages,
         "chars": len(text),
-        "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+        "sha256": digest,
     }
     token_path(agent_id).parent.mkdir(parents=True, exist_ok=True)
     token_path(agent_id).write_text(
@@ -131,4 +116,29 @@ def blocked_reason(agent_id: str) -> str | None:
     marker = read_marker(agent_id)
     if read_at and marker and read_at <= marker:
         return f"token predates the last round\n{read}"
-    return None
+    return _anchor_gap(agent_id, token, read)
+
+
+def anchor_line(token: dict) -> str:
+    """The one line the report must carry back from the printed window."""
+    return f"report anchor: {token.get('anchor')} · {token.get('messages')} msgs"
+
+
+def _anchor_gap(agent_id: str, token: dict, read: str) -> str | None:
+    """The report must quote the window it was written from.
+
+    A read that was exported, piped into `head`, or never looked at cannot
+    supply this line, so "I remembered the gist" stops being a way to open a
+    round. The check runs on the draft, before the window opens.
+    """
+    try:
+        draft = input_text(agent_id, "contact").read_text(encoding="utf-8")
+    except OSError:
+        return None  # no draft yet: the round fails later for its own reason
+    wanted = f"report anchor: {token.get('anchor')}"
+    if wanted in draft:
+        return None
+    return (
+        f"the report does not quote this round's read ({wanted})\n"
+        f"add one line `{anchor_line(token)}` taken from the end of the read\n{read}"
+    )

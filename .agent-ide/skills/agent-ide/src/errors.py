@@ -10,6 +10,7 @@ class Exit:
     OK = 0
 
     class Cli:
+        USAGE = 2
         MISSING_PROJECT_ROOT = 10
 
     class Config:
@@ -42,11 +43,3 @@ class AgentIdeError(RuntimeError):
 
 def fail(code: int, message: str) -> "AgentIdeError":
     return AgentIdeError(code, message)
-
-
-def missing_root() -> AgentIdeError:
-    return fail(
-        Exit.Cli.MISSING_PROJECT_ROOT,
-        "no .agent-ide/skills found above this script; run it from a project "
-        "that has the ecosystem, or bootstrap with install.command",
-    )

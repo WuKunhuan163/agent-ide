@@ -1,0 +1,77 @@
+{
+    "name": "fri",
+    "version": 1,
+    "description": "Cell Press / FRI journal article (single column, xelatex)",
+    "python": "preamble.py",
+    "required_metadata": [],
+    "assets": ["assets", "thumbnails"],
+    "blocks": {
+        "section": {
+            "required": ["title"],
+            "optional": ["label", "paragraphs", "content", "display"],
+            "container": true,
+            "allowed_children": ["text", "figure", "equation", "math", "subsection", "subsubsection", "code", "list", "table"]
+        },
+        "subsection": {
+            "required": ["title"],
+            "optional": ["label", "paragraphs", "content", "display"],
+            "container": true,
+            "allowed_children": ["text", "figure", "equation", "math", "subsubsection", "code", "list", "table"]
+        },
+        "subsubsection": {
+            "required": ["title"],
+            "optional": ["label", "paragraphs", "content", "display"],
+            "container": true,
+            "allowed_children": ["text", "figure", "equation", "math", "code", "list", "table"]
+        },
+        "table": {
+            "required": ["rows"],
+            "optional": ["header", "caption", "label", "columns", "placement", "span_columns", "size", "midrules", "notes", "align", "margin_top", "margin_bottom"],
+            "leaf": true
+        },
+        "list": {
+            "required": ["items"],
+            "optional": ["style", "compact", "align", "margin_top", "margin_bottom"],
+            "leaf": true
+        },
+        "text": {
+            "required": ["text"],
+            "optional": ["display", "align", "margin_top", "margin_bottom"]
+        },
+        "figure": {
+            "required": [],
+            "optional": ["path", "images", "caption", "label", "width", "columns", "span_columns", "use_subfigures", "placement", "caption_margin_top"],
+            "leaf": true
+        },
+        "equation": {
+            "required": ["math"],
+            "optional": ["label"]
+        },
+        "math": {
+            "required": ["math"]
+        },
+        "code": {
+            "required": ["code"],
+            "optional": ["language", "caption", "label"]
+        },
+        "bibliography": {
+            "required": ["bibtex"],
+            "optional": ["style"]
+        },
+        "acknowledgements": {
+            "required": ["text"],
+            "optional": [],
+            "container": true,
+            "allowed_children": ["text", "figure", "equation", "math"]
+        },
+        "arxiv_margin": {
+            "required": ["text"],
+            "leaf": true
+        },
+        "journal_header": {
+            "required": [],
+            "optional": ["journal_name", "citation", "homepage", "publisher_logo_path", "cover_path", "use_custom_thumbnails", "display"],
+            "leaf": true
+        }
+    }
+}

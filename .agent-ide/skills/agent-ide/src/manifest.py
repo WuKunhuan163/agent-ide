@@ -31,33 +31,28 @@ def load(pkg_dir: Path) -> dict:
     return manifest
 
 
-def install_kind(manifest: dict) -> str | None:
+def kind(manifest: dict) -> str | None:
+    """The package's `install.kind`, or None when it installs nothing."""
     block = manifest.get("install")
     return str(block.get("kind")) if isinstance(block, dict) and block.get("kind") else None
 
 
-def entry_name(pkg_dir: Path, manifest: dict) -> str | None:
-    """Python packages are entered as `<package name>.py` beside the manifest."""
-    return pkg_dir.name if install_kind(manifest) == "python" else None
+def _listed(manifest: dict, key: str) -> list[str]:
+    raw = manifest.get(key) or []
+    if not isinstance(raw, list):
+        raise fail(Exit.Package.FAILED, f"{key} must be a list")
+    return [str(item).strip() for item in raw if str(item).strip()]
 
 
 def files(pkg_dir: Path, manifest: dict) -> list[str]:
-    declared = manifest.get("files") or []
-    if not isinstance(declared, list):
-        raise fail(Exit.Package.FAILED, f"{pkg_dir.name}: files must be a list")
-    out = {str(item).strip() for item in declared if str(item).strip()}
-    out.update(IMPLICIT)
-    entry = entry_name(pkg_dir, manifest)
-    if entry:
-        out.add(f"{entry}.py")
+    out = set(_listed(manifest, "files")) | set(IMPLICIT)
+    if kind(manifest) == "python":
+        out.add(f"{pkg_dir.name}.py")
     return sorted(out)
 
 
 def directories(manifest: dict) -> list[str]:
-    declared = manifest.get("directories") or []
-    if not isinstance(declared, list):
-        raise fail(Exit.Package.FAILED, f"{pkg_dir.name}: directories must be a list")
-    return [str(item).strip() for item in declared if str(item).strip()]
+    return _listed(manifest, "directories")
 
 
 def validate(pkg_dir: Path, manifest: dict | None = None) -> dict:
@@ -69,20 +64,7 @@ def validate(pkg_dir: Path, manifest: dict | None = None) -> dict:
     for rel in directories(manifest):
         if not (pkg_dir / rel).is_dir():
             raise fail(Exit.Package.FAILED, f"{pkg_dir.name}: declared directory missing: {rel}")
-    _check_replicas(pkg_dir, manifest)
     return manifest
-
-
-def _check_replicas(pkg_dir: Path, manifest: dict) -> None:
-    """A declared `replicas` block must name a usable shard, or transfer stops."""
-    if "replicas" not in manifest:
-        return
-    from replicas import ReplicaError, Replicator
-
-    try:
-        Replicator(pkg_dir, manifest)
-    except ReplicaError as exc:
-        raise fail(Exit.Package.FAILED, str(exc)) from exc
 
 
 def packages(skills_root: Path, requested: list[str]) -> list[str]:
@@ -106,32 +88,21 @@ def packages(skills_root: Path, requested: list[str]) -> list[str]:
     return names
 
 
-# ------------------------------------------------------------------ python block
+def python_spec(manifest: dict) -> dict:
+    """The `python` block, normalised: requirements and the runtime name.
 
-
-def python_block(manifest: dict) -> dict:
+    `python.runtime.version` is a version such as `3.11.9`; the directory that
+    holds the interpreter is named after major.minor (`python3.11`).
+    """
     block = manifest.get("python")
-    return block if isinstance(block, dict) else {}
-
-
-def _string_list(manifest: dict, key: str, what: str) -> list[str]:
-    raw = python_block(manifest).get(key) or []
+    block = block if isinstance(block, dict) else {}
+    raw = block.get("requirements") or []
     if not isinstance(raw, list):
-        raise fail(Exit.Install.FAILED, f"python.{key} must be a list of {what}")
-    return [str(item).strip() for item in raw if str(item).strip()]
-
-
-def requirements(manifest: dict) -> list[str]:
-    return _string_list(manifest, "requirements", "pip specs")
-
-
-def stdlib(manifest: dict) -> list[str]:
-    return _string_list(manifest, "stdlib", "module names")
-
-
-def runtime_name(manifest: dict) -> str:
-    """Directory name of the interpreter prefix: `python3.11`."""
-    runtime = python_block(manifest).get("runtime")
+        raise fail(Exit.Install.FAILED, "python.requirements must be a list of pip specs")
+    runtime = block.get("runtime")
     version = str(runtime.get("version", "")).strip() if isinstance(runtime, dict) else ""
     parts = version.split(".")
-    return f"python{parts[0]}.{parts[1]}" if len(parts) >= 2 else "python3.11"
+    return {
+        "requirements": [str(item).strip() for item in raw if str(item).strip()],
+        "runtime": f"python{parts[0]}.{parts[1]}" if len(parts) >= 2 else "python3.11",
+    }
