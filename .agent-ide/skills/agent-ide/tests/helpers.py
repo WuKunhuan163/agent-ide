@@ -2,6 +2,7 @@
 from __future__ import annotations
 import io
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -74,9 +75,19 @@ class Base(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = Path(tempfile.mkdtemp(prefix="agent-ide-test-"))
         self.addCleanup(shutil.rmtree, self.tmp, True)
+        # Replica shards hang off `~`; a test run must not litter the real one.
+        self._home = os.environ.get("HOME")
+        os.environ["HOME"] = str(self.tmp / "home")
+        self.addCleanup(self._restore_home)
         self.global_root = make_project(self.tmp / "global")
         self.skills = paths.skills_dir(self.global_root)
         self.local = make_project(self.tmp / "local")
+
+    def _restore_home(self) -> None:
+        if self._home is None:
+            os.environ.pop("HOME", None)
+        else:
+            os.environ["HOME"] = self._home
 
     def expect(self, code: int, fn, *args, **kwargs) -> AgentIdeError:
         with self.assertRaises(AgentIdeError) as caught:

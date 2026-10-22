@@ -19,23 +19,23 @@ def run(project_root: Path, domain: str, action: str, names: list[str]) -> None:
     elif action == "remove-skill":
         remove(project_root, folder, names, domain)
     else:
-        raise fail(Exit.Inject.FAILED, f"unknown inject subcommand: {action}")
+        raise fail(Exit.Inject.FAILED, f"inject: unknown subcommand: {action}")
 
 
 def _skills_folder(project_root: Path, domain: str) -> Path:
     raw = (domain or "").strip()
     if not raw:
-        raise fail(Exit.Inject.FAILED, "missing IDE domain (e.g. .cursor)")
+        raise fail(Exit.Inject.FAILED, "inject: missing IDE domain (e.g. .cursor)")
     root = project_root.resolve()
     candidate = Path(raw).expanduser()
     candidate = (candidate if candidate.is_absolute() else root / candidate).resolve()
     try:
         candidate.relative_to(root)
     except ValueError:
-        raise fail(Exit.Inject.FAILED, f"IDE domain must be inside {root}") from None
+        raise fail(Exit.Inject.FAILED, f"inject: domain must be inside {root}") from None
     canonical = (root / paths.IDE_DIR).resolve()
     if candidate == canonical or canonical in candidate.parents:
-        raise fail(Exit.Inject.FAILED, "refusing to inject into .agent-ide itself")
+        raise fail(Exit.Inject.FAILED, "inject: refusing to write into .agent-ide itself")
     return candidate if candidate.name == "skills" else candidate / "skills"
 
 
@@ -63,14 +63,14 @@ def remove(project_root: Path, folder: Path, names: list[str], domain: str) -> N
 def _chosen(project_root: Path, names: list[str]) -> list[str]:
     root = paths.skills_dir(project_root)
     if not root.is_dir():
-        raise fail(Exit.Inject.FAILED, f"no skills directory: {root}")
+        raise fail(Exit.Inject.FAILED, f"inject: no skills directory: {root}")
     available = sorted(
         entry.name for entry in root.iterdir()
         if entry.is_dir() and (entry / paths.SKILL_MD).is_file()
     )
     if not names:
         if not available:
-            raise fail(Exit.Inject.FAILED, "no packages with SKILL.md to inject")
+            raise fail(Exit.Inject.FAILED, "inject: no packages with SKILL.md")
         return available
     chosen = []
     for raw in names:
@@ -78,7 +78,7 @@ def _chosen(project_root: Path, names: list[str]) -> list[str]:
         if not name or name in chosen:
             continue
         if not (paths.package_dir(project_root, name) / paths.SKILL_MD).is_file():
-            raise fail(Exit.Inject.FAILED, f"unknown skill (no SKILL.md): {name}")
+            raise fail(Exit.Inject.FAILED, f"inject: unknown skill (no SKILL.md): {name}")
         chosen.append(name)
     return chosen
 

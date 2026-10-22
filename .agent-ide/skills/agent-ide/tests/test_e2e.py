@@ -131,7 +131,7 @@ class EndToEndTests(Base):
     def test_publish_without_repo(self):
         done = self.run_cli("publish", "agent-ide")
         self.assertEqual(done.returncode, Exit.Publish.FAILED)
-        self.assertIn("no publish repo", done.stderr)
+        self.assertIn("no repo configured", done.stderr)
 
     def test_publish_from_github(self):
         remote = self.tmp / "remote.git"

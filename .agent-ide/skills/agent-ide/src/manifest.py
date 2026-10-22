@@ -56,7 +56,7 @@ def files(pkg_dir: Path, manifest: dict) -> list[str]:
 def directories(manifest: dict) -> list[str]:
     declared = manifest.get("directories") or []
     if not isinstance(declared, list):
-        raise fail(Exit.Package.FAILED, "directories must be a list")
+        raise fail(Exit.Package.FAILED, f"{pkg_dir.name}: directories must be a list")
     return [str(item).strip() for item in declared if str(item).strip()]
 
 

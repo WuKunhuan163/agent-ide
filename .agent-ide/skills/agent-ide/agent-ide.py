@@ -48,11 +48,11 @@ def cmd_replicas(args: argparse.Namespace) -> None:
         pkgs = [skills_root / name for name in args.skills]
         missing = [p.name for p in pkgs if not (p / paths.MANIFEST).is_file()]
         if missing:
-            raise fail(Exit.Replica.FAILED, f"no such package: {', '.join(missing)}")
+            raise fail(Exit.Replica.FAILED, f"replicas: no such package: {', '.join(missing)}")
     else:
         pkgs = targets(skills_root)
         if not pkgs:
-            raise fail(Exit.Replica.FAILED, "no skill declares a replicas block")
+            raise fail(Exit.Replica.FAILED, "replicas: no skill declares a block")
 
     drifted: list[str] = []
     for pkg_dir in pkgs:
@@ -134,7 +134,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         args.run(args)
     except AgentIdeError as exc:
-        print(f"agent-ide: {exc.message}", file=sys.stderr)
+        print(exc.message, file=sys.stderr)
         return exc.code
     return Exit.OK
 

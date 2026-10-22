@@ -145,10 +145,31 @@ class InstallTests(Base):
         shutil.copytree(pkg, paths.skills_dir(self.local) / "demo")
         self.expect(Exit.Install.FAILED, install.run, self.local, ["demo"])
 
-    def test_runtime_missing(self):
+    def test_runtime_missing_falls_back_when_nothing_to_install(self):
+        """A fresh checkout has no bundled runtime; the launcher still gets made."""
         from src import transfer
 
         make_package(self.skills)
+        transfer.package("demo", self.skills, paths.skills_dir(self.local))
+        install.run(self.local, ["demo"])
+        self.assertTrue((self.local / ".agent-tools" / "demo").is_file())
+
+    def test_runtime_missing_with_requirements_fails(self):
+        from src import transfer
+
+        make_package(
+            self.skills,
+            manifest={
+                "files": [],
+                "directories": ["src"],
+                "install": {"kind": "python"},
+                "python": {
+                    "requirements": ["requests"],
+                    "stdlib": [],
+                    "runtime": {"version": "3.11.9"},
+                },
+            },
+        )
         transfer.package("demo", self.skills, paths.skills_dir(self.local))
         self.expect(Exit.Install.DEP_FAILED, install.run, self.local, ["demo"])
 

@@ -43,14 +43,16 @@ def run(launcher_root: Path, target: Path, skills: list[str] | None = None) -> N
                 file=sys.stderr,
             )
 
-    config.inherit_global_home(launcher_root, project)
     if ESSENTIAL not in available:
         raise fail(
             Exit.Package.FAILED,
-            f"global project is unusable: no {ESSENTIAL} under {global_skills}",
+            f"init-project: global project is unusable, no {ESSENTIAL} under {global_skills}",
         )
 
     transfer.batch(available, global_skills, project_skills, "init-project")
+    # After the packages exist: a config write replicates itself, and the replica
+    # needs the package's manifest to know where its shard is.
+    config.inherit_global_home(launcher_root, project)
     install.run(project, available)
     _seed_gitignore(project)
 

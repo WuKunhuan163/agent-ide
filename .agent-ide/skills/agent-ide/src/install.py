@@ -29,7 +29,7 @@ def run(project_root: Path, names: list[str]) -> None:
 def package(project_root: Path, name: str) -> None:
     pkg = paths.package_dir(project_root, name)
     if not pkg.is_dir():
-        raise fail(Exit.Install.FAILED, f"missing package directory: {pkg}")
+        raise fail(Exit.Install.FAILED, f"install: missing package directory: {pkg}")
     spec = manif.load(pkg)
     kind = manif.install_kind(spec)
     if kind is None:
@@ -106,10 +106,13 @@ def _provision_runtime(global_home: Path, name: str, spec: dict) -> tuple[Path, 
                     f"{name}: interpreter missing at {interpreter} and {archive.name} is "
                     f"absent, so its requirements cannot be installed",
                 )
-            raise fail(
-                Exit.Install.DEP_FAILED,
-                f"{name}: interpreter missing at {interpreter} and {archive.name} is absent",
-            )
+            # No bundled runtime, nothing to install: the launcher can name the
+            # interpreter that is running this command. Without this a fresh
+            # checkout cannot bootstrap at all, since the archive only exists
+            # after the first provisioned install.
+            return Path(sys.executable), [
+                f"{name}: no bundled {prefix.name}, launcher uses {paths.pretty(sys.executable)}"
+            ]
         _unpack(archive, prefix)
 
     _pip(interpreter, wanted, prefix / RECORDS)
