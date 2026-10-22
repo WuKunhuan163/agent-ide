@@ -1,0 +1,20 @@
+{
+    "files": [
+        "install.command",
+        "replicas.py"
+    ],
+    "install": {
+        "kind": "python"
+    }, 
+    "python": {
+        "requirements": [], 
+        "stdlib": [], 
+        "runtime": {
+            "version": "3.11.9"
+        }
+    }, 
+    "directories": [
+        "src",
+        "tests"
+    ]
+}

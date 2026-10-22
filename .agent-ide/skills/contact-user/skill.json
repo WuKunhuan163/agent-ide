@@ -1,0 +1,29 @@
+{
+    "install": {
+        "kind": "python"
+    }, 
+    "python": {
+        "requirements": [], 
+        "stdlib": ["tkinter"], 
+        "runtime": {
+            "version": "3.11.9"
+        }
+    }, 
+    "files": [
+        "COLDSTART.md"
+    ], 
+    "directories": [
+        "src"
+    ], 
+    "replicas": {
+        "root": "~/.agent-ide/replicas",
+        "mode": "append_only", 
+        "include": [
+            "data/contact_msg/**",
+            "data/user_response/**"
+        ], 
+        "triggers": [
+            "on_contact_success"
+        ]
+    }
+}

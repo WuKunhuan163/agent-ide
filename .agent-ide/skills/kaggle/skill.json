@@ -1,0 +1,31 @@
+{
+    "name": "kaggle",
+    "install": {
+        "kind": "python"
+    },
+    "python": {
+        "requirements": [],
+        "runtime": {
+            "version": "3.11.9"
+        }
+    },
+    "files": [
+        "SKILL.md"
+    ],
+    "directories": [
+        "src"
+    ],
+    "replicas": {
+        "root": "~/.agent-ide/replicas",
+        "mode": "append_only",
+        "include": [
+            "data/accounts/**/kaggle.json"
+        ],
+        "exclude": [
+            "data/agents/**/runtime/**"
+        ],
+        "triggers": [
+            "on_token_register"
+        ]
+    }
+}

@@ -1,0 +1,89 @@
+"""Publishing the global whitelist to GitHub, or fetching it back.
+
+The remote is a shallow clone in a temporary directory: the whitelisted packages
+are copied in, committed, and pushed. `--from-github` reverses it — the clone is
+the source and the global project is the destination.
+
+`github.publish_repo` is either `owner/repo` (GitHub over SSH) or any git URL /
+path, which is what makes the mechanism testable without a network.
+"""
+from __future__ import annotations
+import subprocess
+import tempfile
+from pathlib import Path
+
+from . import config, paths, transfer
+from .errors import Exit, fail
+
+IDENTITY = ("-c", "user.name=agent-ide", "-c", "user.email=agent-ide@localhost")
+
+
+def run(project_root: Path, names: list[str], *, from_github: bool) -> None:
+    repo = config.publish_repo(project_root)
+    if not repo:
+        raise fail(
+            Exit.Publish.FAILED,
+            "no publish repo: set github.publish_repo in "
+            f"{paths.data_dir(project_root) / 'config.json'}",
+        )
+    if not names:
+        raise fail(Exit.Publish.FAILED, "pass at least one skill name")
+
+    home = config.global_home(project_root, seed=False)
+    global_skills = paths.skills_dir(home)
+
+    with tempfile.TemporaryDirectory(prefix="agent-ide-publish-") as tmp:
+        clone = Path(tmp)
+        _clone(_remote(repo), clone)
+        skills_in_repo = clone / paths.IDE_DIR / "skills"
+
+        if from_github:
+            if not skills_in_repo.is_dir():
+                raise fail(
+                    Exit.Publish.FAILED,
+                    f"remote {repo} has no {paths.IDE_DIR}/skills directory",
+                )
+            transfer.batch(names, skills_in_repo, global_skills, "publish --from-github")
+            print(f"publish --from-github: from {repo}")
+            return
+
+        transfer.batch(names, global_skills, skills_in_repo, "publish", echo=False)
+        targets = ", ".join(names)
+        if _git("add", "-A", cwd=clone).returncode != 0:
+            raise fail(Exit.Publish.FAILED, "git add failed in the clone")
+        if not _git("status", "--porcelain", cwd=clone).stdout.strip():
+            print(f"publish: {repo} already up to date ({targets})")
+            return
+        commit = _git("commit", "-m", f"agent-ide publish: {targets}", cwd=clone)
+        if commit.returncode != 0:
+            raise fail(Exit.Publish.FAILED, f"git commit failed: {_tail(commit)}")
+        push = _git("push", "origin", "HEAD", cwd=clone)
+        if push.returncode != 0:
+            raise fail(
+                Exit.Publish.FAILED,
+                f"git push failed (remote moved? re-run, or fetch with "
+                f"--from-github first): {_tail(push)}",
+            )
+        print(f"publish: {targets} -> {repo}")
+
+
+def _remote(repo: str) -> str:
+    raw = repo.strip()
+    if raw.startswith(("/", "./", "../", "~")) or "://" in raw or raw.startswith("git@"):
+        return raw
+    return f"git@github.com:{raw}.git"
+
+
+def _clone(remote: str, into: Path) -> None:
+    done = _git("clone", "--depth", "1", remote, str(into), cwd=into.parent)
+    if done.returncode != 0:
+        raise fail(Exit.Publish.FAILED, f"git clone {remote} failed: {_tail(done)}")
+
+
+def _git(*args: str, cwd: Path) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", *IDENTITY, *args], cwd=cwd, capture_output=True, text=True)
+
+
+def _tail(done: subprocess.CompletedProcess) -> str:
+    lines = (done.stderr or done.stdout or "").strip().splitlines()
+    return lines[-1] if lines else f"exit {done.returncode}"
