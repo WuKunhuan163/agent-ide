@@ -87,6 +87,7 @@ def mirror() -> Path:
     """Separate git repository with the mirrored transcript.
 
     Under `data/`, which the project `.gitignore` excludes, so it never enters
-    the project's own checkpoint.
+    the project's own checkpoint. Not created here: only the sync that writes
+    into it does that, so reading a status never leaves an empty repository.
     """
-    return data("session_mirror", create=True)
+    return data("session_mirror")

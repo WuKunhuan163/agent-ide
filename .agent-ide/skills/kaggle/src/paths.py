@@ -22,6 +22,13 @@ class Paths:
     event_log_file: str
 
 def bootstrap(argv: list[str]) -> list[str]: 
+    """Resolve `--id` and the paths under `data/`; create nothing.
+
+    `data/` is runtime state, not package content, so it appears only when
+    something is actually written: `save_config`, the runtime store and the
+    token pool each make their own directory. A read-only command, or a typo in
+    `--id`, must not leave an empty agent directory behind.
+    """
     global ctx
     agent_id: str | None = None
     rest: list[str] = []
@@ -40,7 +47,6 @@ def bootstrap(argv: list[str]) -> list[str]:
     skill_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     data_dir = os.path.join(skill_dir, "data")
     agent_dir = os.path.join(data_dir, "agents", agent_id)
-    os.makedirs(agent_dir, exist_ok=True)
     runtime_dir = os.path.join(agent_dir, "runtime")
     ctx = Paths(
         skill_dir=skill_dir, 

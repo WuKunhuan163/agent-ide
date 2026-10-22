@@ -32,6 +32,7 @@ def _git(*args: str, cwd: Path) -> subprocess.CompletedProcess:
 
 def ensure_repo() -> Path:
     repo = mirror()
+    repo.mkdir(parents=True, exist_ok=True)
     if not (repo / ".git").is_dir():
         done = _git("init", "-q", cwd=repo)
         if done.returncode != 0:
@@ -106,7 +107,9 @@ def sync(store: SessionStore) -> dict:
 
 
 def log(n: int = 10) -> str:
-    repo = ensure_repo()
+    repo = mirror()
+    if not (repo / ".git").is_dir():
+        return "no mirror yet: run --sync-session"
     done = _git("log", f"-{max(1, n)}", "--oneline", cwd=repo)
     return done.stdout.strip() if done.returncode == 0 else (done.stderr or "").strip()
 

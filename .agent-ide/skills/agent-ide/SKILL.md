@@ -25,7 +25,7 @@ Plus `install` (write launchers) and `inject` (make a package visible to an IDE)
 ├── skill.json        always transferred — the whitelist
 ├── <name>.py         transferred when install.kind is `python`
 ├── …                 only paths listed in files / directories
-└── data/             never transferred (not declared by anyone)
+└── data/             local state from real use; never declared, never listed
 ```
 
 `skill.json`:
@@ -60,7 +60,7 @@ Replicator.for_skill(pkg_dir).sync_quietly()   # one line, never raises
 Two rules that cause most failures:
 
 - **A declared path must exist.** `files`/`directories` are checked before every transfer, so a stale entry fails the command instead of shipping a broken package. An empty directory cannot be declared: git does not carry it, so `publish` then `--from-github` would fail on the far side.
-- **`data/` is not transferable by design.** Archives, caches and credentials stay where they are; that is why the whitelist exists at all.
+- **`data/` is local state, so it cannot be whitelisted.** It is what a skill accumulates while being used — archives, caches, credentials — and it differs per machine and per run, so it can never be enumerated in advance. The whitelist lists what a package *is*; `data/` is what it *has done*. Writers create their own directories when they first write; a read-only command creates nothing.
 
 ## Commands
 
