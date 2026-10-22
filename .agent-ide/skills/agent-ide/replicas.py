@@ -62,7 +62,7 @@ class Report:
 
     def line(self) -> str:
         """One shell-friendly line: only the counts that are not zero."""
-        parts = [f"{self.declared} files"]
+        parts = [f"{self.declared} file" + ("" if self.declared == 1 else "s")]
         if self.copied:
             parts.append(f"+{self.copied} copied")
         if self.updated:
@@ -75,7 +75,7 @@ class Report:
             parts.append(f"{len(self.conflicts)} conflict")
         if len(parts) == 1:
             parts.append("ok")
-        return f"replicas: {self.skill} {'  '.join(parts)}"
+        return f"replicas: {self.skill} {' '.join(parts)}"
 
 
 class Replicator:
