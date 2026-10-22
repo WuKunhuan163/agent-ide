@@ -89,6 +89,16 @@ def global_home(project_root: Path, *, seed: bool = False) -> Path:
     home = valid_global_home(raw)
     if home is not None:
         return home
+    if raw and str(raw).strip():
+        # A configured path that is not a project is a typo or a moved folder.
+        # Seeding here would silently rewrite the config and turn `push` into a
+        # no-op, which is the one outcome the caller cannot notice.
+        raise fail(
+            Exit.Config.MISSING_GLOBAL,
+            f"paths.global_home points at something that is not a project: {raw} "
+            f"(no {paths.IDE_DIR}/skills there); fix it with "
+            "`agent-ide push` after restoring the folder, or set it explicitly",
+        )
     if not seed:
         raise fail(
             Exit.Config.MISSING_GLOBAL,

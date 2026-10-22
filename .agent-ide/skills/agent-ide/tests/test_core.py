@@ -85,6 +85,18 @@ class TransferTests(Base):
         self.assertFalse((out / "src" / "__pycache__").exists(), "caches filtered")
         self.assertFalse((out / "extra.txt").exists(), "undeclared file copied")
 
+    def test_unwritable_destination_fails_cleanly(self):
+        """A read-only destination is a reported failure, not a traceback."""
+        from src import transfer
+
+        make_package(self.skills)
+        dest = paths.skills_dir(self.local)
+        dest.chmod(0o555)
+        try:
+            self.expect(Exit.Package.FAILED, transfer.package, "demo", self.skills, dest)
+        finally:
+            dest.chmod(0o755)
+
     def test_directory_replaced(self):
         from src import transfer
 
@@ -200,6 +212,13 @@ class ConfigTests(Base):
     def test_seed_self(self):
         self.assertEqual(config.global_home(self.local, seed=True), self.local.resolve())
         self.assertEqual(config.global_home(self.local), self.local.resolve())
+
+    def test_configured_but_missing_global_is_error(self):
+        """A typo must fail loudly; seeding would silently rewrite the config."""
+        gone = self.tmp / "gone"
+        config.set_global_home(self.local, gone)
+        self.expect(Exit.Config.MISSING_GLOBAL, config.global_home, self.local, seed=True)
+        self.assertEqual(config.read(self.local)["paths"]["global_home"], str(gone))
 
     def test_inherit_copies_launcher_home(self):
         config.set_global_home(self.global_root, self.global_root)

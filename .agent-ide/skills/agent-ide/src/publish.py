@@ -61,8 +61,8 @@ def run(project_root: Path, names: list[str], *, from_github: bool) -> None:
         if push.returncode != 0:
             raise fail(
                 Exit.Publish.FAILED,
-                f"git push failed (remote moved? re-run, or fetch with "
-                f"--from-github first): {_tail(push)}",
+                f"git push failed: {_tail(push)}\n"
+                "If the remote moved, re-run, or fetch it with --from-github first.",
             )
         print(f"publish: {targets} -> {repo}")
 
@@ -86,5 +86,6 @@ def _git(*args: str, cwd: Path) -> subprocess.CompletedProcess:
 
 
 def _tail(done: subprocess.CompletedProcess) -> str:
+    """The last few lines: the remote's own reason often precedes git's summary."""
     lines = (done.stderr or done.stdout or "").strip().splitlines()
-    return lines[-1] if lines else f"exit {done.returncode}"
+    return " / ".join(lines[-3:]) if lines else f"exit {done.returncode}"

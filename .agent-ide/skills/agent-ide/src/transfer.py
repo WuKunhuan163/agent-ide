@@ -28,27 +28,34 @@ def package(name: str, src_root: Path, dest_root: Path, *, validate: bool = True
     if validate:
         manif.validate(src, spec)
 
-    dest.mkdir(parents=True, exist_ok=True)
-    for rel in manif.files(src, spec):
-        source = src / rel
-        if not source.is_file():
-            if validate:
-                raise fail(Exit.Package.FAILED, f"{name}: declared file missing: {rel}")
-            continue
-        target = dest / rel
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, target)
+    try:
+        dest.mkdir(parents=True, exist_ok=True)
+        for rel in manif.files(src, spec):
+            source = src / rel
+            if not source.is_file():
+                if validate:
+                    raise fail(Exit.Package.FAILED, f"{name}: declared file missing: {rel}")
+                continue
+            target = dest / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
 
-    for rel in manif.directories(spec):
-        source = src / rel
-        if not source.is_dir():
-            if validate:
-                raise fail(Exit.Package.FAILED, f"{name}: declared directory missing: {rel}")
-            continue
-        target = dest / rel
-        if target.exists():
-            shutil.rmtree(target)
-        shutil.copytree(source, target, symlinks=True, ignore=IGNORE)
+        for rel in manif.directories(spec):
+            source = src / rel
+            if not source.is_dir():
+                if validate:
+                    raise fail(Exit.Package.FAILED, f"{name}: declared directory missing: {rel}")
+                continue
+            target = dest / rel
+            if target.exists():
+                shutil.rmtree(target)
+            shutil.copytree(source, target, symlinks=True, ignore=IGNORE)
+    except OSError as exc:
+        # A read-only or full destination is a normal failure, not a crash:
+        # the caller gets one line and the exit code the CLI promises.
+        raise fail(
+            Exit.Package.FAILED, f"{name}: cannot write to {dest}: {exc}"
+        ) from exc
 
 
 def batch(
