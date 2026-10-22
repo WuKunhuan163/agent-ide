@@ -100,13 +100,21 @@ The interpreter path is **baked in**: the launcher never parses JSON, and a proj
 
 ## First start and repair
 
-`install.command` installs agent-ide itself with a system `python3`; it works before `.agent-tools/` exists:
+`install.command` installs agent-ide itself with a system `python3` (≥3.10); it works before `.agent-tools/` exists and needs nothing else:
 
 ```bash
 bash <project>/.agent-ide/skills/agent-ide/install.command
 ```
 
-Then, from the global project: `agent-ide init-project <project>`.
+With no ecosystem on the machine, the package itself comes from the publish repo — clone it as the global project, then bootstrap:
+
+```bash
+git clone <publish repo> <global>
+bash <global>/.agent-ide/skills/agent-ide/install.command
+<global>/.agent-tools/agent-ide init-project <project>
+```
+
+A bundled runtime under `<global>/.agent-ide/runtime/` is optional: when a package declares no `requirements`, `install` falls back to the interpreter running it and says which one in one stderr line. Packages with requirements still need the runtime archive.
 
 The full cold-start order (bootstrap branch, global project pointer, agent id, contact loop) lives in `contact-user/COLDSTART.md`; do not duplicate it here.
 

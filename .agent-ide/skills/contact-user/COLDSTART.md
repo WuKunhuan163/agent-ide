@@ -15,14 +15,18 @@ ls -d <local>/.agent-tools/agent-ide <local>/.agent-tools/contact-user <local>/.
 |---|---|
 | all three exist | equipped: skip to §2. Do not run `install`/`inject` "to be safe" |
 | `.agent-tools/agent-ide` missing | bootstrap: locate the global project, then `init-project` |
+| nothing anywhere (no global project, no `.agent-ide/skills`) | clone the publish repo as the global project, then `init-project` |
 | only `.agent-tools/contact-user` missing | repair: `agent-ide install contact-user` |
 | the IDE link is missing | repair: `agent-ide inject <IDE domain> add-skill contact-user` |
 
 ```bash
+git clone <publish repo> <global> && bash <global>/.agent-ide/skills/agent-ide/install.command   # no ecosystem yet
 <global>/.agent-tools/agent-ide init-project <local>      # bootstrap
 <local>/.agent-tools/agent-ide install contact-user       # launcher only
 <local>/.agent-tools/agent-ide inject <domain> add-skill contact-user
 ```
+
+On a machine with nothing installed, `install.command` needs only a system `python3` (≥3.10) and this file: it writes the launcher and, when the package declares no requirements, points it at that interpreter. A bundled runtime is optional; `install` reports which interpreter it chose.
 
 `<global>` is normally named in the user's prompt; if not, probe
 `~/agent_ide_global_project` before searching. `<domain>` is the directory of the
