@@ -161,7 +161,7 @@ class InstallTests(Base):
         transfer.package("demo", self.skills, paths.skills_dir(self.local))
 
         _, out, _ = self.quiet(install.run, self.local, ["demo"])
-        self.assertIn("installed demo", out)
+        self.assertIn("install: demo", out)
         launcher = paths.tools_dir(self.local) / "demo"
         self.assertTrue(os.access(launcher, os.X_OK))
         body = launcher.read_text(encoding="utf-8")

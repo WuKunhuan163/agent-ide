@@ -10,7 +10,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from . import manifest as manif
+from . import manifest as manif, paths
 from .errors import Exit, fail
 
 IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store", ".git")
@@ -68,5 +68,5 @@ def batch(
         for name in targets:
             package(name, src_root, dest_root)
     if echo:
-        print(f"{verb}: {', '.join(targets)} -> {dest_root}")
+        print(f"{verb}: {' '.join(targets)} -> {paths.pretty(dest_root)}")
     return targets

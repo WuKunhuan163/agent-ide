@@ -6,6 +6,7 @@
     <project>/.agent-tools/<skill>            generated launchers
 """
 from __future__ import annotations
+import os
 import platform
 from pathlib import Path
 
@@ -44,6 +45,13 @@ def tools_dir(project_root: Path) -> Path:
 
 def runtime_root(global_home: Path) -> Path:
     return global_home / IDE_DIR / "runtime" / "standalone" / "python"
+
+
+def pretty(path: Path | str) -> str:
+    """`~/…` instead of the full home path, so lines stay readable in a shell."""
+    text = str(path)
+    home = str(Path.home())
+    return "~" + text[len(home):] if text.startswith(home + os.sep) else text
 
 
 def platform_tag() -> str:

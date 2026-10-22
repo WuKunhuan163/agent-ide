@@ -43,18 +43,18 @@ def run(project_root: Path, names: list[str], *, from_github: bool) -> None:
                     Exit.Publish.FAILED,
                     f"remote {repo} has no {paths.IDE_DIR}/skills directory",
                 )
-            transfer.batch(names, skills_in_repo, global_skills, "publish --from-github")
-            print(f"publish --from-github: from {repo}")
+            transfer.batch(names, skills_in_repo, global_skills, "publish --from-github", echo=False)
+            print(f"publish --from-github: {' '.join(names)} <- {repo}")
             return
 
         transfer.batch(names, global_skills, skills_in_repo, "publish", echo=False)
-        targets = ", ".join(names)
+        summary = " ".join(names)
         if _git("add", "-A", cwd=clone).returncode != 0:
             raise fail(Exit.Publish.FAILED, "git add failed in the clone")
         if not _git("status", "--porcelain", cwd=clone).stdout.strip():
-            print(f"publish: {repo} already up to date ({targets})")
+            print(f"publish: up to date ({summary})")
             return
-        commit = _git("commit", "-m", f"agent-ide publish: {targets}", cwd=clone)
+        commit = _git("commit", "-m", f"agent-ide publish: {summary}", cwd=clone)
         if commit.returncode != 0:
             raise fail(Exit.Publish.FAILED, f"git commit failed: {_tail(commit)}")
         push = _git("push", "origin", "HEAD", cwd=clone)
@@ -64,7 +64,8 @@ def run(project_root: Path, names: list[str], *, from_github: bool) -> None:
                 f"git push failed: {_tail(push)}\n"
                 "If the remote moved, re-run, or fetch it with --from-github first.",
             )
-        print(f"publish: {targets} -> {repo}")
+        head = _git("rev-parse", "--short", "HEAD", cwd=clone).stdout.strip()
+        print(f"publish: {summary} -> {repo} ({head})")
 
 
 def _remote(repo: str, host: str) -> str:

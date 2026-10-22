@@ -44,7 +44,7 @@ def add(project_root: Path, folder: Path, names: list[str], domain: str) -> None
     folder.mkdir(parents=True, exist_ok=True)
     for name in chosen:
         _link(project_root, folder / name)
-    print(f"inject {domain} add-skill: {', '.join(chosen)}")
+    print(f"inject: {domain} add {' '.join(chosen)}")
 
 
 def remove(project_root: Path, folder: Path, names: list[str], domain: str) -> None:
@@ -57,7 +57,7 @@ def remove(project_root: Path, folder: Path, names: list[str], domain: str) -> N
             if wanted is None or child.name in wanted:
                 shutil.rmtree(child)
                 removed.append(child.name)
-    print(f"inject {domain} remove-skill: {', '.join(removed) or '(none)'}")
+    print(f"inject: {domain} remove {' '.join(removed) or '-'}")
 
 
 def _chosen(project_root: Path, names: list[str]) -> list[str]:

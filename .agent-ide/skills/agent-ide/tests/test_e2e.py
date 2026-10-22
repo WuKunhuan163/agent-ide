@@ -87,7 +87,7 @@ class EndToEndTests(Base):
 
         again = self.run_cli("publish", "agent-ide")
         self.assertEqual(again.returncode, 0, again.stderr)
-        self.assertIn("already up to date", again.stdout)
+        self.assertIn("up to date", again.stdout)
 
     def test_publish_reports_push_failure(self):
         remote = self.tmp / "remote.git"

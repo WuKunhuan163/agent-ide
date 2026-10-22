@@ -50,10 +50,9 @@ def run(launcher_root: Path, target: Path, skills: list[str] | None = None) -> N
             f"global project is unusable: no {ESSENTIAL} under {global_skills}",
         )
 
-    transfer.batch(available, global_skills, project_skills, "init-project: pull")
+    transfer.batch(available, global_skills, project_skills, "init-project")
     install.run(project, available)
     _seed_gitignore(project)
-    print(f"init-project: {project} ready (global {home})")
 
 
 def _seed_gitignore(project: Path) -> None:

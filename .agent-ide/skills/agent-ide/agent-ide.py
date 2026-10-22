@@ -61,15 +61,14 @@ def cmd_replicas(args: argparse.Namespace) -> None:
             report = worker.sync() if args.action == "sync" else worker.status()
         except ReplicaError as exc:
             raise fail(Exit.Replica.FAILED, str(exc)) from exc
-        print("\n".join(report.lines()))
+        print(report.line())
         if not report.ok:
             drifted.append(report.skill)
 
     if drifted:
         raise fail(
             Exit.Replica.FAILED,
-            f"{', '.join(drifted)}: replica files differ from the source; "
-            "append-only never overwrites, resolve them by hand",
+            f"{', '.join(drifted)}: copy differs from source, left untouched",
         )
 
 

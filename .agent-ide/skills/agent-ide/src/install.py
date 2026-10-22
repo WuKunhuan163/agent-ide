@@ -45,7 +45,7 @@ def package(project_root: Path, name: str) -> None:
     interpreter, warnings = _provision_runtime(home, name, spec)
     _write_launcher(project_root, name, interpreter)
 
-    print(f"installed {name} -> .agent-tools/{name} ({interpreter})")
+    print(f"install: {name} -> .agent-tools/{name}")
     for warning in warnings:
         print(warning, file=sys.stderr)
 

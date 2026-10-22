@@ -60,24 +60,22 @@ class Report:
     def ok(self) -> bool:
         return not self.conflicts
 
-    def lines(self) -> list[str]:
-        out = [
-            self.skill,
-            f"  shard     {self.shard}",
-            f"  mode      {self.mode}",
-            f"  declared  {self.declared} files",
-            f"  copied    {self.copied}",
-            f"  updated   {self.updated}",
-            f"  missing   {self.missing}",
-            f"  stale     {self.stale}",
-            f"  unchanged {self.same}",
-        ]
+    def line(self) -> str:
+        """One shell-friendly line: only the counts that are not zero."""
+        parts = [f"{self.declared} files"]
+        if self.copied:
+            parts.append(f"+{self.copied} copied")
+        if self.updated:
+            parts.append(f"{self.updated} updated")
+        if self.missing:
+            parts.append(f"{self.missing} missing")
+        if self.stale:
+            parts.append(f"{self.stale} stale")
         if self.conflicts:
-            out.append(f"  conflict  {len(self.conflicts)} (left untouched)")
-            out.extend(f"            {rel}" for rel in self.conflicts[:5])
-            if len(self.conflicts) > 5:
-                out.append(f"            … {len(self.conflicts) - 5} more")
-        return out
+            parts.append(f"{len(self.conflicts)} conflict")
+        if len(parts) == 1:
+            parts.append("ok")
+        return f"replicas: {self.skill} {'  '.join(parts)}"
 
 
 class Replicator:
