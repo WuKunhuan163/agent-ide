@@ -51,8 +51,8 @@ _PAGE = """<!doctype html>
   }}
   a:hover {{ background: #ffd84d; }}
 </style>
-<h1>请杀死 {ref} 正在运行的任务</h1>
-<a href="{url}">打开 kernel 页面 → Stop Session</a>
+<h1>Stop the run of {ref}</h1>
+<a href="{url}">Open kernel → Stop Session</a>
 """
 
 
