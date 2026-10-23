@@ -25,7 +25,7 @@ from pathlib import Path
 from src import remote, scheduler, transfer
 from src.errors import NotFound, PanError, UsageError
 from src.login import login
-from src.paths import pretty
+from src.paths import pretty, resolve_arg
 from src.session import Session
 
 
@@ -139,7 +139,7 @@ def _ls(args, session: Session) -> int:
 
 
 def _upload(args, session: Session) -> int:
-    sources = [Path(s).expanduser() for s in args.sources]
+    sources = [resolve_arg(s) for s in args.sources]
     if len(sources) < 2:
         raise UsageError("usage: upload <local...> <remote_dir>")
     destination = str(sources[-1])

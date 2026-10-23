@@ -24,6 +24,16 @@ def project_root() -> Path:
     raise RuntimeError("cannot find project root (no .agent-tools/ above this package)")
 
 
+def resolve_arg(raw) -> Path:
+    """A path typed on a command line: relative to the project root, never cwd.
+
+    Remote paths are absolute (`/dir`) and pass through untouched, so one
+    function serves both sides of `upload`.
+    """
+    path = Path(raw).expanduser()
+    return path if path.is_absolute() else project_root() / path
+
+
 def data_root() -> Path:
     return SKILL_DIR / "data"
 

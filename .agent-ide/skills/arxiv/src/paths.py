@@ -19,6 +19,25 @@ def get_skills_dir() -> str:
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+def resolve_arg(raw) -> str:
+    """A path typed on a command line: relative to the project root, never cwd.
+
+    Absolute paths pass through; outside any project (no `.agent-tools` above
+    the skill) cwd is the only remaining answer.
+    """
+    path = os.path.expanduser(str(raw))
+    if os.path.isabs(path):
+        return path
+    here = get_skills_dir()
+    while True:
+        if os.path.isdir(os.path.join(here, ".agent-tools")):
+            return os.path.join(here, path)
+        parent = os.path.dirname(here)
+        if parent == here:
+            return os.path.abspath(path)
+        here = parent
+
+
 def data_dir() -> str:
     return os.path.join(get_skills_dir(), "data", "fetch")
 

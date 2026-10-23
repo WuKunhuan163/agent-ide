@@ -35,6 +35,21 @@ else:
     # had it at the root and wrote credentials into src/data.
     SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+def _resolve_arg(raw):
+    """A path typed on a command line: relative to the project root, never cwd."""
+    path = os.path.expanduser(str(raw))
+    if os.path.isabs(path):
+        return path
+    here = SKILL_DIR
+    while True:
+        if os.path.isdir(os.path.join(here, ".agent-tools")):
+            return os.path.join(here, path)
+        parent = os.path.dirname(here)
+        if parent == here:
+            return os.path.abspath(path)
+        here = parent
+
+
 AGENT_ID = None
 for i, arg in enumerate(sys.argv):
     if arg == "--id" and i + 1 < len(sys.argv):
@@ -88,7 +103,7 @@ def cmd_download(args):
     token = load_config().get("token")
     repo, filename = args.repo, args.file
     revision = args.revision or "main"
-    out_dir = os.path.expanduser(args.dir or ".")
+    out_dir = _resolve_arg(args.dir or ".")
     os.makedirs(out_dir, exist_ok=True)
 
     url = f"https://huggingface.co/{repo}/resolve/{revision}/{filename}"
@@ -151,7 +166,7 @@ def main():
     download_parser.add_argument("--repo", required=True, help="e.g. gpt2")
     download_parser.add_argument("--file", required=True, help="e.g. config.json")
     download_parser.add_argument("--revision", default="main")
-    download_parser.add_argument("--dir", "-d", help="output directory (default: .)")
+    download_parser.add_argument("--dir", "-d", help="output directory (default: the project root)")
 
     args = parser.parse_args()
     if args.command == "config":

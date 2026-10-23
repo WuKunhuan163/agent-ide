@@ -39,6 +39,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="agent id; keys the archive, the window and the lock")
 
     round_group = parser.add_argument_group("round")
+    round_group.add_argument("--input-path", action="store_true",
+                             help="print the absolute paths of the two drafts to write")
     round_group.add_argument("--recent", nargs="?", const=8, default=None, type=int,
                              metavar="N", help="print the last N archived rounds (default 8)")
     round_group.add_argument("--ide-context", nargs="?", const=100, default=None, type=int,
@@ -63,6 +65,12 @@ def build_parser() -> argparse.ArgumentParser:
                              help="pin the transcript store by absolute path")
     store_group.add_argument("--set-session-ide", default=None, metavar="ID",
                              help="choose the adapter that reads the store")
+    store_group.add_argument("--bind-conversation", default=None, metavar="CONV",
+                             help="register --id -> CONV once; later reads use it")
+    store_group.add_argument("--unbind-conversation", action="store_true",
+                             help="drop the registered pair for --id")
+    store_group.add_argument("--bindings", action="store_true",
+                             help="print every registered id/conversation pair")
     store_group.add_argument("--ide", default=None, metavar="ID",
                              help="adapter for --set-history-root")
     store_group.add_argument("--sync-session", action="store_true",
@@ -130,6 +138,22 @@ def dispatch(parser: argparse.ArgumentParser, args, agent_id: str | None) -> int
             return Exit.Merge.MISSING_SOURCES
         return archive.merge(target, sources, args.start_time, args.end_time)
 
+    if args.input_path:
+        if agent_id is None:
+            parser.error("--input-path needs --id: the draft folder is per agent id")
+        return print_input_paths(agent_id)
+
+    if args.bindings:
+        return commands.list_bindings()
+    if args.unbind_conversation:
+        if agent_id is None:
+            parser.error("--unbind-conversation needs --id")
+        return commands.unbind(agent_id)
+    if args.bind_conversation is not None:
+        if agent_id is None:
+            parser.error("--bind-conversation needs --id: the pair is per agent id")
+        return commands.bind(agent_id, args.bind_conversation)
+
     if args.set_history_root is not None:
         return set_root(args.set_history_root, args.ide)
     if args.set_session_ide is not None:
@@ -196,6 +220,22 @@ def journal(args, agent_id: str) -> int:
     except (journal_mod.JournalError, config.ConfigError, OSError) as exc:
         return commands_fail(exc)
     print(journal_mod.dump(payload))
+    return Exit.OK
+
+
+def print_input_paths(agent_id: str) -> int:
+    """Absolute draft paths, ready for a write tool that takes no cwd.
+
+    `data/input/...` on its own means nothing at a shell prompt: the agent would
+    resolve it against whatever directory it happens to stand in. Printing the
+    absolute path is the only spelling that cannot land in the wrong project.
+    """
+    from src import paths
+
+    folder = paths.input_text(agent_id, "contact").parent
+    folder.mkdir(parents=True, exist_ok=True)
+    for kind in ("contact", "commit"):
+        print(f"{kind}\t{paths.input_text(agent_id, kind)}")
     return Exit.OK
 
 

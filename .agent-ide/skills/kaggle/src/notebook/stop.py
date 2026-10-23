@@ -23,7 +23,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from src import identity, kaggle_exec, paths
+from src import identity, kaggle_exec
 from src.chrome.browser import launch_browser
 from src.exit_codes import OK
 from src.kaggle_exec import failure_output

@@ -20,6 +20,21 @@ def ensure(path: Path) -> Path:
     return path
 
 
+def resolve_arg(raw) -> Path:
+    """A path typed on a command line: relative to the project root, never cwd.
+
+    The agent runs this from whatever directory it happens to stand in; a bare
+    ``--output results`` must still land in one predictable place.
+    """
+    path = Path(raw).expanduser()
+    if path.is_absolute():
+        return path
+    for parent in SKILL_ROOT.parents:
+        if (parent / ".agent-tools").is_dir():
+            return parent / path
+    return path
+
+
 def config_file() -> Path:
     return ensure(DATA_DIR / "config.json")
 

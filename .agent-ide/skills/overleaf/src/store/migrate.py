@@ -23,6 +23,7 @@ import re
 
 from src.store import api as store_api
 from src.store import errors
+from src.store.layout import resolve_arg
 from src.store.errors import DataError
 from src.store.schema import Manifest
 from src.template.registry import manifest_for
@@ -34,7 +35,7 @@ def migrate_legacy(
     agent_id: str, source: str, project_id: str | None = None
 ) -> dict:
     """Copy one old-layout project into the current store; return a summary."""
-    source = os.path.abspath(os.path.expanduser(source))
+    source = resolve_arg(source)
     meta_path = os.path.join(source, "metadata.json")
     if not os.path.isfile(meta_path):
         raise DataError(

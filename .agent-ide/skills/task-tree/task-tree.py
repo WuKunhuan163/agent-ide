@@ -31,6 +31,12 @@ def project_root() -> Path:
     raise SystemExit(2)
 
 
+def resolve_arg(raw) -> Path:
+    """A path typed on a command line: relative to the project root, never cwd."""
+    path = Path(raw).expanduser()
+    return path if path.is_absolute() else project_root() / path
+
+
 def tree_dir(tree_id: str) -> Path:
     return project_root() / ".agent-ide" / "skills" / "task-tree" / "data" / tree_id
 
@@ -183,7 +189,7 @@ def cmd_init(args: argparse.Namespace) -> None:
 def read_body(path: str | None) -> str:
     if not path:
         return ""
-    source = Path(path).expanduser()
+    source = resolve_arg(path)
     if not source.is_file():
         fail(f"no such body file: {source}")
     return source.read_text(encoding="utf-8").strip()
@@ -488,7 +494,7 @@ def cmd_export(args: argparse.Namespace) -> None:
         when=datetime.now().astimezone().strftime("%Y-%m-%d %H:%M"),
         body=body,
     )
-    out = Path(args.out).expanduser() if args.out else tree_dir(args.id) / "tree.html"
+    out = resolve_arg(args.out) if args.out else tree_dir(args.id) / "tree.html"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, encoding="utf-8")
     print(f"exported {out} ({len(html)} bytes)")

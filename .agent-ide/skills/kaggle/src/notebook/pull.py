@@ -19,12 +19,12 @@ from datetime import datetime
 from src import identity, kaggle_exec
 from src.exit_codes import INPUT_USAGE, OK
 from src.notebook.refs import resolve_notebook_args
-from src.paths import require_ctx
+from src.paths import require_ctx, resolve_arg
 
 def _pull_dir(slug: str, dir_arg: str | None) -> str:
     """Fresh ``<slug>-<stamp>-<hex8>`` folder, or the caller's pinned directory."""
     if dir_arg:
-        return os.path.abspath(dir_arg)
+        return resolve_arg(dir_arg)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     return os.path.join(
         require_ctx().notebooks_dir, f"{slug}-{stamp}-{uuid.uuid4().hex[:8]}"
@@ -62,7 +62,7 @@ def cmd_notebook_pull(args: argparse.Namespace) -> int:
 
 def cmd_notebook_edit(args: argparse.Namespace) -> int:
     """pull -> string/cell patch -> diff -> re-push the same slug."""
-    from src.notebook.push import run_deploy_push  # local: avoids an import cycle
+    from src.notebook.deploy import run_deploy_push  # local: keeps import cost off --help
 
     username, slug, notebook = resolve_notebook_args(args.notebook)
     out_dir = _pull_dir(slug, None)

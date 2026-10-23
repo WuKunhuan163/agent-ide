@@ -83,13 +83,15 @@ def cmd_config(args: argparse.Namespace) -> int:
         print(f"GPU interlock: {state}")
         if state == "off":
             print(
-                "  Pushes now send enable_gpu=true, so Kaggle starts the run itself on its "
-                "default accelerator (observed: T4 x2) and monitor may poll it. No human step."
+                "  Default mode (background push): pushes send enable_gpu=true, so Kaggle "
+                "starts the run itself on the accelerator it picks (observed: T4 x2) and "
+                "monitor may poll it. No human step."
             )
         else:
             print(
-                "  Pushes send enable_gpu=false (anti-P100) and the human selects the "
-                "accelerator, then Run All."
+                "  Legacy mode: pushes send enable_gpu=false, the human selects the "
+                "accelerator, then Run All. Kaggle no longer assigns P100, so this is "
+                "only needed when a run must be started by hand."
             )
         return OK
 

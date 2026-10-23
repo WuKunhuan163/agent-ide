@@ -37,6 +37,12 @@ def project_root() -> Path:
     raise SystemExit(2)
 
 
+def resolve_arg(raw) -> Path:
+    """A path typed on a command line: relative to the project root, never cwd."""
+    path = Path(raw).expanduser()
+    return path if path.is_absolute() else project_root() / path
+
+
 def queue_dir(qid: str) -> Path:
     return project_root() / ".agent-ide" / "skills" / "task-queue" / "data" / qid
 
@@ -162,7 +168,7 @@ def head(qid: str) -> tuple[list[str], str]:
 
 
 def cmd_push(args: argparse.Namespace) -> None:
-    source = Path(args.file).expanduser()
+    source = resolve_arg(args.file)
     if not source.is_file():
         fail(f"no such file: {source}")
     item = read_item(source, args.title)

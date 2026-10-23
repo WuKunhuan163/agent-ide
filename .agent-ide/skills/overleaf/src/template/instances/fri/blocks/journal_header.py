@@ -42,8 +42,8 @@ class Block(BaseBlock):
         citation = self.content.get("citation", "Heliyon 9 (2023) e22478")
         homepage = self.content.get("homepage", "www.cell.com/heliyon")
 
-        project_dir = self.content.get("_project_dir", "")
-        output_dir = self.content.get("_output_dir", "")
+        project_dir = self.content.get("_project_dir") or ""
+        output_dir = self.content.get("_output_dir") or project_dir
 
         logo_file = self._prepare_side_image(project_dir, output_dir, "publisher_logo_path", "left")
         cover_file = self._prepare_side_image(project_dir, output_dir, "cover_path", "right")

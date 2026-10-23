@@ -15,7 +15,7 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .paths import CONTACT, RESPONSE, data, stamp
+from .paths import CONTACT, RESPONSE, data, resolve_arg, stamp
 
 TS_FMT = "%Y%m%d_%H%M%S"
 TAIL_DEFAULT = 5
@@ -42,7 +42,7 @@ def export(
 
     summary = _read_summary(summary_path)
     title = title or "Journal"
-    out = Path(out_path).expanduser()
+    out = resolve_arg(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
 
     lines = [f"# {title} (Agent: {agent_id})", ""]
@@ -175,7 +175,7 @@ def _read_summary(path: str | None) -> str:
     if not path:
         return "*No summary written.*"
     try:
-        text = Path(path).expanduser().read_text(encoding="utf-8").strip()
+        text = resolve_arg(path).read_text(encoding="utf-8").strip()
     except OSError as exc:
         raise JournalError(f"cannot read summary {path}: {exc}")
     return text or "*No summary written.*"

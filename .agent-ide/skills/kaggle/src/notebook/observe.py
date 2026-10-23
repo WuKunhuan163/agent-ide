@@ -30,7 +30,7 @@ import time
 from src import identity, kaggle_exec
 from src.exit_codes import BLOCKED_BY_CONTRACT, KERNEL_FAILED, OK
 from src.kaggle_exec import failure_output
-from src.notebook import gates
+from src.notebook import passthrough
 from src.notebook.refs import resolve_notebook_args
 from src.runtime.store import notebook_requires_user_gpu, runtime_path, update_notebook_state
 
@@ -388,7 +388,7 @@ def cmd_notebook_monitor(args: argparse.Namespace) -> int:
                 logs_proc.kill()
 
     print(f"[Monitor] Downloading outputs to {download_dir}...")
-    gates.run_kernels_output_whitelist(notebook, download_dir, username=username)
+    passthrough.run_kernels_output_whitelist(notebook, download_dir, username=username)
     _extract_downloaded_zips(download_dir)
     return OK
 

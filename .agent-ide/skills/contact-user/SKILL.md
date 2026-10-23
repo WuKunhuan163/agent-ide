@@ -43,6 +43,30 @@ Choosing the arguments:
   The full read is for reconstructing what happened; `--recent` is for the
   current instruction.
 
+## Bound conversation
+
+An agent id and a conversation id can be registered as one pair, so later reads
+use that conversation without repeating `--conversation`:
+
+```bash
+.agent-tools/contact-user --id <id> --bind-conversation <conv>   # once
+.agent-tools/contact-user --bindings                             # what is registered
+.agent-tools/contact-user --id <id> --unbind-conversation        # drop it
+```
+
+`<conv>` may be a full id, an id prefix, or `latest`; the full id is what gets
+stored. The table lives in `data/config.json` under `conversation_bindings`.
+
+A bound read is the whole of that id's context, so it reports `scope=all`,
+prints the `report anchor:` line and unlocks the round — same as an unfiltered
+read. An explicit `--conversation` still narrows and stays locked. Binding
+fails when the conversation is not in the pinned store, and `--bindings` marks
+a stored pair `(missing)` once it disappears.
+
+The binding chooses *which* conversation, not how much of it: `--ide-context`
+still reads its last ROUNDS rounds, so pass `--since` when the whole history is
+wanted.
+
 ## A round
 
 ```bash
@@ -51,10 +75,16 @@ Choosing the arguments:
 #    report anchor: 1d79f89f · 24 msgs
 .agent-tools/contact-user --id <id> --ide-context
 
-# 2. write both files (non-empty; whitespace-only counts as empty)
-#    data/input/contact_msg_<id>.txt   what the user reads — must carry the
-#                                      anchor line printed by step 1, verbatim
-#    data/input/commit_msg_<id>.txt    the git checkpoint message
+# 2. ask for the two draft paths, then write exactly there
+#    (`contact<TAB><abs path>` / `commit<TAB><abs path>`)
+.agent-tools/contact-user --id <id> --input-path
+
+#    never assemble `data/input/...` yourself: a relative path resolves against
+#    the shell's cwd, and some other project's `data/` silently takes the draft.
+#    contact_msg.txt  what the user reads — must carry the anchor line printed
+#                     by step 1, verbatim
+#    commit_msg.txt   the git checkpoint message
+#    both non-empty (whitespace-only counts as empty)
 
 # 3. block for the reply — its own command, never chained with step 2
 .agent-tools/contact-user --id <id>
@@ -101,7 +131,7 @@ The file holds a title, a header comment naming the id and range, `## Summary` (
 
 ## Data layout
 
-Nothing under `data/` is a source of context: it holds drafts for the next
+Every `data/...` below is relative to this skill's own folder (`.agent-ide/skills/contact-user/`), never to your shell's cwd. Nothing under `data/` is a source of context: it holds drafts for the next
 round, archives of rounds already delivered, locks, and tokens. A context read
 starts at `--ide-context`, never with `ls` on this tree.
 

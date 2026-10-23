@@ -26,7 +26,7 @@ from src.config import cmds as config_cmds
 from src.dataset import cmds as dataset_cmds
 from src.exit_codes import INPUT_USAGE
 from src.notebook import cmds as notebook_cmds
-from src.notebook import gates as notebook_gates
+from src.notebook import passthrough
 from src.paths import bootstrap
 from src.quota import cmds as quota_cmds
 from src.runtime import cmds as runtime_cmds
@@ -61,8 +61,8 @@ def build_parser() -> _Parser:
 
 def _passthrough(argv: list[str]) -> int:
     """Not a group we own -> official CLI, gated by the two named contracts."""
-    argv = notebook_gates.enforce_passthrough_contract(argv)
-    argv = notebook_gates.guard_kernels_output_passthrough(argv)
+    argv = passthrough.enforce_passthrough_contract(argv)
+    argv = passthrough.guard_kernels_output_passthrough(argv)
     username, token = identity.credentials()
     proc = kaggle_exec.run_kaggle_checked(argv, username=username, token=token)
     if proc.stdout:

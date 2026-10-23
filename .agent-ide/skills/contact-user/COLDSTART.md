@@ -78,6 +78,14 @@ Pass `--id` explicitly on every invocation. `--recent` under a wrong id reports
 an empty history rather than an error, so an empty history in a project that
 should have one means: re-check the id.
 
+Once the session is identified, register the pair so later reads need no
+`--conversation`:
+
+```bash
+<local>/.agent-tools/contact-user --id <id> --bind-conversation <conv>
+<local>/.agent-tools/contact-user --bindings
+```
+
 ## 4. Git
 
 The round finalizer runs `git init` itself, so only confirm:
@@ -122,7 +130,9 @@ holds the keyboard and will apply the edits themselves).
 1. `--id <id> --ide-context` — read the session; only this stdout form unlocks
    the round (`--out` exports a copy without unlocking, `--conversation` narrows
    the scope and also keeps it locked). Its last line is this round's anchor.
-2. Write `data/input/contact_msg_<id>.txt` and `commit_msg_<id>.txt`. The contact
+2. Run `contact-user --id <id> --input-path` and write at the two absolute
+   paths it prints (`.../data/input/<id>/contact_msg.txt` and `commit_msg.txt`).
+   Never build a `data/...` path by hand. The contact
    file must contain the anchor line verbatim (`report anchor: <digest8> · <n>
    msgs`); without it `--id` refuses to open the window.
 3. `--id <id>` — as its own command; it blocks until the user submits.

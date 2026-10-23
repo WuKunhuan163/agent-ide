@@ -139,7 +139,7 @@ def probe(value: str) -> Source:
     if looks_like_url(value):
         name = os.path.basename(urlparse(value).path) or "download"
         return Source(value=value, kind="url", name=pdf_name(name))
-    path = Path(value).expanduser()
+    path = paths.resolve_arg(value)
     if not path.exists():
         raise FileNotFoundError(f"no such file: {value}")
     size_mb = path.stat().st_size / (1024 * 1024)

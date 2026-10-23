@@ -63,7 +63,7 @@ class Block(BaseBlock):
         
         if len(paths) >= 1:
             try:
-                actual_path_base = self.content.get('_output_dir', os.getcwd())
+                actual_path_base = self.content.get('_output_dir') or self.content.get('_project_dir')
                 assets_dir = os.path.join(actual_path_base, "assets")
                 os.makedirs(assets_dir, exist_ok=True)
 

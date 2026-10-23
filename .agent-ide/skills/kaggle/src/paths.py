@@ -65,6 +65,26 @@ def bootstrap(argv: list[str]) -> list[str]:
     )
     return rest
 
+def resolve_arg(raw) -> str:
+    """A path typed on a command line: relative to the project root, never cwd.
+
+    `--dir notebooks/x` means the same directory no matter where the shell
+    stands.  Absolute paths pass through untouched; without a project root
+    (a package run outside any project) cwd is the only remaining answer.
+    """
+    path = os.path.expanduser(str(raw))
+    if os.path.isabs(path):
+        return path
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    while True:
+        if os.path.isdir(os.path.join(here, ".agent-tools")):
+            return os.path.join(here, path)
+        parent = os.path.dirname(here)
+        if parent == here:
+            return os.path.abspath(path)
+        here = parent
+
+
 def require_ctx() -> Paths:
     if ctx is None:
         raise RuntimeError("thin entry: python3 .agent-ide/skills/kaggle/kaggle.py --id <agent_id> <cmd>")

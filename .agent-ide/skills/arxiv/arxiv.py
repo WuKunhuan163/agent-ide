@@ -71,10 +71,10 @@ def main() -> None:
 
     if args.download and records:
         from src.download import download_records
-        from src.paths import data_dir
+        from src.paths import data_dir, resolve_arg
         import os
 
-        dest = args.out or os.path.join(data_dir(), "pdfs")
+        dest = resolve_arg(args.out) if args.out else os.path.join(data_dir(), "pdfs")
         pairs = [{"title": r.get("title", ""), "url": r["pdf_link"]}
                  for r in records if r.get("pdf_link")]
         missing = len(records) - len(pairs)

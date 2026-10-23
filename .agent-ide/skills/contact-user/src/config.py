@@ -16,6 +16,7 @@ from .paths import config as config_path
 HISTORY_ROOT = "session_history_root"
 SESSION_IDE = "session_ide"
 MIRROR = "session_mirror_enabled"
+BINDINGS = "conversation_bindings"
 WINDOW_GEOMETRY = "window_geometry"
 WINDOW_FONT = "window_font"
 WINDOW_FONT_SIZE = "window_font_size"
@@ -37,6 +38,7 @@ DEFAULTS = {
     HISTORY_ROOT: "",
     SESSION_IDE: registry.DEFAULT_IDE,
     MIRROR: True,
+    BINDINGS: {},
     WINDOW_GEOMETRY: FALLBACK_GEOMETRY,
     WINDOW_FONT: FALLBACK_FONT,
     WINDOW_FONT_SIZE: FALLBACK_FONT_SIZE,
@@ -149,6 +151,41 @@ def make_store() -> SessionStore:
     root = history_root(required=True)
     assert root is not None
     return registry.create(session_ide(), root)
+
+
+# ---------------------------------------------------------------- id ↔ conv
+
+
+def bindings() -> dict[str, str]:
+    """agent id -> conversation id, as registered by `--bind-conversation`."""
+    raw = load().get(BINDINGS)
+    if not isinstance(raw, dict):
+        return {}
+    return {
+        str(key): str(value)
+        for key, value in raw.items()
+        if isinstance(key, str) and isinstance(value, str) and value.strip()
+    }
+
+
+def binding(agent_id: str) -> str | None:
+    return bindings().get(agent_id)
+
+
+def set_binding(agent_id: str, conversation: str) -> str:
+    table = bindings()
+    table[agent_id] = conversation
+    save({**load(), BINDINGS: table})
+    return conversation
+
+
+def clear_binding(agent_id: str) -> bool:
+    table = bindings()
+    if agent_id not in table:
+        return False
+    table.pop(agent_id)
+    save({**load(), BINDINGS: table})
+    return True
 
 
 # --------------------------------------------------------------------- mirror

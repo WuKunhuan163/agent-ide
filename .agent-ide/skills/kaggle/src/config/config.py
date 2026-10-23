@@ -19,11 +19,17 @@ def load_config() -> dict:
     return data if isinstance(data, dict) else {}
 
 
-DEFAULT_GPU_INTERLOCK = True
+DEFAULT_GPU_INTERLOCK = False
 
 
 def gpu_interlock_enabled() -> bool:
-    """True while a push still owes a human accelerator choice (the legacy P100 guard)."""
+    """True while a push still owes a human accelerator choice (the legacy P100 guard).
+
+    Off by default: Kaggle no longer hands out P100, so the API push can keep
+    ``enable_gpu=true`` and Kaggle allocates a T4 and starts the run itself. That
+    is the preferred mode - no human accelerator pick, no Run All, and ``monitor``
+    can poll the ledger. Turn it on only when a run must be started by hand.
+    """
     return bool(load_config().get("gpu_interlock", DEFAULT_GPU_INTERLOCK))
 
 

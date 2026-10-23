@@ -29,6 +29,21 @@ def skill_dir() -> str:
     return os.path.dirname(os.path.dirname(os.path.dirname(here)))
 
 
+def resolve_arg(raw) -> str:
+    """A path typed on a command line: relative to the project root, never cwd."""
+    path = os.path.expanduser(str(raw))
+    if os.path.isabs(path):
+        return path
+    here = skill_dir()
+    while True:
+        if os.path.isdir(os.path.join(here, ".agent-tools")):
+            return os.path.join(here, path)
+        parent = os.path.dirname(here)
+        if parent == here:
+            return os.path.abspath(path)
+        here = parent
+
+
 def data_root() -> str:
     return os.path.join(skill_dir(), DATA_DIRNAME)
 

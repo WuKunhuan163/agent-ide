@@ -124,15 +124,15 @@ def update_notebook_state(
 
 
 def notebook_requires_user_gpu(notebook: str) -> bool:
-    """True when the push ledger marks authoring enable_gpu *and* the interlock still stands.
+    """True when the ledger marks a GPU run *and* the current mode still waits on a human.
 
-    With ``config --gpu-interlock off`` the API layer is pushed with enable_gpu=true, so Kaggle
-    starts the run itself and no human is owed; the ledger flag stays as a record of how the push
-    was authored, but nothing waits on a person.
+    A background push keeps ``enable_gpu=true`` for the API, so Kaggle starts the
+    run itself and nobody is owed anything; the ledger flag stays as a record of
+    how the push was authored, but no human step follows from it.
     """
-    from src.config.config import gpu_interlock_enabled
+    from src.notebook.mode import current
 
-    if not gpu_interlock_enabled():
+    if not current().requires_run_all:
         return False
     entry = (load_state().get("notebooks") or {}).get(notebook, {})
     return bool(entry.get("requires_user_gpu"))

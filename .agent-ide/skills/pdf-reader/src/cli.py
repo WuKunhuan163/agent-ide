@@ -34,7 +34,7 @@ from .endpoint.models import Job, Source
 from .plan import planner, probe, quota
 from .run import store
 from .run.scheduler import Scheduler, job_lines
-from .util import log
+from .util import log, paths
 from .util.exit_codes import FAILED as EXIT_FAILED
 from .util.exit_codes import OK as EXIT_OK
 from .util.exit_codes import PARTIAL as EXIT_PARTIAL
@@ -235,7 +235,7 @@ def cmd_read(args, cli_sets: dict[str, str]) -> int:
         "formula": True,
         "table": True,
     }
-    record = store.create(chosen.value, options, Path(args.output) if args.output else None)
+    record = store.create(chosen.value, options, paths.resolve_arg(args.output) if args.output else None)
     run_dir = Path(record.output_dir)
 
     # the run handle, and the first line of the run: the record is already on disk, so this
@@ -311,7 +311,7 @@ def cmd_fetch(args, cli_sets: dict[str, str]) -> int:
             log.error(str(exc))
             return EXIT_FAILED
     elif args.batch:
-        record = store.create("precision", {}, Path(args.output) if args.output else None)
+        record = store.create("precision", {}, paths.resolve_arg(args.output) if args.output else None)
         record.batch_ids = [args.batch]
     else:
         log.error("fetch needs --run <run_id> or --batch <batch_id>")

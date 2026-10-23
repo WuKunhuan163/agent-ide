@@ -5,18 +5,18 @@ description: >-
   push/pull/edit/monitor, live log streaming from a running kernel, dataset
   upload, Chrome-isolated notebook open. Read this skill when the user says a
   notebook finished or has results, when a notebook or dataset must be pushed to
-  Kaggle, when progress of a running kernel must be read locally, when a Kaggle
-  page must be opened, when a GPU notebook needs a human Run All, or when the
-  user asks to check Kaggle quota/account state.
+  Kaggle, when a GPU notebook must be pushed and left to run unattended, when
+  progress of a running kernel must be read locally, when a Kaggle page must be
+  opened, or when the user asks to check Kaggle quota/account state.
 ---
 
 # kaggle
 
 This skill exists so the agent never hand-writes `kaggle` CLI calls. It wraps
 the official `kaggle` CLI, keeps one Kaggle account bound to one agent id, and
-enforces contracts the raw CLI does not: the GPU anti-P100 protocol
-(switchable via `config --gpu-interlock`), the
-artifact-acceptance flow, and two passthrough refusals.
+enforces contracts the raw CLI does not: the background-push protocol
+(unattended GPU runs), the artifact-acceptance flow, and two passthrough
+refusals.
 
 ## What it is actually for
 
@@ -25,10 +25,10 @@ Five capabilities, in the order they get used:
 | Capability | Command | Why the raw CLI is not enough |
 |---|---|---|
 | Bind one account to one agent | `config --status` / `--switch-user` | The CLI reads one global token file; this skill keeps a token pool and a per-agent binding, so two agents never fight over `~/.kaggle` |
-| Turn a local folder into a run | `notebook push <dir>` | Nine gates before the API call: slug/hash resolution, placeholder expansion, GPU check injection, dataset-source validation, RUNNING-state refusal. The raw `kernels push` is refused outright precisely because it skips them |
+| Turn a local folder into a run | `notebook push <dir>` | Nine gates before the API call: slug/hash resolution, placeholder expansion, GPU check injection, dataset-source validation **including cross-account readability** (a private dataset belongs to one account; pushing from another creates a kernel that starts a GPU session and dies at mount time), RUNNING-state refusal. The raw `kernels push` is refused outright precisely because it skips them |
 | Watch a run | `status` / `logs` / `stream` | `status` reinterprets Kaggle's misleading states (a stale ERROR over a running log becomes `RUNNING`); `stream` is the only way to read a log while it is still running |
 | Bring results back | `monitor` / Downloads-first acceptance | Artifacts land in a predictable local tree and zips are extracted in place |
-| Avoid the P100 lottery | `config --gpu-interlock on` | API pushes send `enable_gpu=false`; the injected GPU guard then marks a CPU session `AWAITING_GPU_SELECTION`, and a human picks T4 x2 |
+| Run unattended on GPU | `notebook push <dir>` (interlock off, the default) | The push keeps `enable_gpu=true`, Kaggle allocates the accelerator and starts the run by itself: no human accelerator pick, no Run All, and the ledger stays pollable by `monitor` |
 
 Everything below is detail on those five. If a task does not need one of them,
 it probably does not need this skill.
@@ -49,11 +49,31 @@ list. When the top-level word is not one of the groups this skill owns
 through to the official CLI, but only past the two passthrough gates described
 below. A missing `--id` exits 10; a missing group prints help and exits 11.
 
+## Where the push code lives
+
+One file per question, so a change has exactly one home:
+
+| Module | Answers |
+|---|---|
+| `notebook/mode.py` | what differs between a background push and a manual one |
+| `notebook/meta.py` | how `kernel-metadata.json` is read, defaulted, and reshaped for the API |
+| `notebook/gpu_guard.py` | how the CPU-session check gets injected |
+| `notebook/preflight.py` | is this metadata worth sending, and is it safe to send now |
+| `notebook/deploy.py` | the five steps: prepare, gate, push, record, follow up |
+| `notebook/report.py` | what the human is told once the push is over |
+| `notebook/openpage.py` | which page to open, and whether to open one at all |
+| `notebook/passthrough.py` | the two refused passthrough verbs |
+| `notebook/push.py` | argument parsing, nothing else |
+
+No module reads the interlock flag except `mode.py`; every other one takes a
+`PushMode`. That is what keeps "background" and "manual" from growing into each
+other's code.
+
 ## Command surface
 
 | Group | Verbs |
 |---|---|
-| `config` | `--status`, `--username <user>`, `--switch-user <user>`, `--token-file <path>`, `--verify`, `--gpu-interlock <on\|off>` |
+| `config` | `--status`, `--username <user>`, `--switch-user <user>`, `--token-file <path>`, `--verify`, `--gpu-interlock <on\|off>` (default `off`: background push; `on` means a human starts the run) |
 | `dataset` | `find <query>`, `ls \| files <owner/slug>`, `create <folder> <title>`, `version <folder> -m <msg>` |
 | `notebook` | `open`, `pull`, `edit`, `push`, `status`, `logs`, `stream`, `monitor`, `stop`, `interact` |
 | `chrome` | `check` |
@@ -64,14 +84,41 @@ Anything else is passed through to the official `kaggle` CLI unchanged.
 
 ## The paths you will actually walk
 
-**First deploy of a notebook.**
+**Default: background push.** Kaggle no longer hands out P100, so the agent's
+first choice is an unattended push: `enable_gpu=true` goes straight to the API,
+Kaggle allocates the accelerator and starts the run by itself. No human
+accelerator selection, no Run All, and the ledger is pollable immediately.
 
 ```bash
 ... config --switch-user <account>          # the account that owns the slug
-... notebook push <dir> --no-open           # builds, gates, pushes, starts the run
-... notebook status <slug>                  # RUNNING / QUEUED / AWAITING_GPU_SELECTION
+... notebook push <dir> --no-open           # gates, pushes, Kaggle starts it
+... notebook status <slug>                  # RUNNING / QUEUED
 ... notebook stream <slug> --tail 20        # live log while it runs
 ```
+
+`--no-open` is for batch deploys; drop it when the user wants the page in front
+of them. The push prints the kernel URL either way.
+
+**A fresh push has no log. Do not judge it by one.** The push returns the moment
+the API accepts the version; the kernel then queues, waits for an accelerator,
+pulls a 10-16 GB input dataset, installs dependencies, and only then prints its
+first line. For the first several minutes `notebook logs` is legitimately empty
+and `status` can read `ERROR` simply because no session exists yet. Neither is
+evidence of anything, and treating it as a failure produces exactly one outcome:
+a re-push that wastes a GPU session.
+
+So: check `status` once, then hand the waiting to `monitor` (it polls by
+itself), and go do something else. Do not `sleep` in the foreground to
+manufacture a reason to look again, and do not spend the user's time on repeated
+`logs` calls that cannot have new content. Come back when the run has had time
+to speak - or when the user asks.
+
+**Fallback: human-started run.** `config --gpu-interlock on` restores the old
+guard for the case where a session must be started by hand: the API layer is
+pushed with `enable_gpu=false`, the injected GPU check marks the CPU session
+`AWAITING_GPU_SELECTION`, and a human picks T4 x2 then Run All. Reach for it
+only when the user asks for it, or when an unattended start is unacceptable;
+it costs a wait and a `monitor` refusal.
 
 **Poll progress without holding a connection.** `stream` replays from the
 session start every call, so poll it on an interval rather than keeping one
@@ -83,10 +130,11 @@ therefore a new slug, so the previous run keeps going and burns quota. Either
 delete the old kernel (`kernels delete <user>/<slug> -y`, which also cancels its
 run) or pin the slug with `--no-hash`.
 
-**Collect results.** `monitor` downloads and extracts; on a GPU-interlock ledger
-it refuses, because a human Run All is what starts the run. When the user says a
-notebook finished, look in `~/Downloads` for `results_*.zip` first — `status`
-can still read `AWAITING_GPU_SELECTION` after the user already ran it.
+**Collect results.** `monitor` downloads and extracts. On a background push it
+polls the ledger directly; on an interlock ledger it refuses (code 12), because
+a human Run All is what starts the run. When the user says a notebook finished,
+look in `~/Downloads` for `results_*.zip` first — `status` can still read
+`AWAITING_GPU_SELECTION` after the user already ran it.
 
 **Upload the weights once.** `dataset create <folder> <title>` then
 `dataset version <folder> -m <msg>`; both keep `isPrivate: true` and refuse the
@@ -207,14 +255,16 @@ pipeline, in this order:
    warned about but not blocked.
 6. Push. The authoring metadata keeps `enable_gpu=true`, and what reaches the
    API depends on the **GPU interlock** (`config --gpu-interlock <on|off>`,
-   default `on`). On: the API layer is pushed with `enable_gpu=false` — the
-   anti-P100 protocol — the injected GPU CHECK marks the CPU session
-   `AWAITING_GPU_SELECTION`, and the human picks T4 x2 then Run All. Off: the
-   API layer is pushed with `enable_gpu` as authored, Kaggle starts the run
-   itself on its default accelerator, and `monitor` may poll it. A raw
-   `kernels push` probe with `enable_gpu=true` (2026-10-17) landed on 2 x Tesla
-   T4 and no P100, which is why this guard is now a switch rather than
-   unconditional. The authoring metadata is restored afterwards either way.
+   default `off`). Off — the preferred mode: the API layer is pushed with
+   `enable_gpu` as authored, so Kaggle allocates the accelerator and starts the
+   run itself; there is no accelerator step and no Run All, and `monitor` may
+   poll the ledger straight away. On — the legacy guard, only for a run that a
+   human must start: the API layer is pushed with `enable_gpu=false`, the
+   injected GPU CHECK marks the CPU session `AWAITING_GPU_SELECTION`, and the
+   human picks T4 x2 then Run All. Kaggle no longer assigns P100, so the guard
+   has nothing left to defend against; a raw `kernels push` probe with
+   `enable_gpu=true` (2026-10-17) landed on 2 x Tesla T4. The authoring metadata
+   is restored afterwards either way.
 7. Pull the pushed metadata back and warn if any `dataset_source` did not land.
 8. Print the post-push guidance (slug, the `notebook open` command, the
    acceptance steps) *even when the push exits non-zero*, because a non-zero
@@ -257,12 +307,17 @@ notebook gets declared without a full re-deploy.
 
 `status` reads the kernel state and classifies it before reporting. The
 classification is deliberately forgiving, because Kaggle's own answers are
-misleading in two common cases: a stale `ERROR` left by an earlier CPU session
-while the log shows training progressing is reported as `RUNNING`, and a
-notebook that hit its own CPU-only guard is reported as `AWAITING_GPU_SELECTION`
-with a banner telling the human to pick T4 x2 and Run All. A real `ERROR`
-returns code 35; everything else, including `AWAITING_GPU_SELECTION`, returns 0.
-A 404 is read as `QUEUED`; 401/500 fall back to reading the log.
+misleading in three common cases: a stale `ERROR` left by an earlier CPU session
+while the log shows training progressing is reported as `RUNNING`; a notebook
+that hit its own CPU-only guard is reported as `AWAITING_GPU_SELECTION` with a
+banner telling the human to pick T4 x2 and Run All; and a kernel pushed seconds
+ago, still queued or still pulling its dataset, also answers `ERROR` because no
+session exists yet. That last one is why a fresh push must not be judged by its
+`status` or its log - give it the time to mount, then look. The
+`AWAITING_GPU_SELECTION` case only exists on an interlock-on ledger; a background
+push starts on the accelerator Kaggle picked and never lands there. A real
+`ERROR` returns code 35; everything else, including `AWAITING_GPU_SELECTION`,
+returns 0. A 404 is read as `QUEUED`; 401/500 fall back to reading the log.
 
 `status` also prints when the run started and how long it has been going:
 
@@ -306,12 +361,11 @@ alongside it.
 `monitor` polls the status (5s while running, 10s before it starts) while
 streaming `logs -f` (unless `--no-logs`), and once the run reaches `COMPLETE`
 downloads the artifacts through the whitelisted `kernels output` path into
-`runtime/output/<slug>` (or `-d`) and extracts any zips in place. It refuses
-GPU-ledger notebooks outright (code 12) — while the interlock is `on`, because
-then a human Run All is what starts the run; with the interlock `off` the ledger
-no longer means that and the refusal does not fire — and tells the agent to stop monitoring
-and align with the human instead — a GPU notebook needs a human Run All, so
-polling it is pointless.
+`runtime/output/<slug>` (or `-d`) and extracts any zips in place. On a
+background push it is the normal way to collect: the ledger is a real
+API-started session, so nothing blocks it. It refuses an interlock-on GPU ledger
+outright (code 12), because there a human Run All is what starts the run and
+polling would wait forever.
 
 ### stop
 
@@ -321,9 +375,11 @@ polling it is pointless.
 
 **The API cannot stop a run.** The `kaggle` client has no cancel call; `kernels
 delete` is the only verb that ends one, and it deletes the kernel with it —
-versions and output included — so it is not a stop. For an interlock push there
-is not even that: the API layer is CPU-only and the GPU session was started by a
-human pressing Run All, so the tool holds no handle at all.
+versions and output included — so it is not a stop. On a background push that is
+still the only handle, and it kills the kernel along with the session. For an
+interlock push there is not even that: the API layer is CPU-only and the GPU
+session was started by a human pressing Run All, so the tool holds no handle at
+all.
 
 `stop` therefore does the only thing that works: it writes a one-sentence page
 into the agent's runtime dir and opens it in the isolated Chrome profile, with a
@@ -464,9 +520,10 @@ stand in front of it:
 
 1. **`kernels push` is refused.** It is the one forbidden verb, because
    pushing through the raw CLI would bypass the push gates that only
-   `notebook push` implements — the GPU protocol among them. Turning the
-   interlock `off` changes what those gates do, not whether they exist: the
-   refusal stands either way. It points the agent at
+   `notebook push` implements — slug and dataset-source resolution, the GPU
+   check injection, the RUNNING-state refusal. Turning the interlock `off`
+   changes how the pushed metadata is assembled, not whether those gates run:
+   the refusal stands either way. It points the agent at
    `notebook push` / `notebook edit`.
 2. **`kernels output` is reserved for `monitor`.** A routine call is refused;
    the only sanctioned caller is `monitor`'s artifact recovery. A human who
@@ -504,6 +561,8 @@ re-register command.
 
 ## Interaction with other skills
 
-`contact-user` is the channel for anything that needs the human: a GPU notebook
-waiting on Run All, a corrupt Chrome profile, a quota wall, or the report that a
-notebook finished. The `kaggle` skill never opens a chat panel of its own.
+`contact-user` is the channel for anything that needs the human: a corrupt
+Chrome profile, a quota wall, an interlock run waiting on Run All, or the report
+that a notebook finished. A background push needs none of it — it is chosen
+precisely so the agent does not have to stop and ask. The `kaggle` skill never
+opens a chat panel of its own.

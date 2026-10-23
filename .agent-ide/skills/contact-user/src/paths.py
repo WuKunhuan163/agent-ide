@@ -20,6 +20,16 @@ def project_root() -> Path:
     raise RuntimeError("cannot find project root (no .agent-tools/ above this package)")
 
 
+def resolve_arg(raw: str) -> Path:
+    """A path typed on the command line (`--out`, `--archive`, `--summary`).
+
+    Relative means "relative to the project root", never to the shell's cwd:
+    the same command must land in the same file from any directory.
+    """
+    path = Path(raw).expanduser()
+    return path if path.is_absolute() else project_root() / path
+
+
 def pkg_dir() -> Path:
     return Path(__file__).resolve().parent.parent
 
@@ -39,8 +49,12 @@ def stamp() -> str:
 
 
 def input_text(agent_id: str, kind: str) -> Path:
-    """`kind` is `contact` or `commit`."""
-    return data("input", f"{kind}_msg_{agent_id}.txt")
+    """`kind` is `contact` or `commit`. 一人一目录：data/input/<id>/<kind>_msg.txt
+
+    目录按 id 分开，是为了让同一台机器上的多个 agent 不必靠文件名后缀区分，
+    也免得把 id 拼进文件名再解析回来。
+    """
+    return data("input", agent_id, f"{kind}_msg.txt")
 
 
 def archived(agent_id: str, kind: str, ts: str | None = None) -> Path:

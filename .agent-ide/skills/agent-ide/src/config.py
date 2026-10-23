@@ -45,7 +45,12 @@ def _section(cfg: dict, key: str) -> dict:
 
 
 def _expand(raw: str) -> Path:
-    return Path(str(raw)).expanduser().resolve()
+    """A configured path: `~` and absolute pass through; a relative one is read
+    against this tool's own project, never the shell's cwd."""
+    path = Path(str(raw)).expanduser()
+    if path.is_absolute():
+        return path.resolve()
+    return (paths.project_root() / path).resolve()
 
 
 def valid_global_home(raw: str | None) -> Path | None:

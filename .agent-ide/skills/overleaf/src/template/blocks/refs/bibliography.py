@@ -9,7 +9,7 @@ class Block(BaseBlock):
         style = self.content.get('style', 'ieeetr')
         
         # Write references.bib to the output directory
-        out_dir = self.content.get('_output_dir', os.getcwd())
+        out_dir = self.content.get('_output_dir') or self.content.get('_project_dir')
             
         os.makedirs(out_dir, exist_ok=True)
         with open(os.path.join(out_dir, "references.bib"), "w", encoding="utf-8") as f:

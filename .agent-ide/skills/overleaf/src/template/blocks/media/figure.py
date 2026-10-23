@@ -40,7 +40,7 @@ class Block(BaseBlock):
         # Resolve and copy to export/assets
         import os
         import shutil
-        actual_path_base = self.content.get('_output_dir', os.getcwd())
+        actual_path_base = self.content.get('_output_dir') or self.content.get('_project_dir')
         project_dir = self.content.get('_project_dir', actual_path_base)
         input_dir = os.path.join(project_dir, "input")
         assets_dir = os.path.join(actual_path_base, "assets")

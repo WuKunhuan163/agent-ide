@@ -22,7 +22,7 @@ import time
 
 import requests
 
-from src.paths import data_dir
+from src.paths import data_dir, resolve_arg
 
 BROWSER_UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
@@ -158,7 +158,7 @@ def main_download(argv: list[str]) -> int:
     )
     parser.add_argument("--from", dest="source", required=True,
                         help="result JSON: openalex data/results/*.json or arxiv data/fetch/results/*.json")
-    parser.add_argument("--out", default=None, help="destination directory (default data/pdfs)")
+    parser.add_argument("--out", default=None, help="destination directory (default data/pdfs; a relative path is read against the project root)")
     parser.add_argument("--limit", type=int, default=0, help="stop after N files (0 = all)")
     parser.add_argument("--delay", type=float, default=1.2, help="seconds between requests")
     parser.add_argument("--retries", type=int, default=3)
@@ -176,7 +176,7 @@ def main_download(argv: list[str]) -> int:
         print(f"[WARN] no pdf url in {args.source}", file=sys.stderr)
         return 1
 
-    dest = args.out or os.path.join(data_dir(), "pdfs")
+    dest = resolve_arg(args.out) if args.out else os.path.join(data_dir(), "pdfs")
     if args.dry_run:
         for r in records:
             print(f"{r['url']}  <-  {r['title'][:60]}")

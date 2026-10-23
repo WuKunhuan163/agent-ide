@@ -15,7 +15,7 @@ import os
 
 from src.config.config import load_config, save_config
 from src.exit_codes import AUTH_NO_ACCOUNT, AUTH_TOKEN_MISSING, IdentityError
-from src.paths import require_ctx
+from src.paths import require_ctx, resolve_arg
 
 TOKEN_NAME = "kaggle.json"
 SETTINGS_URL = "https://www.kaggle.com/settings/api"
@@ -72,7 +72,7 @@ def bind(username: str) -> None:
 
 def register_token(src_path: str) -> str:
     """Copy a downloaded kaggle.json into the shared pool; return its Kaggle username."""
-    src = os.path.expanduser(src_path)
+    src = resolve_arg(src_path)
     if not os.path.isfile(src):
         raise IdentityError(AUTH_TOKEN_MISSING, f"Token file not found: {src}")
     try:

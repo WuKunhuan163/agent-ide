@@ -24,10 +24,16 @@ from src.errors import AgentIdeError, Exit, fail
 
 
 def _project(args: argparse.Namespace) -> Path:
-    """The project a command acts on: `--project`, else the script's own."""
+    """The project a command acts on: `--project`, else the script's own.
+
+    A relative `--project` is read against this script's own project, not the
+    shell's cwd: the same command must name the same project from anywhere.
+    """
+    own = paths.project_root(Path(__file__))
     if args.project:
-        return Path(args.project).expanduser().resolve()
-    return paths.project_root(Path(__file__))
+        raw = Path(args.project).expanduser()
+        return raw.resolve() if raw.is_absolute() else (own / raw).resolve()
+    return own
 
 
 def cmd_install(args: argparse.Namespace) -> None:

@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .ide.base import Message, SessionStore, iso
+from .paths import resolve_arg
 
 
 # ------------------------------------------------------------------- rendering
@@ -157,7 +158,7 @@ def emit(text: str, out: str | None = None) -> None:
         except BrokenPipeError:  # a closed pipe is not an error of this tool
             pass
         return
-    path = Path(out).expanduser()
+    path = resolve_arg(out)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
     print(f"contact-user: -> {path} {human_size(len(text))}", file=sys.stderr)

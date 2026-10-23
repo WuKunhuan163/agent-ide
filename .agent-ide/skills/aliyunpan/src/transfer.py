@@ -33,6 +33,8 @@ from pathlib import Path
 
 import requests
 
+from . import paths
+
 from . import remote, scheduler
 from .errors import PanError, TransferFailed
 from .paths import resume_path
@@ -274,7 +276,7 @@ def download(session: Session, remote_file: str, local_dir: str, *, force: bool 
     if item.get("type") == "folder":
         raise TransferFailed(f"{remote_file} is a folder; download its files individually")
     size = int(item.get("size") or 0)
-    target = Path(local_dir).expanduser() / item["name"]
+    target = paths.resolve_arg(local_dir) / item["name"]
     if target.exists() and not force:
         raise TransferFailed(f"{target} exists; pass --force to replace it")
     target.parent.mkdir(parents=True, exist_ok=True)
