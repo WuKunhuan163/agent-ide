@@ -55,7 +55,7 @@ below. A missing `--id` exits 10; a missing group prints help and exits 11.
 |---|---|
 | `config` | `--status`, `--username <user>`, `--switch-user <user>`, `--token-file <path>`, `--verify`, `--gpu-interlock <on\|off>` |
 | `dataset` | `find <query>`, `ls \| files <owner/slug>`, `create <folder> <title>`, `version <folder> -m <msg>` |
-| `notebook` | `open`, `pull`, `edit`, `push`, `status`, `logs`, `stream`, `monitor` |
+| `notebook` | `open`, `pull`, `edit`, `push`, `status`, `logs`, `stream`, `monitor`, `stop` |
 | `chrome` | `check` |
 | `runtime` | `path [kind] [name] [--ensure]`, `ensure` |
 | `quota` | `set <user> [--gpu <t>] [--tpu <t>]`, `show [--username <user>]` |
@@ -312,6 +312,32 @@ then a human Run All is what starts the run; with the interlock `off` the ledger
 no longer means that and the refusal does not fire — and tells the agent to stop monitoring
 and align with the human instead — a GPU notebook needs a human Run All, so
 polling it is pointless.
+
+### stop
+
+```bash
+... notebook stop <slug> [--no-open]
+```
+
+**The API cannot stop a run.** The `kaggle` client has no cancel call; `kernels
+delete` is the only verb that ends one, and it deletes the kernel with it —
+versions and output included — so it is not a stop. For an interlock push there
+is not even that: the API layer is CPU-only and the GPU session was started by a
+human pressing Run All, so the tool holds no handle at all.
+
+`stop` therefore does the only thing that works: it writes a one-sentence page
+into the agent's runtime dir and opens it in the isolated Chrome profile, with a
+button that lands on the kernel editor where `Stop Session` sits. The agent says
+which run to kill and why it cannot; the human clicks.
+
+| | |
+|---|---|
+| page | `data/agents/<id>/runtime/stop_<owner>__<slug>.html` |
+| not running | prints the classified state and exits 0, no page |
+| `--no-open` | writes the page but does not launch Chrome |
+
+Exit code is 0 in every case: a stop that needs a human is not a failure, and
+code 35 is reserved for a run that actually errored.
 
 ### The Downloads acceptance flow
 
