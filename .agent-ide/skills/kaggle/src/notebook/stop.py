@@ -21,57 +21,16 @@ quota.
 from __future__ import annotations
 
 import argparse
-import html
-import os
+import sys
 
 from src import identity, kaggle_exec, paths
 from src.chrome.browser import launch_browser
 from src.exit_codes import OK
 from src.kaggle_exec import failure_output
-from src.notebook import observe
+from src.notebook import observe, page
 from src.notebook.refs import resolve_notebook_args
 
 RUNNING_STATES = {"RUNNING", "QUEUED", "AWAITING_GPU_SELECTION"}
-
-_PAGE = """<!doctype html>
-<meta charset="utf-8">
-<title>stop {ref}</title>
-<style>
-  html, body {{ height: 100%; margin: 0; }}
-  body {{
-    display: flex; flex-direction: column; gap: 32px;
-    align-items: center; justify-content: center; text-align: center;
-    background: #101112; color: #f2f2f2;
-    font: 20px/1.6 -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
-  }}
-  h1 {{ font-size: 30px; font-weight: 600; margin: 0; max-width: 24ch; }}
-  a {{
-    background: #f5c518; color: #101112; text-decoration: none;
-    font-weight: 600; padding: 14px 30px; border-radius: 8px;
-  }}
-  a:hover {{ background: #ffd84d; }}
-</style>
-<h1>Stop the run of {ref}</h1>
-<a href="{url}">Open kernel → Stop Session</a>
-"""
-
-
-def _kernel_url(notebook: str) -> str:
-    owner, _, slug = notebook.partition("/")
-    return f"https://www.kaggle.com/code/{owner}/{slug}"
-
-
-def _write_page(notebook: str) -> str:
-    """Write the one-sentence page under the agent's runtime dir; return its path."""
-    ctx = paths.require_ctx()
-    os.makedirs(ctx.runtime_dir, exist_ok=True)
-    target = os.path.join(ctx.runtime_dir, f"stop_{notebook.replace('/', '__')}.html")
-    with open(target, "w", encoding="utf-8") as handle:
-        handle.write(
-            _PAGE.format(ref=html.escape(notebook), url=html.escape(_kernel_url(notebook)))
-        )
-    return target
-
 
 def _current_state(notebook: str, username: str, token: dict) -> str:
     """Classified state, using the same rules as ``notebook status``."""
@@ -97,19 +56,25 @@ def cmd_notebook_stop(args: argparse.Namespace) -> int:
         print(f'{notebook} has status "{status}" — nothing to stop.')
         return OK
 
-    page = _write_page(notebook)
+    target = page.write_page(
+        kind="stop",
+        ref=notebook,
+        headline=f"Stop the run of {notebook}",
+        url=page.kernel_url(notebook),
+        button="Open kernel → Stop Session",
+    )
     opened = True
     if getattr(args, "open_page", True):
         try:
-            launch_browser(f"file://{page}", account=username)
+            launch_browser(f"file://{target}", account=username)
         except identity.IdentityError as exc:
             opened = False
-            print(f"[WARN] could not open Chrome: {exc}", file=__import__("sys").stderr)
+            print(f"[WARN] could not open Chrome: {exc}", file=sys.stderr)
 
     clock = observe._kernel_started_local(notebook, username, token)[0]
     stamp = f" (started {clock:%H:%M:%S})" if clock is not None else ""
     print(f"{notebook}: {status}{stamp}")
-    print(f"page:   {page}")
+    print(f"page:   {target}")
     if opened:
         print('action: open the page, press "Stop Session"')
     else:

@@ -13,7 +13,7 @@ import argparse
 from src import identity
 from src.chrome.browser import launch_browser, preflight_chrome_open
 from src.exit_codes import INPUT_USAGE, OK
-from src.notebook import observe, pull, push, stop, stream
+from src.notebook import interact, observe, pull, push, stop, stream
 from src.notebook.refs import resolve_open_target
 
 
@@ -24,6 +24,7 @@ def register_notebook(groups) -> None:
     observe.register_observe(verbs)
     stream.register_stream(verbs)
     stop.register_stop(verbs)
+    interact.register_interact(verbs)
     pull.register_pull(verbs)
     push.register_push(verbs)
 
@@ -43,6 +44,8 @@ def cmd_notebook(args: argparse.Namespace) -> int:
         return stream.cmd_notebook_stream(args)
     if verb == "monitor":
         return observe.cmd_notebook_monitor(args)
+    if verb == "interact":
+        return interact.cmd_notebook_interact(args)
     if verb == "stop":
         return stop.cmd_notebook_stop(args)
     if verb == "pull":

@@ -55,7 +55,7 @@ below. A missing `--id` exits 10; a missing group prints help and exits 11.
 |---|---|
 | `config` | `--status`, `--username <user>`, `--switch-user <user>`, `--token-file <path>`, `--verify`, `--gpu-interlock <on\|off>` |
 | `dataset` | `find <query>`, `ls \| files <owner/slug>`, `create <folder> <title>`, `version <folder> -m <msg>` |
-| `notebook` | `open`, `pull`, `edit`, `push`, `status`, `logs`, `stream`, `monitor`, `stop` |
+| `notebook` | `open`, `pull`, `edit`, `push`, `status`, `logs`, `stream`, `monitor`, `stop`, `interact` |
 | `chrome` | `check` |
 | `runtime` | `path [kind] [name] [--ensure]`, `ensure` |
 | `quota` | `set <user> [--gpu <t>] [--tpu <t>]`, `show [--username <user>]` |
@@ -338,6 +338,38 @@ which run to kill and why it cannot; the human clicks.
 
 Exit code is 0 in every case: a stop that needs a human is not a failure, and
 code 35 is reserved for a run that actually errored.
+
+### interact
+
+```bash
+... notebook interact <slug> --text "<one sentence>" [--url <url>] [--button <label>] [--no-open]
+```
+
+**For everything the API cannot do on the user's behalf.** Chrome refusing a
+second download, a licence checkbox, an accelerator pick, a captcha: none of
+these is a failure, but all of them used to leave the agent guessing whether the
+artifact existed at all.
+
+`interact` makes the ask an object instead of a silence: a page carrying the
+sentence the caller passed, the kernel it belongs to, and one button to get
+there. Same shape as `stop` — both write through `src/notebook/page.py`, so
+there is one template to keep readable.
+
+```
+keffwu/kolors-front-logo-fe3f5d: INTERACT
+text:   Allow Chrome to save multiple files
+page:   .../runtime/interact_keffwu__kolors-front-logo-fe3f5d.html
+action: perform the instruction in the page, then press the button
+wait:   blocked until the instruction is done
+```
+
+`--text` is required: a page with no instruction is worse than no page. The page
+lands at `data/agents/<id>/runtime/interact_<owner>__<slug>.html`, so a week
+later the ask is still on disk with the kernel it referred to.
+
+Use it the moment the need is known — before concluding "no artifact was
+produced". The failure mode it prevents is the agent reporting an empty result
+because a download was waiting on a permission prompt nobody saw.
 
 ### The Downloads acceptance flow
 
