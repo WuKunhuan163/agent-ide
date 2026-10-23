@@ -39,7 +39,7 @@ below. A missing `--id` exits 10; a missing group prints help and exits 11.
 |---|---|
 | `config` | `--status`, `--username <user>`, `--switch-user <user>`, `--token-file <path>`, `--verify`, `--gpu-interlock <on\|off>` |
 | `dataset` | `find <query>`, `ls \| files <owner/slug>`, `create <folder> <title>`, `version <folder> -m <msg>` |
-| `notebook` | `open`, `pull`, `edit`, `push`, `status`, `logs`, `monitor` |
+| `notebook` | `open`, `pull`, `edit`, `push`, `status`, `logs`, `stream`, `monitor` |
 | `chrome` | `check` |
 | `runtime` | `path [kind] [name] [--ensure]`, `ensure` |
 | `quota` | `set <user> [--gpu <t>] [--tpu <t>]`, `show [--username <user>]` |
@@ -113,7 +113,7 @@ verb; `notebook push --local-dataset` calls it and writes the returned
 
 ## Notebook group
 
-Verbs: `open`, `pull`, `edit`, `push`, `status`, `logs`, `monitor`.
+Verbs: `open`, `pull`, `edit`, `push`, `status`, `logs`, `stream`, `monitor`.
 
 A notebook can be named three interchangeable ways — `user/slug`, `user:slug`,
 or a bare `slug`. A bare slug is resolved through the event log for `open`
@@ -200,11 +200,12 @@ handles both `kernel_type` values: an `.ipynb` gets a new trailing code cell, a
 rewrites the authoring metadata's `enable_gpu` to true, which is how a GPU
 notebook gets declared without a full re-deploy.
 
-### status / logs / monitor
+### status / logs / stream / monitor
 
 ```bash
 ... notebook status <slug>
 ... notebook logs <slug> [-f|--follow]
+... notebook stream <slug> [--timeout 20] [--grep <regex>] [--tail <n>]
 ... notebook monitor <slug> [-d <download_dir>] [--no-logs]
 ```
 
@@ -219,6 +220,29 @@ A 404 is read as `QUEUED`; 401/500 fall back to reading the log.
 
 `logs` prints the kernel log, unwrapping the JSON log envelope, and tolerates
 the 404 a just-pushed kernel returns while it is still registering.
+
+`stream` is the only way to read a log **while the kernel is still RUNNING**.
+`kaggle kernels logs` reads the finished session and returns an empty body until
+then; `stream` goes to the midtier SSE endpoint instead:
+
+    GET https://www.kaggle.com/api/v1/kernels/logs/stream/{owner}/{slug}
+
+with the account's kaggle.json as basic auth. Two properties decide how to use
+it. **It replays from the session start on every call** — the command reads
+"the log so far", it does not resume a cursor, so callers poll it rather than
+holding one connection for an hour. **Silence is normal** — a notebook that
+prints only at arm boundaries looks idle for minutes, so the command always ends
+with a line stating how long it listened and how many events arrived, which is
+what separates "nothing new" from "stream broken". `--timeout` bounds the listen
+(default 20 s), `--grep` filters, `--tail n` buffers and prints only the last n
+matching lines. A 404 means the kernel has no session yet and returns 0, like
+`logs`; 401 returns 22, while 403 is reported as a possible missing/private
+slug *or* a stale token (Kaggle answers the same code for both), so it returns 52.
+
+Polling pattern: `stream --tail 5` every minute or two, rather than one long
+connection. Note that a notebook which prints nothing between arms produces no
+new events, so the absence of lines is not evidence of a stall — check `status`
+alongside it.
 
 `monitor` polls the status (5s while running, 10s before it starts) while
 streaming `logs -f` (unless `--no-logs`), and once the run reaches `COMPLETE`

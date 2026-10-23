@@ -13,7 +13,7 @@ import argparse
 from src import identity
 from src.chrome.browser import launch_browser, preflight_chrome_open
 from src.exit_codes import INPUT_USAGE, OK
-from src.notebook import observe, pull, push
+from src.notebook import observe, pull, push, stream
 from src.notebook.refs import resolve_open_target
 
 
@@ -22,6 +22,7 @@ def register_notebook(groups) -> None:
     verbs = notebook.add_subparsers(dest="nb_cmd", metavar="<cmd>")
 
     observe.register_observe(verbs)
+    stream.register_stream(verbs)
     pull.register_pull(verbs)
     push.register_push(verbs)
 
@@ -37,6 +38,8 @@ def cmd_notebook(args: argparse.Namespace) -> int:
         return observe.cmd_notebook_status(args)
     if verb == "logs":
         return observe.cmd_notebook_logs(args)
+    if verb == "stream":
+        return stream.cmd_notebook_stream(args)
     if verb == "monitor":
         return observe.cmd_notebook_monitor(args)
     if verb == "pull":
@@ -49,7 +52,7 @@ def cmd_notebook(args: argparse.Namespace) -> int:
         return cmd_notebook_open(args)
     raise identity.IdentityError(
         INPUT_USAGE,
-        "notebook: pick a subcommand (status / logs / monitor / pull / edit / push / open).",
+        "notebook: pick a subcommand (status / logs / stream / monitor / pull / edit / push / open).",
     )
 
 
