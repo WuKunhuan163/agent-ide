@@ -16,6 +16,9 @@ so an API ERROR for such a notebook is expected by construction.
 from __future__ import annotations
 
 import argparse
+import csv
+import datetime
+import io
 import json
 import os
 import platform
@@ -108,8 +111,73 @@ def _classify_kernel_state(
     return api_status, None
 
 
-def _print_kernel_state_banner(notebook: str, status: str, note: str | None = None) -> None:
+def _kernel_started_local(
+    notebook: str, username: str, token: dict
+) -> tuple[datetime.datetime | None, str | None]:
+    """Start time of the newest run, localised, plus the raw API text.
+
+    Kaggle prints ``lastRunTime`` in UTC and labels nothing. Reading it as local
+    time is exactly how a 26-minute run becomes an "8-hour stall", so the
+    timestamp is stamped UTC here and only then converted. Best effort: any
+    failure returns ``(None, None)`` and the banner simply omits the clock.
+    """
+    proc = kaggle_exec.run_kaggle(
+        ["kernels", "list", "-m", "--csv", "--page-size", "50"],
+        username=username,
+        token=token,
+    )
+    if proc.returncode != 0:
+        return None, None
+    # the CLI prints its "outdated version" warning on stdout, not stderr, so the
+    # header row is not necessarily line 0
+    lines = (proc.stdout or "").splitlines()
+    header = next((i for i, line in enumerate(lines) if line.startswith("ref,")), None)
+    if header is None:
+        return None, None
+    for row in csv.DictReader(io.StringIO("\n".join(lines[header:]))):
+        if (row.get("ref") or "").strip() != notebook:
+            continue
+        raw = (row.get("lastRunTime") or "").strip()
+        for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
+            try:
+                utc = datetime.datetime.strptime(raw, fmt).replace(
+                    tzinfo=datetime.timezone.utc
+                )
+            except ValueError:
+                continue
+            return utc.astimezone(), raw
+    return None, None
+
+
+def _print_run_clock(
+    notebook: str, status: str, username: str | None, token: dict | None
+) -> None:
+    """``started <local> · running HH:MM`` — the clock the API does not give."""
+    if not username or not token:
+        return
+    started, _raw = _kernel_started_local(notebook, username, token)
+    if started is None:
+        return
+    offset = started.strftime("%z")
+    zone = f"UTC{offset[:3]}:{offset[3:]}" if offset else "local"
+    line = f"  started {started:%Y-%m-%d %H:%M:%S} {zone}"
+    if status in {"RUNNING", "QUEUED", "AWAITING_GPU_SELECTION"}:
+        now = datetime.datetime.now(datetime.timezone.utc)
+        minutes = max(int((now - started).total_seconds() // 60), 0)
+        line += f" · running {minutes // 60:02d}:{minutes % 60:02d}"
+    print(line)
+
+
+def _print_kernel_state_banner(
+    notebook: str,
+    status: str,
+    note: str | None = None,
+    *,
+    username: str | None = None,
+    token: dict | None = None,
+) -> None:
     print(f'{notebook} has status "{status}"')
+    _print_run_clock(notebook, status, username, token)
     if note:
         print(f"[INFO] {note}")
     if status == "AWAITING_GPU_SELECTION":
@@ -153,7 +221,7 @@ def cmd_notebook_logs(args: argparse.Namespace) -> int:
         print(f"\n[INFO] Interpreted status: {status}")
         print(f"[INFO] {note}")
     if status == "AWAITING_GPU_SELECTION":
-        _print_kernel_state_banner(notebook, status, note)
+        _print_kernel_state_banner(notebook, status, note, username=username, token=token)
         return OK
     if status == "RUNNING" and api_status == "ERROR":
         return OK
@@ -200,7 +268,7 @@ def cmd_notebook_status(args: argparse.Namespace) -> int:
     )
 
     update_notebook_state(username, notebook, status)
-    _print_kernel_state_banner(notebook, status, note)
+    _print_kernel_state_banner(notebook, status, note, username=username, token=token)
     return KERNEL_FAILED if status == "ERROR" else OK
 
 

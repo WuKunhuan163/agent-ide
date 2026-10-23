@@ -264,6 +264,19 @@ with a banner telling the human to pick T4 x2 and Run All. A real `ERROR`
 returns code 35; everything else, including `AWAITING_GPU_SELECTION`, returns 0.
 A 404 is read as `QUEUED`; 401/500 fall back to reading the log.
 
+`status` also prints when the run started and how long it has been going:
+
+```
+keffwu/kolors-front-logo-fe3f5d has status "RUNNING"
+  started 2026-10-23 09:44:39 UTC+08:00 · running 00:26
+```
+
+The second line exists because **Kaggle reports `lastRunTime` in UTC and says so
+nowhere**. Read as local time, a 26-minute run looks like an 8-hour stall — that
+mistake has already been made once. The clock is stamped UTC at parse time and
+converted only afterwards; the offset is printed so a screenshot cannot be
+misread again.
+
 `logs` prints the kernel log, unwrapping the JSON log envelope, and tolerates
 the 404 a just-pushed kernel returns while it is still registering.
 
