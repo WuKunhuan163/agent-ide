@@ -107,21 +107,14 @@ def cmd_notebook_stop(args: argparse.Namespace) -> int:
             print(f"[WARN] could not open Chrome: {exc}", file=__import__("sys").stderr)
 
     clock = observe._kernel_started_local(notebook, username, token)[0]
-    print(f'{notebook} has status "{status}"')
-    if clock is not None:
-        print(f"  started {clock:%Y-%m-%d %H:%M:%S}")
-    print()
-    print("=" * 72)
-    print("[ACTION REQUIRED] stop a run the API cannot stop")
-    print(f"  Page:   {page}")
-    if not opened:
-        print("  Open that file manually — Chrome did not start.")
-    print("  Human:  on the page, press Stop Session (top right of the kernel editor).")
-    print()
-    print("  The kaggle client has no cancel call. `kernels delete` would end the run")
-    print("  by deleting the kernel — versions and output with it — so this command")
-    print("  deliberately does not do that.")
-    print("=" * 72)
+    stamp = f" (started {clock:%H:%M:%S})" if clock is not None else ""
+    print(f"{notebook}: {status}{stamp}")
+    print(f"page:   {page}")
+    if opened:
+        print('action: open the page, press "Stop Session"')
+    else:
+        print("action: open the page yourself (Chrome did not start), press \"Stop Session\"")
+    print("note:   no API cancel; `kernels delete` would drop the kernel too")
     return OK
 
 
