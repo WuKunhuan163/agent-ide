@@ -2,11 +2,12 @@
 name: kaggle
 description: >-
   Kaggle API helper for this repo: one Kaggle account per agent id, notebook
-  push/pull/edit/monitor, dataset upload, Chrome-isolated notebook open. Read
-  this skill when the user says a notebook finished or has results, when a
-  notebook or dataset must be pushed to Kaggle, when a Kaggle page must be
-  opened, when a GPU notebook needs a human Run All, or when the user asks to
-  check Kaggle quota/account state.
+  push/pull/edit/monitor, live log streaming from a running kernel, dataset
+  upload, Chrome-isolated notebook open. Read this skill when the user says a
+  notebook finished or has results, when a notebook or dataset must be pushed to
+  Kaggle, when progress of a running kernel must be read locally, when a Kaggle
+  page must be opened, when a GPU notebook needs a human Run All, or when the
+  user asks to check Kaggle quota/account state.
 ---
 
 # kaggle
@@ -16,6 +17,21 @@ the official `kaggle` CLI, keeps one Kaggle account bound to one agent id, and
 enforces contracts the raw CLI does not: the GPU anti-P100 protocol
 (switchable via `config --gpu-interlock`), the
 artifact-acceptance flow, and two passthrough refusals.
+
+## What it is actually for
+
+Five capabilities, in the order they get used:
+
+| Capability | Command | Why the raw CLI is not enough |
+|---|---|---|
+| Bind one account to one agent | `config --status` / `--switch-user` | The CLI reads one global token file; this skill keeps a token pool and a per-agent binding, so two agents never fight over `~/.kaggle` |
+| Turn a local folder into a run | `notebook push <dir>` | Nine gates before the API call: slug/hash resolution, placeholder expansion, GPU check injection, dataset-source validation, RUNNING-state refusal. The raw `kernels push` is refused outright precisely because it skips them |
+| Watch a run | `status` / `logs` / `stream` | `status` reinterprets Kaggle's misleading states (a stale ERROR over a running log becomes `RUNNING`); `stream` is the only way to read a log while it is still running |
+| Bring results back | `monitor` / Downloads-first acceptance | Artifacts land in a predictable local tree and zips are extracted in place |
+| Avoid the P100 lottery | `config --gpu-interlock on` | API pushes send `enable_gpu=false`; the injected GPU guard then marks a CPU session `AWAITING_GPU_SELECTION`, and a human picks T4 x2 |
+
+Everything below is detail on those five. If a task does not need one of them,
+it probably does not need this skill.
 
 ## Entry point
 
@@ -46,6 +62,36 @@ below. A missing `--id` exits 10; a missing group prints help and exits 11.
 
 Anything else is passed through to the official `kaggle` CLI unchanged.
 
+## The paths you will actually walk
+
+**First deploy of a notebook.**
+
+```bash
+... config --switch-user <account>          # the account that owns the slug
+... notebook push <dir> --no-open           # builds, gates, pushes, starts the run
+... notebook status <slug>                  # RUNNING / QUEUED / AWAITING_GPU_SELECTION
+... notebook stream <slug> --tail 20        # live log while it runs
+```
+
+**Poll progress without holding a connection.** `stream` replays from the
+session start every call, so poll it on an interval rather than keeping one
+open. Silence between arm boundaries is normal; the closing `[INFO] listened …`
+line is what distinguishes "nothing new" from "stream broken".
+
+**Re-deploy after a config change.** `push` mints a fresh six-character hash and
+therefore a new slug, so the previous run keeps going and burns quota. Either
+delete the old kernel (`kernels delete <user>/<slug> -y`, which also cancels its
+run) or pin the slug with `--no-hash`.
+
+**Collect results.** `monitor` downloads and extracts; on a GPU-interlock ledger
+it refuses, because a human Run All is what starts the run. When the user says a
+notebook finished, look in `~/Downloads` for `results_*.zip` first — `status`
+can still read `AWAITING_GPU_SELECTION` after the user already ran it.
+
+**Upload the weights once.** `dataset create <folder> <title>` then
+`dataset version <folder> -m <msg>`; both keep `isPrivate: true` and refuse the
+mistakes the raw CLI leaves to you.
+
 ## Accounts: agent id vs Kaggle username
 
 The agent id and the Kaggle account are independent. An agent binds exactly one
@@ -60,10 +106,10 @@ Tokens are shared, not per-agent: they sit in
 downloaded `kaggle.json` copies it into that pool and binds the agent to it.
 
 ```bash
-python3 .agent-ide/skills/kaggle/kaggle.py --id 毕设 config --status
-python3 .agent-ide/skills/kaggle/kaggle.py --id 毕设 config --token-file ~/Downloads/kaggle.json
-python3 .agent-ide/skills/kaggle/kaggle.py --id 毕设 config --switch-user keffwu
-python3 .agent-ide/skills/kaggle/kaggle.py --id 毕设 config --verify
+python3 .agent-ide/skills/kaggle/kaggle.py --id <agent_id> config --status
+python3 .agent-ide/skills/kaggle/kaggle.py --id <agent_id> config --token-file ~/Downloads/kaggle.json
+python3 .agent-ide/skills/kaggle/kaggle.py --id <agent_id> config --switch-user keffwu
+python3 .agent-ide/skills/kaggle/kaggle.py --id <agent_id> config --verify
 ```
 
 `--status` prints the agent id, the bound account, the accounts available on

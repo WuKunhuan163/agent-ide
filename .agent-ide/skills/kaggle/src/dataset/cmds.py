@@ -60,13 +60,6 @@ def cmd_dataset(args: argparse.Namespace) -> int:
     )
 
 
-def _print_output(proc: subprocess.CompletedProcess) -> None:
-    if proc.stdout:
-        print(proc.stdout, end="")
-    if proc.stderr:
-        print(proc.stderr, end="", file=sys.stderr)
-
-
 def _require_folder(folder: str) -> str:
     if not os.path.isdir(folder):
         raise identity.IdentityError(INPUT_USAGE, f"Not a folder: {folder}")
@@ -75,13 +68,13 @@ def _require_folder(folder: str) -> str:
 
 def cmd_dataset_find(args: argparse.Namespace) -> int:
     proc = kaggle_exec.run_kaggle_checked(["datasets", "list", "-s", args.query])
-    _print_output(proc)
+    kaggle_exec.forward_output(proc)
     return OK
 
 
 def cmd_dataset_ls(args: argparse.Namespace) -> int:
     proc = kaggle_exec.run_kaggle_checked(["datasets", "files", args.dataset])
-    _print_output(proc)
+    kaggle_exec.forward_output(proc)
     return OK
 
 
@@ -94,7 +87,7 @@ def cmd_dataset_create(args: argparse.Namespace) -> int:
     proc = kaggle_exec.run_kaggle_checked(
         ["datasets", "create", "-p", folder, "--dir-mode", "zip"]
     )
-    _print_output(proc)
+    kaggle_exec.forward_output(proc)
     return OK
 
 
@@ -118,7 +111,7 @@ def cmd_dataset_version(args: argparse.Namespace) -> int:
     proc = kaggle_exec.run_kaggle_checked(
         ["datasets", "version", "-p", folder, "-m", args.message, "--dir-mode", "zip"]
     )
-    _print_output(proc)
+    kaggle_exec.forward_output(proc)
     return OK
 
 
@@ -149,5 +142,5 @@ def sync_local_dataset(folder: str, username: str, token: dict) -> str:
         else:
             kaggle_exec.classify_failure(create_args, proc, username)
 
-    _print_output(proc)
+    kaggle_exec.forward_output(proc)
     return f"{username}/{slug}"

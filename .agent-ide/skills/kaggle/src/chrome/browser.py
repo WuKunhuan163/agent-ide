@@ -66,19 +66,6 @@ def _chrome_profile_is_healthy(profile_dir: str) -> bool:
         return False
 
 
-def _chrome_profile_size_mb(profile_dir: str) -> float:
-    total = 0
-    try:
-        for root, _, files in os.walk(profile_dir):
-            for name in files:
-                try:
-                    total += os.path.getsize(os.path.join(root, name))
-                except OSError:
-                    pass
-    except OSError:
-        return 0
-    return total / (1024 * 1024)
-
 
 def _chrome_profile_has_data(profile_dir: str) -> bool:
     if not os.path.isdir(profile_dir):

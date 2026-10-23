@@ -7,19 +7,23 @@ the notebook observation layer, which asks for them through ``retry_statuses``
 and ``tolerate`` so the raw process is handed back instead of raised on.
 """
 from __future__ import annotations
-import os, shutil, subprocess, sys, time
+import os
+import shutil
+import subprocess
+import sys
+import time
 from src import identity
 from src.exit_codes import (
     AUTH_REJECTED, EXEC_CLI_MISSING, EXEC_FAILED, EXEC_TIMEOUT, QUOTA_EXCEEDED,
 )
 
-AUTH_MARKER =  "Authentication required to call the Kaggle API."
+AUTH_MARKER = "Authentication required to call the Kaggle API."
 PROBE_ARGS = ["competitions", "list", "--page-size", "1"]
 RETRY_STATUSES = (409,)
 RETRY_ATTEMPTS = 3
 RETRY_DELAY = 5.0
 
-def kaggle_env(username: str, token: dict) -> dict: 
+def kaggle_env(username: str, token: dict) -> dict:
     env = os.environ.copy()
     env["KAGGLE_CONFIG_DIR"] = os.path.dirname(identity.token_path(username))
     env["KAGGLE_USERNAME"] = str(token.get("username", username))
@@ -42,20 +46,33 @@ def kaggle_binary() -> str:
 
 def run_kaggle(
     args: list[str], *, username: str, token: dict, timeout: float | None = None
-) -> subprocess.CompletedProcess: 
+) -> subprocess.CompletedProcess:
     binary = kaggle_binary()
-    try: 
+    try:
         return subprocess.run(
-            [binary, *args], 
-            env=kaggle_env(username, token), 
-            capture_output=True, 
+            [binary, *args],
+            env=kaggle_env(username, token),
+            capture_output=True,
             text=True,
             timeout=timeout
         )
-    except subprocess.TimeoutExpired: 
+    except subprocess.TimeoutExpired:
         raise identity.IdentityError(
             EXEC_TIMEOUT, f"kaggle {' '.join(args)} timed out after {timeout}s"
         ) from None
+
+
+def forward_output(proc: subprocess.CompletedProcess) -> None:
+    """Relay the child's stdout/stderr verbatim, adding no newline of our own.
+
+    Every command that shells out and then prints what the CLI said uses this,
+    so the child's layout survives and the three copies of the same two-line
+    print block collapse into one call.
+    """
+    if proc.stdout:
+        print(proc.stdout, end="")
+    if proc.stderr:
+        print(proc.stderr, end="", file=sys.stderr)
 
 
 def failure_output(proc: subprocess.CompletedProcess) -> str:

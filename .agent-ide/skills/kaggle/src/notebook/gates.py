@@ -43,16 +43,12 @@ OUTPUT_ALLOW_ENV = "KAGGLE_ALLOW_OUTPUT"
 OUTPUT_ALLOW_FLAG = "--allow-output"
 
 
-def _hint() -> str:
-    return identity.entry_hint()
-
-
 def _block(argv: list[str], reason: str) -> None:
     print("\n" + "=" * 72, file=sys.stderr)
     print(f"[BLOCKED] passthrough not allowed: {' '.join(argv[:3])}", file=sys.stderr)
     print(f"  Reason: {reason}", file=sys.stderr)
-    print(f"  Push:   {_hint()} notebook push <dir>", file=sys.stderr)
-    print(f"  Edit:   {_hint()} notebook edit <slug> '<json>'", file=sys.stderr)
+    print(f"  Push:   {identity.entry_hint()} notebook push <dir>", file=sys.stderr)
+    print(f"  Edit:   {identity.entry_hint()} notebook edit <slug> '<json>'", file=sys.stderr)
     print("=" * 72, file=sys.stderr)
     raise identity.IdentityError(BLOCKED_BY_CONTRACT, reason)
 
@@ -74,8 +70,8 @@ def guard_kernels_output_passthrough(argv: list[str]) -> list[str]:
         return [arg for arg in argv if arg != OUTPUT_ALLOW_FLAG]
     print("\n" + "=" * 72, file=sys.stderr)
     print("[BLOCKED] kernels output — notebook acceptance is logs-only", file=sys.stderr)
-    print(f"  Use:  {_hint()} notebook status <slug>", file=sys.stderr)
-    print(f"  Use:  {_hint()} notebook logs <slug>", file=sys.stderr)
+    print(f"  Use:  {identity.entry_hint()} notebook status <slug>", file=sys.stderr)
+    print(f"  Use:  {identity.entry_hint()} notebook logs <slug>", file=sys.stderr)
     print(f"  Human artifact download: re-run with {OUTPUT_ALLOW_FLAG} or {OUTPUT_ALLOW_ENV}=1", file=sys.stderr)
     print("=" * 72, file=sys.stderr)
     raise identity.IdentityError(
@@ -92,20 +88,13 @@ def run_kernels_output_whitelist(
     gate rejects every routine call, so artifact recovery has exactly one door.
     """
     os.makedirs(download_dir, exist_ok=True)
-    username, token = (
-        (username, identity.read_token(username))
-        if username
-        else identity.credentials()
-    )
+    username, token = identity.credentials_for(username)
     proc = kaggle_exec.run_kaggle(
         ["kernels", "output", notebook, "-p", download_dir, "--force"],
         username=username,
         token=token,
     )
-    if proc.stdout:
-        print(proc.stdout, end="")
-    if proc.stderr:
-        print(proc.stderr, end="", file=sys.stderr)
+    kaggle_exec.forward_output(proc)
     return proc.returncode
 
 

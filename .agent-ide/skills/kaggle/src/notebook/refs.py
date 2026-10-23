@@ -26,11 +26,6 @@ def slugify(title: str) -> str:
     return slug.strip("-")
 
 
-def slugify_title(title: str) -> str:
-    """Alias kept for the push pipeline's ``gates.slugify_title`` call shape."""
-    return slugify(title)
-
-
 def normalize_notebook_ref(ref: str, default_username: str | None = None) -> tuple[str | None, str]:
     """Zero-entropy slug resolver -> ``(username | None, slug)``.
 

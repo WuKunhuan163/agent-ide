@@ -372,10 +372,7 @@ def push_with_gpu_protocol(
             username=username,
             token=identity.read_token(username),
         )
-        if proc.stdout:
-            print(proc.stdout, end="")
-        if proc.stderr:
-            print(proc.stderr, end="", file=sys.stderr)
+        kaggle_exec.forward_output(proc)
         return proc.returncode
     finally:
         _write_meta(meta_path, authoring_meta)
@@ -450,7 +447,7 @@ def run_deploy_push(
         title = meta.get("title", "")
         if not title:
             raise identity.IdentityError(INPUT_USAGE, "'title' is required in kernel-metadata.json")
-        meta["id"] = f"{username}/{refs.slugify_title(title)}"
+        meta["id"] = f"{username}/{refs.slugify(title)}"
         print(f"[INFO] Auto-generated missing id: {meta['id']}")
 
     _write_meta(meta_path, meta)

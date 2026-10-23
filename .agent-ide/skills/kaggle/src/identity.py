@@ -98,6 +98,18 @@ def bound_username() -> str | None:
     return load_config().get("username") or None
 
 
+def credentials_for(username: str | None = None) -> tuple[str, dict]:
+    """``(username, token)`` for an explicit account, or for the bound one.
+
+    Callers that already know the account pass it; callers that do not get the
+    same resolution ``credentials()`` performs. One entry point means the
+    "bound account, then the only token on disk" rule is applied once.
+    """
+    if username:
+        return username, read_token(username)
+    return credentials()
+
+
 def resolve_username() -> str:
     """Bound account, else the only account on disk, else an IdentityError."""
     config = load_config()

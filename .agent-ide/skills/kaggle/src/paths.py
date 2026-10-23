@@ -6,7 +6,7 @@ from src.exit_codes import INPUT_MISSING_ID
 ctx: "Paths | None" = None
 
 @dataclass(frozen = True)
-class Paths: 
+class Paths:
     skill_dir: str
     agent_id: str
     data_dir: str
@@ -21,7 +21,7 @@ class Paths:
     runtime_logs_dir: str
     event_log_file: str
 
-def bootstrap(argv: list[str]) -> list[str]: 
+def bootstrap(argv: list[str]) -> list[str]:
     """Resolve `--id` and the paths under `data/`; create nothing.
 
     `data/` is runtime state, not package content, so it appears only when
@@ -33,14 +33,14 @@ def bootstrap(argv: list[str]) -> list[str]:
     agent_id: str | None = None
     rest: list[str] = []
     i = 0
-    while (i < len(argv)): 
-        if argv[i] == "--id" and i + 1 < len(argv): 
+    while (i < len(argv)):
+        if argv[i] == "--id" and i + 1 < len(argv):
             agent_id = argv[i + 1]
             i += 2
             continue
         rest.append(argv[i])
         i += 1
-    if not agent_id: 
+    if not agent_id:
         print("Error: --id <agent_id> is required. ", file=sys.stderr)
         raise SystemExit(INPUT_MISSING_ID)
 
@@ -49,11 +49,11 @@ def bootstrap(argv: list[str]) -> list[str]:
     agent_dir = os.path.join(data_dir, "agents", agent_id)
     runtime_dir = os.path.join(agent_dir, "runtime")
     ctx = Paths(
-        skill_dir=skill_dir, 
-        agent_id=agent_id, 
-        data_dir=data_dir, 
-        accounts_dir=os.path.join(data_dir, "accounts"), 
-        agent_dir=agent_dir, 
+        skill_dir=skill_dir,
+        agent_id=agent_id,
+        data_dir=data_dir,
+        accounts_dir=os.path.join(data_dir, "accounts"),
+        agent_dir=agent_dir,
         config_file=os.path.join(agent_dir, "config.json"),
         state_file=os.path.join(agent_dir, "state.json"),
         notebooks_dir=os.path.join(agent_dir, "notebooks"),
