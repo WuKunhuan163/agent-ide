@@ -372,14 +372,31 @@ migrated into the agent dir on first read.
 ## quota group
 
 ```bash
-... quota set <kaggle_user> [--gpu <time>] [--tpu <time>]
+... quota set <kaggle_user> --gpu <remaining> [--tpu <time>]
 ... quota show [--username <kaggle_user>]
 ```
 
-This is a local ledger of remaining GPU/TPU time, recorded by hand in
-`state.json`; Kaggle exposes no API for it. Both values **default to `0m`** when
-omitted, so pass them explicitly. Times accept `29h50m`, `1790m`, `29h`, `45`
-and similar forms. `show` prints one account or all.
+**The budget is 30 GPU hours per account per week**, on a rolling window whose
+reset the CLI cannot observe. Kaggle exposes no quota API, so this is a local
+ledger in `state.json`, written by hand from the settings page. `show` prints
+the remainder against the budget:
+
+```
+Account: keffwu
+  GPU Quota: 12h 30m / 30h 0m (42%)
+```
+
+Three things this section exists to prevent, all of which have happened:
+
+- quoting a **per-session** limit as if it were the weekly budget — they are
+  different numbers, and only the weekly one decides whether a run is affordable;
+- treating a short run as expensive because an unrelated "12 hour" figure was
+  in mind, when 26 minutes is 1.4% of the week;
+- recording `0m` by forgetting `--gpu` (it defaults to `0m`) and then reading the
+  ledger as "no quota left".
+
+Times accept `29h50m`, `1790m`, `29h`, `45`. TPU has its own budget; no figure
+is asserted for it here.
 
 ## Passthrough and the two contracts
 

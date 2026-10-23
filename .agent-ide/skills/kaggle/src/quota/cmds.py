@@ -4,6 +4,12 @@ Pseudo-state only: Kaggle exposes no quota API, so the human reads the settings
 page and records the remaining GPU/TPU minutes here. The ledger lives in the
 per-agent ``state.json`` under ``state["quota"][<kaggle_user>]`` so it never
 collides with the ``state["notebooks"]`` ledger.
+
+The budget itself is **30 GPU hours per account per week**, on a rolling window
+whose reset the CLI cannot see. That number belongs here because it is the one
+fact a plan needs and the one thing this tool used to omit: without it, a
+"session limit" gets quoted instead of a weekly budget, and a 26-minute run can
+be discussed as if it were eating a 12-hour allowance.
 """
 from __future__ import annotations
 
@@ -30,8 +36,20 @@ def parse_time_str(text: str | None) -> int:
     return minutes
 
 
+# Kaggle's weekly GPU allowance per account. TPU has its own budget that is not
+# asserted here; only the GPU figure is used for the percentage.
+WEEKLY_GPU_HOURS = 30
+
+
 def _fmt(minutes: int) -> str:
     return f"{int(minutes // 60)}h {int(minutes % 60)}m"
+
+
+def _fmt_with_budget(minutes: int) -> str:
+    """``12h 30m / 30h 0m (42%)`` — the remainder alone says nothing about margin."""
+    total = WEEKLY_GPU_HOURS * 60
+    pct = round(100 * minutes / total) if total else 0
+    return f"{_fmt(minutes)} / {_fmt(total)} ({pct}%)"
 
 
 def register_quota(groups) -> None:
@@ -40,7 +58,12 @@ def register_quota(groups) -> None:
 
     setter = verbs.add_parser("set", help="record an account's remaining GPU/TPU time")
     setter.add_argument("username", metavar="<kaggle_user>", help="account the numbers belong to")
-    setter.add_argument("--gpu", default="0m", metavar="<29h50m>", help="remaining GPU time")
+    setter.add_argument(
+        "--gpu",
+        default="0m",
+        metavar="<29h50m>",
+        help=f"remaining GPU time this week (budget is {WEEKLY_GPU_HOURS}h; omitted means 0 left)",
+    )
     setter.add_argument("--tpu", default="0m", metavar="<20h>", help="remaining TPU time")
 
     shower = verbs.add_parser("show", help="print the recorded quota (all accounts by default)")
@@ -66,7 +89,7 @@ def cmd_quota_set(args: argparse.Namespace) -> int:
     save_state(state)
 
     print(f"Recorded quota for {args.username}:")
-    print(f"  GPU: {_fmt(entry['gpu_minutes'])}")
+    print(f"  GPU: {_fmt_with_budget(entry['gpu_minutes'])}")
     print(f"  TPU: {_fmt(entry['tpu_minutes'])}")
     return OK
 
@@ -79,12 +102,15 @@ def cmd_quota_show(args: argparse.Namespace) -> int:
     else:
         names = sorted(accounts)
     if not names:
-        print("No quota recorded yet. Record it with: quota set <kaggle_user> --gpu 29h50m")
+        print(
+            f"No quota recorded yet (weekly GPU budget is {WEEKLY_GPU_HOURS}h). "
+            "Record it with: quota set <kaggle_user> --gpu 29h50m"
+        )
         return OK
     for name in names:
         entry = accounts.get(name) or {}
         print(f"Account: {name}")
-        print(f"  GPU Quota: {_fmt(entry.get('gpu_minutes', 0))}")
+        print(f"  GPU Quota: {_fmt_with_budget(entry.get('gpu_minutes', 0))}")
         print(f"  TPU Quota: {_fmt(entry.get('tpu_minutes', 0))}")
         print(f"  Last Sync: {entry.get('last_sync', 'Unknown')}")
         print()
