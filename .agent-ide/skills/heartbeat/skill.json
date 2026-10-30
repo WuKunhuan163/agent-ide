@@ -1,0 +1,15 @@
+{
+  "install": {
+    "kind": "python"
+  },
+  "python": {
+    "runtime": {
+      "version": "3.11.9"
+    },
+    "requirements": [],
+    "stdlib": []
+  },
+  "directories": [
+    "src"
+  ]
+}
