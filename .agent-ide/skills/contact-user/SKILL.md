@@ -17,6 +17,57 @@ session, or what the agent just did, the first command is always:
 .agent-tools/contact-user --id <id> --ide-context [ROUNDS]
 ```
 
+Every read is probed first (`src/probe.py`), and the probe decides whether the
+window is still worth reading:
+
+```
+contact-user: probe store=... ide=codebuddy convs=80
+contact-user: probe binding=毕设->ba9f3f5d files=19279 span=2026-10-10..2026-10-26 \
+               ws=/Users/.../毕设 [OK]
+```
+
+`[OK]` means the bound conversation records the current directory as its
+workspace. `[UNKNOWN]` means it records none, so ownership cannot be confirmed —
+readable, but say so when the conclusion depends on it. `[MISMATCH]`,
+`[EMPTY]`, `[MISSING]` and a bare `unbound` are refused, with the candidates and
+the exact `--bind-conversation` line printed: an unbound read used to return
+*every* conversation in the store under `scope=all`, which is how a read of one
+project turned into conclusions about another.
+
+| state | what to do |
+|---|---|
+| `unbound` | `--fix-binding` (picks the candidate that belongs to this directory) |
+| `mismatch` | same; the bound id names another project's conversation |
+| `missing` / `empty` | `--bind-conversation <id>` using the id in the probe line |
+| `[UNKNOWN]` | readable; confirm by grepping the first user message for `Workspace Folder` |
+
+`--all-store` is the explicit way to ask for the wide read (`scope=all-store`).
+
+There is no listing command. The probe line already names the bound
+conversation; enumerating the whole store costs minutes on a large one and
+answers a question nobody asked.
+
+### Splitting history across sessions: extras
+
+One project's history can sit in several conversations -- a rotated store or a
+reopened window leaves an older stretch under a different id. Bind the current
+one, then add the others as extras:
+
+```bash
+contact-user --id <id> --with-conversation <conv>   # repeatable
+contact-user --id <id> --extras                     # what is attached
+contact-user --id <id> --without-conversations      # drop them all
+contact-user --id <id> --ide-context 1 --since 2026-08-01   # merged read
+```
+
+Extras are merged at read time and nothing is written into the IDE store -- the
+alternative, copying message files into the bound conversation, edits the store
+the IDE itself owns. A merged read reports `convs=2` and sorts the conversations
+by their first message, so the old stretch appears where it belongs.
+
+Keep the window bounded when an extra is large: a session can hold tens of
+thousands of message files, and `--since` is what keeps a merged read printable.
+
 Do not explore for it first. Specifically, none of these is a step toward the
 context:
 

@@ -17,6 +17,7 @@ HISTORY_ROOT = "session_history_root"
 SESSION_IDE = "session_ide"
 MIRROR = "session_mirror_enabled"
 BINDINGS = "conversation_bindings"
+EXTRAS = "conversation_extras"
 WINDOW_GEOMETRY = "window_geometry"
 WINDOW_FONT = "window_font"
 WINDOW_FONT_SIZE = "window_font_size"
@@ -170,6 +171,43 @@ def bindings() -> dict[str, str]:
 
 def binding(agent_id: str) -> str | None:
     return bindings().get(agent_id)
+
+
+def extras(agent_id: str) -> list[str]:
+    """Conversations read *in addition* to the bound one, without being bound.
+
+    A project's history can be split across several IDE sessions: a rotation or a
+    reopened window leaves an older stretch under a different conversation id.
+    Physically copying those message files into the bound conversation would edit
+    the IDE's own store under it, so the merge happens at read time instead --
+    same reach, nothing written, and `--without-conversations` undoes it.
+    """
+    raw = load().get(EXTRAS)
+    if not isinstance(raw, dict):
+        return []
+    value = raw.get(agent_id)
+    return [str(item) for item in value] if isinstance(value, list) else []
+
+
+def add_extra(agent_id: str, conversation: str) -> list[str]:
+    table = load().get(EXTRAS)
+    table = dict(table) if isinstance(table, dict) else {}
+    items = [str(item) for item in table.get(agent_id, [])]
+    if conversation not in items:
+        items.append(conversation)
+    table[agent_id] = items
+    save({**load(), EXTRAS: table})
+    return items
+
+
+def clear_extras(agent_id: str) -> bool:
+    table = load().get(EXTRAS)
+    if not isinstance(table, dict) or agent_id not in table:
+        return False
+    table = dict(table)
+    table.pop(agent_id)
+    save({**load(), EXTRAS: table})
+    return True
 
 
 def set_binding(agent_id: str, conversation: str) -> str:

@@ -53,6 +53,12 @@ def build_parser() -> argparse.ArgumentParser:
     read_group.add_argument("--until", default=None, metavar="WHEN", help="window end")
     read_group.add_argument("--conversation", default=None, metavar="CONV",
                             help="narrow --ide-context to one conversation")
+    read_group.add_argument("--all-store", action="store_true",
+                            help="with --ide-context: allow reading every conversation "
+                                 "when no binding exists (scope=all-store)")
+    read_group.add_argument("--fix-binding", action="store_true",
+                            help="with --ide-context: repair a missing/mismatched "
+                                 "binding by choosing the best candidate")
     read_group.add_argument("--json", dest="as_json", action="store_true",
                             help="with --sync-session: machine-readable output")
     read_group.add_argument("--out", default=None, metavar="FILE",
@@ -71,6 +77,14 @@ def build_parser() -> argparse.ArgumentParser:
                              help="drop the registered pair for --id")
     store_group.add_argument("--bindings", action="store_true",
                              help="print every registered id/conversation pair")
+    store_group.add_argument("--with-conversation", action="append", default=None,
+                             metavar="CONV",
+                             help="read this conversation in addition to the bound one "
+                                  "(repeatable; nothing is copied into the store)")
+    store_group.add_argument("--without-conversations", action="store_true",
+                             help="drop every extra conversation for --id")
+    store_group.add_argument("--extras", action="store_true",
+                             help="print the extra conversations for --id")
     store_group.add_argument("--ide", default=None, metavar="ID",
                              help="adapter for --set-history-root")
     store_group.add_argument("--sync-session", action="store_true",
@@ -145,6 +159,18 @@ def dispatch(parser: argparse.ArgumentParser, args, agent_id: str | None) -> int
 
     if args.bindings:
         return commands.list_bindings()
+    if args.with_conversation:
+        if agent_id is None:
+            parser.error("--with-conversation needs --id: extras are per agent id")
+        return commands.add_extras(agent_id, args.with_conversation)
+    if args.without_conversations:
+        if agent_id is None:
+            parser.error("--without-conversations needs --id")
+        return commands.clear_extras(agent_id)
+    if args.extras:
+        if agent_id is None:
+            parser.error("--extras needs --id")
+        return commands.list_extras(agent_id)
     if args.unbind_conversation:
         if agent_id is None:
             parser.error("--unbind-conversation needs --id")
@@ -182,7 +208,9 @@ def dispatch(parser: argparse.ArgumentParser, args, agent_id: str | None) -> int
 
     if args.ide_context is not None:
         return commands.ide_context(agent_id, args.ide_context, args.since,
-                                    args.conversation, args.until, args.out)
+                                    args.conversation, args.until, args.out,
+                                    allow_store=args.all_store,
+                                    fix=args.fix_binding)
 
     if agent_id is None:
         parser.error("--id is required (see COLDSTART.md to resolve your id)")
