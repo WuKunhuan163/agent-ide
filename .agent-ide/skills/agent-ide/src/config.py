@@ -114,5 +114,40 @@ def adopt_global_home(project_root: Path, home: Path) -> None:
 
 
 def publish_repo(project_root: Path) -> str | None:
+    """The repo to publish to, read from this project first and the global one second.
+
+    Both are legitimate places to keep it: a project that publishes somewhere
+    private says so locally, and a machine whose global project already names a
+    repo should not have to repeat it in every project that pushes through it.
+    Reading only the local file made a configured global project look
+    unconfigured -- the command refused, and the value it was refusing over was
+    sitting in the file it had just located.
+    """
     raw = _section(read(project_root), "github").get("publish_repo")
+    if raw and str(raw).strip():
+        return str(raw).strip()
+    home = configured_global_home(project_root)
+    if home is None or home.resolve() == project_root.resolve():
+        return None
+    raw = _section(read(home), "github").get("publish_repo")
     return str(raw).strip() if raw and str(raw).strip() else None
+
+
+def configured_global_home(project_root: Path) -> Path | None:
+    """The global project named by the local config, or None when it names no valid one.
+
+    Unlike `global_home`, this never raises and never seeds: callers use it to
+    *look something up elsewhere*, and a missing pointer must read as "nothing
+    there", not as a fatal error about a path the caller did not ask about.
+    """
+    return valid_global_home(_section(read(project_root), "paths").get("global_home"))
+
+
+def publish_repo_sources(project_root: Path) -> list[Path]:
+    """Every config file `publish_repo` consults, in order -- for error messages."""
+    local = paths.data_dir(project_root) / CONFIG
+    seen = [local]
+    home = configured_global_home(project_root)
+    if home is not None and home.resolve() != project_root.resolve():
+        seen.append(paths.data_dir(home) / CONFIG)
+    return seen

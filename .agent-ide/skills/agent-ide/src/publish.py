@@ -21,10 +21,14 @@ IDENTITY = ("-c", "user.name=agent-ide", "-c", "user.email=agent-ide@localhost")
 def run(project_root: Path, names: list[str], *, from_github: bool) -> None:
     repo = config.publish_repo(project_root)
     if not repo:
+        looked = "\n".join(f"  {p}" for p in config.publish_repo_sources(project_root))
         raise fail(
             Exit.Publish.FAILED,
-            "publish: no repo configured; set github.publish_repo in "
-            f"{paths.data_dir(project_root) / 'config.json'}",
+            "publish: no github.publish_repo in any config this project reads.\n"
+            f"Looked in:\n{looked}\n"
+            'Add {"github": {"publish_repo": "owner/repo"}} to the first of those, '
+            "and `publish` needs nothing else: the clone, the copy, the commit and "
+            "the push are all derived from that one string.",
         )
     if not names:
         raise fail(Exit.Publish.FAILED, "publish: pass at least one skill name")

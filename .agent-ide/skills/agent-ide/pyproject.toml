@@ -1,0 +1,5 @@
+[tool.pyright]
+include = ["agent-ide.py", "src"]
+typeCheckingMode = "basic"
+pythonVersion = "3.12"
+extraPaths = ["."]

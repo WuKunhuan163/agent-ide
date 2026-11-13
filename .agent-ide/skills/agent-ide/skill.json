@@ -1,27 +1,28 @@
 {
-    "files": [
-        "install.command",
-        "replicas.py"
-    ],
-    "install": {
-        "kind": "python"
-    }, 
-    "python": {
-        "requirements": [], 
-        "stdlib": [], 
-        "runtime": {
-            "version": "3.11.9"
-        }
-    }, 
-    "directories": [
-        "src",
-        "tests"
-    ],
-    "replicas": {
-        "root": "~/.agent-ide/replicas",
-        "mode": "mirror",
-        "include": [
-            "data/config.json"
-        ]
+  "files": [
+    "install.command",
+    "replicas.py",
+    "pyproject.toml",
+    "pyrightconfig.json"
+  ],
+  "install": {
+    "kind": "python"
+  },
+  "python": {
+    "requirements": [],
+    "stdlib": [],
+    "runtime": {
+      "version": "3.11.9"
     }
+  },
+  "directories": [
+    "src"
+  ],
+  "replicas": {
+    "root": "~/.agent-ide/replicas",
+    "mode": "mirror",
+    "include": [
+      "data/config.json"
+    ]
+  }
 }
