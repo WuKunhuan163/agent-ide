@@ -1,7 +1,8 @@
-"""待办队列：状态机 + 产物计数。
+"""Todo queue: state machine plus evidence counting.
 
-核心约束：进度不由调用方断言，而是从产物文件里数出来。
-「记得要记账」和「真的做了」因此变成同一件事——没有新产物就没有新进度。
+Core constraint: progress is not asserted by the caller, it is counted out of the
+evidence file. "Remember to record" and "actually did it" therefore become the same
+thing -- no new evidence, no new progress.
 """
 from __future__ import annotations
 
@@ -14,7 +15,8 @@ STATUSES = ("todo", "doing", "done", "blocked")
 
 
 def pending(data: dict) -> list[dict]:
-    """待推进的项：doing 优先（手上的做完），其余按登记顺序。blocked/done 不出现。"""
+    """Items still to push: doing first (finish what is in hand), then registration
+    order. blocked and done never appear."""
     items = [t for t in data.get("tasks", [])
              if (t.get("status") or "todo") in ("todo", "doing")]
     return sorted(items, key=lambda t: 0 if t.get("status") == "doing" else 1)
@@ -28,26 +30,27 @@ def find(data: dict, tid: str) -> dict | None:
 
 
 def check_pattern(pattern: str | None) -> str | None:
-    """校验正则，合法返回 None，否则返回一句人话。
+    """Validate a pattern: None when it is fine, otherwise one readable sentence.
 
-    没有这道校验时，坏正则能一路进库：`inc` 直接抛 traceback，钩子那侧则把它当成
-    「匹配到 0 行」，于是空转计数一路涨上去，最后把任务自动 block 掉——
-    一个笔误被解释成「模型一直在空转」。
+    Without this check a broken pattern reaches the store: `inc` raises a traceback,
+    and the hook side reads it as "0 lines matched", so the stall counter climbs and
+    the task ends up autoblocked -- a typo explained away as "the model is idle".
     """
     if not pattern:
         return None
     try:
         re.compile(pattern, re.M)
     except re.error as exc:
-        return f"evidence_pattern 不是合法正则：{pattern!r}（{exc}）"
+        return f"evidence_pattern is not a valid regex: {pattern!r} ({exc})"
     return None
 
 
 def evidence_lines(task: dict, root: Path) -> int | None:
-    """数产物文件里「算数」的行。
+    """Count the lines that count in the evidence file.
 
-    返回 None = 无法核对（没有 evidence，或正则坏了）。两种都必须让调用方
-    跳过 stall 判定，不能当成「0 行产物」——否则配置错误会伪装成空转。
+    None means unverifiable (no evidence, or a broken pattern). Either way the caller
+    must skip the stall check instead of reading it as "0 lines of evidence" -- a
+    configuration error would otherwise masquerade as idling.
     """
     ev = task.get("evidence")
     if not ev:
@@ -68,11 +71,13 @@ def evidence_lines(task: dict, root: Path) -> int | None:
 
 
 def add(data: dict, text: str, root: Path | None = None, **opts) -> dict:
-    """登记一项。done 的起点是产物**当前**已有的行数，不是 0。
+    """Register an item. done starts at the **current** line count, not 0.
 
-    为什么必须这样：产物文件通常不是空的（上一件刚往里写了几行）。从 0 起算的话，
-    登记完第一次 `inc` 不需要写任何东西就能把 done 从 0 跳到已有行数——白拿一段
-    进度，正好绕过「没有新产物就不许记账」这道闸。起点必须先对上现有产物。
+    Why it has to: the evidence file is usually not empty (the previous item just
+    wrote into it). Starting from 0 means the first `inc` after registering jumps from
+    0 to the existing count without writing anything -- free progress that walks
+    straight around the "no new evidence, no recording" gate. The start has to line up
+    with what the evidence file already holds.
     """
     tasks = data.setdefault("tasks", [])
     item = {"id": f"t{len(tasks) + 1}", "text": text, "status": "todo"}
@@ -82,15 +87,17 @@ def add(data: dict, text: str, root: Path | None = None, **opts) -> dict:
     tasks.append(item)
     now = time.time()
     data.setdefault("created_at", now)
-    data["last_progress_at"] = now      # 刚登记就算一次推进，别一上手就被判成过期
+    data["last_progress_at"] = now      # registering counts as progress, so a fresh item is not stale at once
     return item
 
 
 def bump(task: dict, root: Path) -> tuple[bool, str]:
-    """记一次进度。返回 (是否成功, 说明)。
+    """Record one step. Returns (ok, note).
 
-    有 evidence 的项：只有产物行数严格增长才接受，否则拒绝——这是防谎报的唯一硬闸。
-    没有 evidence 的项：退化为计数，但 stall 判不出进展，只能靠 max_age/链上限兜底。
+    Items with evidence: accepted only when the line count strictly grows; that is the
+    one hard gate against false claims. Items without evidence fall back to a counter,
+    but stall cannot see progress there, so max_age and the chain cap are all that
+    remain.
     """
     ev = task.get("evidence")
     total = int(task.get("total") or 0)
@@ -101,7 +108,7 @@ def bump(task: dict, root: Path) -> tuple[bool, str]:
         if not path.is_absolute():
             path = Path(root) / path
         if not path.exists():
-            return False, f"产物文件不存在：{path}"
+            return False, f"evidence file does not exist: {path}"
         pattern = task.get("evidence_pattern") or DEFAULT_PATTERN
         bad = check_pattern(pattern)
         if bad:
@@ -109,8 +116,8 @@ def bump(task: dict, root: Path) -> tuple[bool, str]:
         found = len(re.findall(pattern, path.read_text(encoding="utf-8", errors="replace"), flags=re.M))
         prev = int(task.get("done") or 0)
         if found <= prev:
-            return False, (f"{path.name} 里没有新增登记（{found} 行，进度仍是 {prev}）"
-                           f"——先把这一件做出来再记账")
+            return False, (f"no new entry in {path.name} ({found} lines, progress still"
+                           f" {prev}) -- do the work first, then record it")
         task["done"] = found
     task["_stall"] = 0
     if total and int(task["done"]) >= total:
@@ -119,10 +126,11 @@ def bump(task: dict, root: Path) -> tuple[bool, str]:
 
 
 def sync(task: dict, root: Path) -> str:
-    """把 done 拉回产物文件里的真实行数：多记的在这里被纠正。"""
+    """Pull done back to the real line count in the evidence file: overcounts are
+    corrected here."""
     ev = task.get("evidence")
     if not ev:
-        return "这一项没有产物，无法对齐"
+        return "this item has no evidence file, nothing to align with"
     bad = check_pattern(task.get("evidence_pattern"))
     if bad:
         return bad

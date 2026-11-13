@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""heartbeat —— 待办没清时不许收工：把队列里的一件推回主会话。
+"""heartbeat -- no wrapping up while todos remain: push one item back to the session.
 
-机制（OpenClaw 的 Heartbeat 在 CodeBuddy 里的等价物）：
-  主会话本来要结束时，IDE 会跑 Stop 钩子。钩子输出
-  {"continue": false, "stopReason": "..."} 就是一次「心跳轮次」——stopReason
-  作为新的用户消息进入同一个会话，带完整上下文，不新建后台任务。
-  没有待办就什么都不输出，零打扰。
+Mechanism (the CodeBuddy equivalent of OpenClaw's Heartbeat):
+  When the main session is about to end, the IDE runs the Stop hook. The hook
+  printing {"continue": false, "stopReason": "..."} is one "heartbeat turn" --
+  stopReason enters the same session as a new user message with the full context,
+  and no background task is created.
+  With nothing pending it prints nothing, so there is zero interruption.
 
-与定时心跳的差别只在触发点：OpenClaw 由 cron 定时唤醒，这里由「本来就要停」
-这个事件唤醒。省掉的是空转的 tick，保留的是同一个语义。
+The difference from a periodic heartbeat is the trigger only: OpenClaw wakes on
+cron, this wakes on "the session was about to stop". The idle tick is dropped; the
+semantics are the same.
 
-一条铁律：**推送权只在钩子里**。agent 没有任何命令能让它立刻推一件——
-它只能记账（inc / done / block）。「自己给自己派活」在接口上不存在。
+One iron rule: **only the hook may push**. No command lets the agent push an item
+on demand -- it can only record (inc / done / block). "Assigning work to itself"
+does not exist in the interface.
 """
 from __future__ import annotations
 
@@ -28,32 +31,33 @@ from src import hook, queue, store  # noqa: E402
 
 PKG = store.PKG
 
-USAGE = f"""heartbeat —— 待办没清时不许收工
+USAGE = f"""heartbeat -- no wrapping up while todos remain
 
-  heartbeat.py                        Stop 钩子入口（读 stdin 的 JSON）
-  heartbeat.py payload                打印钩子拿到的 payload（调试用）
+  heartbeat.py                        Stop hook entry (reads JSON on stdin)
+  heartbeat.py payload                print the payload the hook received (debug)
 
   install [--scope user|project] [--loop-limit N]
-                                      装 Stop 钩子（幂等；loop_limit = 每轮最多连推几次）
-  uninstall [--scope user|project]    卸载本工具装的钩子（只删自己那条）
-  on [--session <id>]                 启用；带 --session 则只对该会话生效
-  off                                 停用（钩子立即静默）
-  bind --session <id> --work <dir>    把会话绑到一份工作目录（待办存本技能 data/）
-  unbind <session>                    解除绑定
+                                      install the Stop hook (idempotent; loop_limit = max pushes per turn)
+  uninstall [--scope user|project]    remove the hook this tool installed (only its own entry)
+  on [--session <id>]                 enable; with --session it applies to that session only
+  off                                 disable (the hook goes silent immediately)
+  bind --session <id> --work <dir>    bind a session to one working directory (todos live in this skill's data/)
+  unbind <session>                    drop the binding
 
-  （任何命令都可以加 --as <session-id> 声明调用者身份，等价于设 HEARTBEAT_SESSION）
+  (any command accepts --as <session-id> to declare the caller, equivalent to setting HEARTBEAT_SESSION)
 
   add "<text>" [--judge "..."] [--evidence <path>] [--pattern <re>] [--total N]
-  inc <id>                            记一次进度（数产物行数，没增长就拒绝）
-  sync <id>                           把进度拉回产物文件的真实行数
+  inc <id>                            record one step (counts evidence lines; refuses if they did not grow)
+  sync <id>                           pull progress back to the real line count of the evidence file
   done|doing|todo <id> [note]
-  block <id> "<卡在哪>"
-  rm <id>                             从队列删掉（blocked 的也没必要永远挂着）
+  block <id> "<where it is stuck>"
+  rm <id>                             delete from the queue (a blocked item need not hang there forever)
   set <id> ["<text>"] [--total N] [--evidence p] [--pattern re] [--judge s]
   list | sessions | exclude <id>... | doctor
 
-待办存在本技能 data/tasks/<key>.json，不进项目目录：
-一个项目常有多个会话，数据放项目里就会被同项目的其它 agent 读到。
+Todos live in this skill's data/tasks/<key>.json, never in the project directory:
+one project often runs several sessions, and anything stored in the project is
+readable by the project's other agents.
 """
 
 
@@ -63,14 +67,16 @@ def _fail(code: int, msg: str) -> int:
 
 
 def _cli_binding(cfg: dict, here: Path) -> dict | None:
-    """命令行没有身份可言：任何进程都能跑它。所以这里不做任何猜测。
+    """The command line carries no identity: any process can run it. So nothing here
+    is guessed.
 
-    必须显式给 HEARTBEAT_SESSION，且必须精确等于某个 binding 的 session。
+    HEARTBEAT_SESSION must be set explicitly and must equal some binding's session.
 
-    上一版第③级留了个回退——「只有一个 session 型 binding，且它的工作目录包含
-    当前目录，就用它」。看着很方便，实际是个洞：同一个项目里的另一个 agent 敲一条
-    `heartbeat.py block t1 "..."` 就会命中这条回退，直接改掉别人的待办。
-    已经真实发生过一次。宁可让它报错，也不要让它猜。
+    The previous version kept a fallback at level three -- "if there is exactly one
+    session binding and its working directory contains the current directory, use
+    it". Convenient-looking, and a hole: another agent in the same project running
+    `heartbeat.py block t1 "..."` would hit that fallback and rewrite someone else's
+    todo. It really happened once. Better that it errors than guesses.
     """
     session = os.environ.get("HEARTBEAT_SESSION") or ""
     if not session:
@@ -84,17 +90,19 @@ def _cli_binding(cfg: dict, here: Path) -> dict | None:
 def _need_binding(cfg: dict, here: Path) -> dict | None:
     b = _cli_binding(cfg, here)
     if b is None:
-        _fail(5, "未绑定：先 bind --session <id> --work <dir>，"
-                 "或给命令加 --as <session-id>")
+        _fail(5, "not bound: run bind --session <id> --work <dir> first, "
+                 "or pass --as <session-id>")
     return b
 
 
 def cmd_on(cfg: dict, rest: list[str]) -> int:
-    # 不带 --session 就是「所有已绑定的会话」，必须清掉旧的允许名单，否则会沿用上次范围
+    # Without --session this means "every bound session", so the old allow list has to be
+    # cleared or the previous scope carries over
     if rest[:1] == ["--session"]:
         if len(rest) < 2 or not rest[1].strip():
-            # 曾经这里静默退化成「不限」，把范围放大了却没有任何提示
-            return _fail(2, "on: --session 需要一个会话 id；要放开限制就别加这个参数")
+            # This used to degrade silently to "unrestricted", widening the scope with no
+            # hint at all
+            return _fail(2, "on: --session needs a session id; omit the flag to widen the scope")
         cfg["sessions"] = [rest[1].strip()]
     else:
         cfg["sessions"] = []
@@ -105,7 +113,7 @@ def cmd_on(cfg: dict, rest: list[str]) -> int:
 
 
 def cmd_bind(cfg: dict, rest: list[str]) -> int:
-    """只接受 --session。按目录绑已经删掉了，见 store.match_binding 的注释。"""
+    """Accepts --session only. Binding by directory is gone; see store.match_binding."""
     session = work = store_key = ""
     i = 0
     while i < len(rest):
@@ -118,18 +126,19 @@ def cmd_bind(cfg: dict, rest: list[str]) -> int:
         elif k == "--store":
             store_key = v
         elif k == "--cwd":
-            return _fail(2, "bind: 不支持 --cwd。按目录绑会让同项目的所有会话一起命中，"
-                            "已删除；用 --session <id>（id 从 `sessions` 里挑）")
+            return _fail(2, "bind: --cwd is not supported. Binding by directory caught every "
+                            "session of the project at once and was removed; use --session <id> "
+                            "(pick the id from `sessions`)")
         else:
-            return _fail(2, f"bind: 未知参数 {k}")
+            return _fail(2, f"bind: unknown flag {k}")
         i += 2
     if not session:
-        return _fail(2, "bind: 需要 --session <id>")
+        return _fail(2, "bind: --session <id> is required")
     if not work:
-        return _fail(2, "bind: 需要 --work <dir>（这份待办的工作根目录）")
+        return _fail(2, "bind: --work <dir> is required (the work root of these todos)")
     work = str(Path(work).expanduser())
     if not Path(work).is_dir():
-        return _fail(2, f"bind: --work 目录不存在：{work}")
+        return _fail(2, f"bind: --work directory does not exist: {work}")
     b = {"tasks": work, "session": session}
     if store_key:
         b["store"] = store_key
@@ -143,7 +152,7 @@ def cmd_bind(cfg: dict, rest: list[str]) -> int:
 
 def cmd_unbind(cfg: dict, rest: list[str]) -> int:
     if not rest:
-        return _fail(2, "unbind: 需要 session id")
+        return _fail(2, "unbind: a session id is required")
     key = rest[0]
     cfg["bindings"] = [x for x in (cfg.get("bindings") or [])
                        if x.get("session") != key and x.get("cwd") != key]
@@ -160,7 +169,7 @@ def cmd_add(binding: dict, rest: list[str]) -> int:
     while i < len(rest):
         if rest[i] in opts:
             if i + 1 >= len(rest):
-                return _fail(2, f"add: {rest[i]} 需要一个值")
+                return _fail(2, f"add: {rest[i]} needs a value")
             key = opts[rest[i]]
             kv[key] = int(rest[i + 1]) if key == "total" else rest[i + 1]
             i += 2
@@ -168,11 +177,12 @@ def cmd_add(binding: dict, rest: list[str]) -> int:
         words.append(rest[i])
         i += 1
     if not words:
-        return _fail(2, 'add: 需要文本，例如 add "找 1 篇论文" --evidence x.md --total 100')
+        return _fail(2, 'add: text is required, e.g. add "find one paper" --evidence x.md --total 100')
     bad = queue.check_pattern(kv.get("evidence_pattern"))
     if bad:
-        return _fail(2, f"add: {bad}（不会写进队列——坏正则在钩子那侧会被当成「0 行产物」，"
-                        f"最后把任务误判成空转）")
+        return _fail(2, f"add: {bad} (not written to the queue -- a broken pattern reads as "
+                        f"'0 evidence lines' on the hook side, which ends up blocking the task "
+                        f"as stalled)")
     data = store.load_tasks(binding)
     item = queue.add(data, " ".join(words), root=store.work_root(binding), **kv)
     store.save_tasks(binding, data)
@@ -181,12 +191,13 @@ def cmd_add(binding: dict, rest: list[str]) -> int:
 
 
 def run_hook() -> int:
-    """钩子入口。这里的铁律是「绝不把失败传染给宿主会话」。
+    """Hook entry. The iron rule here: never pass a failure on to the host session.
 
-    Stop 钩子会挂进每一个会话的收尾路径。如果它抛异常、退出非零，IDE 会把
-    这个失败记在那个会话头上——一个本该与它无关的 agent 会看到一次钩子报错。
-    所以：任何异常都吞掉、记一行日志、以 0 退出、不输出。
-    宁可这次心跳没发生，也不能让别人的会话多出一条错误。
+    The Stop hook sits on every session's wrap-up path. If it raises or exits
+    non-zero, the IDE records that failure against that session -- an agent with no
+    stake in it sees a hook error. So: swallow every exception, write one log line,
+    exit 0, print nothing. Better that this heartbeat did not happen than that
+    someone else's session grows an error.
     """
     try:
         payload = hook.read_payload()
@@ -194,7 +205,7 @@ def run_hook() -> int:
         if out is not None:
             print(json.dumps(out, ensure_ascii=False))
         return 0
-    except Exception as exc:  # noqa: BLE001 — 这里是刻意的兜底
+    except Exception as exc:  # noqa: BLE001 - deliberate catch-all here
         try:
             store.log(f"error {type(exc).__name__}: {exc}")
         except Exception:  # noqa: BLE001
@@ -203,11 +214,13 @@ def run_hook() -> int:
 
 
 def _extract_identity(argv: list[str]) -> tuple[list[str], str]:
-    """从任意位置取走 `--as <session-id>`，返回 (剩余参数, 身份)。
+    """Strip `--as <session-id>` from anywhere, returning (remaining args, identity).
 
-    命令行的身份本来只能靠环境变量传，每敲一条都要 export 一次，很烦；
-    但也不能为了省事就按目录去猜（那正是让同项目别的 agent 改到别人队列的漏洞）。
-    折中：身份必须显式声明，只是允许写在命令里。
+    Identity used to travel only through an environment variable, which means an
+    export before every command -- annoying. Guessing it from the directory is not
+    the fix either: that is exactly the hole that let another agent in the same
+    project write to someone else's queue. The compromise: identity stays explicit,
+    it is merely allowed to sit in the command.
     """
     out, ident = [], ""
     i = 0
@@ -261,7 +274,7 @@ def cli(argv: list[str]) -> int:
     if cmd == "sessions":
         seen = store.seen_sessions()
         if not seen:
-            print("(none yet — 钩子要跑过一次 Stop 才记得住会话)")
+            print("(none yet — the hook records a session only after one Stop)")
         for sid, meta in sorted(seen.items(), key=lambda kv: kv[1].get("at", ""), reverse=True):
             print(f"{sid}  {meta.get('at', '')}  {meta.get('cwd', '')}")
         return 0
@@ -269,7 +282,7 @@ def cli(argv: list[str]) -> int:
     if cmd == "doctor":
         return cmd_doctor(cfg)
 
-    # 以下命令都要落在一份具体待办上
+    # Everything below needs one concrete todo file
     binding = _need_binding(cfg, here)
     if binding is None:
         return 5
@@ -292,12 +305,12 @@ def cli(argv: list[str]) -> int:
             print(f"next  {pend[0].get('id')}  {pend[0].get('text', '')}")
         return 0
     if not rest:
-        # 匿名模式的 nudge 不给 id：这些命令默认落在「当前该做的那一件」上
+        # An anonymous nudge carries no id: these commands default to "the one to do now"
         pend = queue.pending(data)
         if cmd in ("inc", "sync", "done", "doing", "todo", "block") and pend:
             rest = [pend[0].get("id")]
         else:
-            return _fail(2, f"{cmd}: 需要任务 id（--help 看用法）")
+            return _fail(2, f"{cmd}: a task id is required (see --help)")
 
     if cmd == "rm":
         before = len(data.get("tasks", []))
@@ -335,7 +348,8 @@ def cli(argv: list[str]) -> int:
         print(f"{status}  {rest[0]}")
         return 0
     if cmd == "set":
-        # 位置参数是 text（可省），其余用 --key。写错 evidence 路径时不必 rm 重建。
+        # The positional is text (optional); everything else is a --key. A wrong evidence
+        # path no longer forces rm and re-add.
         opts = {"--total": "total", "--evidence": "evidence",
                 "--pattern": "evidence_pattern", "--judge": "judge"}
         text, changed = "", []
@@ -344,7 +358,7 @@ def cli(argv: list[str]) -> int:
             k = rest[i]
             if k in opts:
                 if i + 1 >= len(rest):
-                    return _fail(2, f"set: {k} 需要一个值")
+                    return _fail(2, f"set: {k} needs a value")
                 key = opts[k]
                 if key == "evidence_pattern":
                     bad = queue.check_pattern(rest[i + 1])
@@ -360,7 +374,7 @@ def cli(argv: list[str]) -> int:
             task["text"] = text
             changed.append("text")
         if not changed:
-            return _fail(2, 'set: 没有要改的，例如 set t1 --evidence x.md --pattern \'^\\|\'')
+            return _fail(2, 'set: nothing to change, e.g. set t1 --evidence x.md --pattern \'^\\|\'')
         data["last_progress_at"] = time.time()
         store.save_tasks(binding, data)
         print(f"set  {rest[0]}  {','.join(changed)}")
@@ -385,14 +399,16 @@ def _settings_path(scope: str, here: Path) -> Path:
 
 
 def cmd_install(rest: list[str]) -> int:
-    """装 Stop 钩子。幂等：重复跑只更新，不叠加条目。
+    """Install the Stop hook. Idempotent: re-running updates, never stacks entries.
 
-    注册这件事必须由命令完成，不能靠人手改 JSON——改错了不会报错，只会静默失效，
-    而那正是最难查的一种坏法。
+    Registration has to be done by a command, not by hand-editing JSON: a bad manual
+    edit does not error, it just goes silently dead, and that is the hardest kind of
+    breakage to find.
     """
-    # loop_limit = 用户一句话之后，最多允许它连着干几件。
-    # 上游只认 -1（不限）或 1..100，超出范围会被静默降成 1——
-    # 填 300 的后果是「每次用户说话只能推进一件」，症状看着像钩子不循环。
+    # loop_limit = how many items may be chained after one user message.
+    # Upstream accepts only -1 (unlimited) or 1..100; anything else is silently
+    # lowered to 1, so 300 behaves as "one item per user message", which looks like
+    # a hook that does not loop.
     scope, loop_limit, launcher_override = "user", 20, ""
     i = 0
     while i < len(rest):
@@ -400,35 +416,35 @@ def cmd_install(rest: list[str]) -> int:
         v = rest[i + 1] if i + 1 < len(rest) else ""
         if k == "--scope":
             if v not in ("user", "project"):
-                return _fail(2, "install: --scope 只能是 user 或 project")
+                return _fail(2, "install: --scope must be user or project")
             scope = v
         elif k == "--loop-limit":
             try:
                 loop_limit = int(v)
             except ValueError:
-                return _fail(2, "install: --loop-limit 需要一个整数")
+                return _fail(2, "install: --loop-limit needs an integer")
             if loop_limit != -1 and not 1 <= loop_limit <= 100:
-                return _fail(2, "install: --loop-limit 只能是 -1（不限）或 1..100。"
-                                "超出范围上游会静默降成 1，等于「每轮只推一件」，"
-                                "症状是钩子看起来不循环")
+                return _fail(2, "install: --loop-limit must be -1 (unlimited) or 1..100. "
+                                "Out of range, upstream silently lowers it to 1, meaning "
+                                "'one push per turn', which looks like a hook that does not loop")
         elif k == "--command":
             launcher_override = v
         else:
-            return _fail(2, f"install: 未知参数 {k}")
+            return _fail(2, f"install: unknown flag {k}")
         i += 2
 
     here = Path(os.environ.get("HEARTBEAT_CWD") or os.getcwd())
     launcher = Path(launcher_override) if launcher_override else _launcher(here)
     if not launcher_override and not launcher.exists():
-        print(f"install: 启动器不存在，先跑 agent-ide install heartbeat（期望 {launcher}）",
+        print(f"install: launcher missing; run agent-ide install heartbeat (expected {launcher})",
               file=sys.stderr)
-        return _fail(5, "install: 缺少启动器")
+        return _fail(5, "install: launcher missing")
 
     path = _settings_path(scope, here)
     try:
         data = json.loads(path.read_text()) if path.exists() else {}
     except ValueError:
-        return _fail(2, f"install: {path} 不是合法 JSON，拒绝改写")
+        return _fail(2, f"install: {path} is not valid JSON; refusing to rewrite it")
     hooks = data.setdefault("hooks", {})
 
     def is_ours(e: dict) -> bool:
@@ -437,9 +453,9 @@ def cmd_install(rest: list[str]) -> int:
     def upsert(event: str, extra: dict | None = None) -> int:
         entries = hooks.setdefault(event, [])
         hook_obj = {"type": "command", "command": str(launcher), "timeout": 20,
-                    "description": "heartbeat：待办没清时把下一项喂回模型"
-                                   "（只对 bindings 命中的会话生效；未命中完全静默、"
-                                   "异常吞掉并以 0 退出）"}
+                    "description": "heartbeat: feed the next todo back to the model while any remain"
+                                   " (fires only for sessions a binding matches; otherwise fully"
+                                   " silent, exceptions swallowed and exit 0)"}
         entry = {"hooks": [hook_obj]}
         if extra:
             entry.update(extra)
@@ -452,11 +468,12 @@ def cmd_install(rest: list[str]) -> int:
             entries.append(entry)
         return n or 1
 
-    # 只挂 Stop 一个点，没有第二个。
-    # 曾经还挂过 UserPromptSubmit（人中途插话时把「还有活」补进上下文）和
-    # SubagentStop，两个都撤了：子代理与父会话共用同一个 session_id，payload 里
-    # 没有任何字段能把它们分开，于是「派给这个会话」实际派给了这个会话里所有正在
-    # 干活的 agent。挂载点越少，误伤面越小。
+    # Stop is the only mount point, and stays the only one.
+    # UserPromptSubmit (refilling "work remains" when the human cuts in) and
+    # SubagentStop were both tried and removed: a subagent shares its parent's
+    # session_id and nothing in the payload separates them, so "dispatch to this
+    # session" dispatched to every agent working inside it. Fewer mount points, less
+    # collateral damage.
     n_stop = upsert("Stop", {"loop_limit": loop_limit})
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
@@ -469,7 +486,7 @@ def cmd_uninstall(rest: list[str]) -> int:
     if rest[:1] == ["--scope"] and len(rest) > 1:
         scope = rest[1]
         if scope not in ("user", "project"):
-            return _fail(2, "uninstall: --scope 只能是 user 或 project")
+            return _fail(2, "uninstall: --scope must be user or project")
     here = Path(os.environ.get("HEARTBEAT_CWD") or os.getcwd())
     path = _settings_path(scope, here)
     if not path.exists():
@@ -478,11 +495,12 @@ def cmd_uninstall(rest: list[str]) -> int:
     try:
         data = json.loads(path.read_text())
     except ValueError:
-        return _fail(2, f"uninstall: {path} 不是合法 JSON，拒绝改写")
+        return _fail(2, f"uninstall: {path} is not valid JSON; refusing to rewrite it")
     hooks = data.get("hooks") or {}
     removed = 0
-    # 扫全部事件，不枚举。旧版本往 UserPromptSubmit 里写过条目，硬编码列表会漏，
-    # 而漏掉的那条会永远留在那里、每次触发都跑一遍。
+    # Scan every event instead of enumerating. An older version wrote entries under
+    # UserPromptSubmit, a hardcoded list would miss them, and a missed entry stays
+    # there forever running on every trigger.
     for event in list(hooks.keys()):
         entries = hooks.get(event) or []
         kept = [e for e in entries
@@ -503,7 +521,8 @@ def cmd_uninstall(rest: list[str]) -> int:
 
 
 def cmd_doctor(cfg: dict) -> int:
-    """绑错/没注册的典型症状是「一声不响」：没报错，也没有心跳。所以必须能自检。"""
+    """A wrong binding or a missing registration shows up as silence: no error and no
+    heartbeat. So self-diagnosis has to exist."""
     seen = store.seen_sessions()
     excl = set(cfg.get("exclude") or [])
     binds = cfg.get("bindings") or []
@@ -511,7 +530,7 @@ def cmd_doctor(cfg: dict) -> int:
     print(f"exclude  {len(excl)}")
     print(f"hook     {_hook_status()}")
     if not binds:
-        print("WARN     bindings 为空，任何会话都不会被拦")
+        print("WARN     bindings is empty; no session will be caught")
         return 0
     for b in binds:
         sid = b.get("session") or b.get("cwd") or "?"
@@ -540,9 +559,9 @@ def cmd_doctor(cfg: dict) -> int:
             print(f"         {t.get('id')}  {t.get('status', 'todo'):7s} {prog:>6s}  "
                   f"{t.get('text', '')[:40]}{extra}")
         if b.get("session") and not hits:
-            print("WARN     这个 session 没出现过 Stop（或 id 写错）")
+            print("WARN     this session never reached Stop (or the id is wrong)")
         if not store.tasks_path(b).exists():
-            print("WARN     待办文件不存在，这个绑定永远不会触发")
+            print("WARN     todo file missing; this binding will never fire")
     if store.LOG.exists():
         tail = store.LOG.read_text(encoding="utf-8", errors="replace").strip().splitlines()[-2:]
         for line in tail:
@@ -551,7 +570,8 @@ def cmd_doctor(cfg: dict) -> int:
 
 
 def _hook_status() -> str:
-    """在几个可能的 settings.json 里找有没有注册本脚本。没注册 = 装了也不会跑。"""
+    """Look for this script in the candidate settings.json files. Not registered means
+    installed but never runs."""
     cands = [store.PKG.parent.parent.parent / ".codebuddy" / "settings.json",
              Path.home() / ".codebuddy" / "settings.json",
              Path.cwd() / ".codebuddy" / "settings.json",
@@ -571,18 +591,18 @@ def _hook_status() -> str:
                 found.append(str(p))
                 limits.append(entry.get("loop_limit", "?"))
     if not found:
-        return "未注册"
+        return "not registered"
     lim = limits[0]
     if lim == -1:
-        return "stop  loop_limit=-1 (不限)"
+        return "stop  loop_limit=-1 (unlimited)"
     if isinstance(lim, int) and 1 <= lim <= 100:
-        return f"stop  loop_limit={lim} (每轮最多连推 {lim})"
-    return f"stop  loop_limit={lim} (超出 1..100，上游会降成 1)"
+        return f"stop  loop_limit={lim} (at most {lim} pushes per turn)"
+    return f"stop  loop_limit={lim} (outside 1..100; upstream lowers it to 1)"
 
 
 if __name__ == "__main__":
     try:
         sys.exit(cli(sys.argv[1:]))
     except BrokenPipeError:
-        # `doctor | head` 这类下游提前关闭管道时，不要再吐 traceback
+        # Do not spill a traceback when a downstream like `doctor | head` closes early
         os._exit(0)

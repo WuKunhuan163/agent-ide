@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CompShare · stock</title>
+<style>
+  :root{--fg:#18181b;--dim:#8b8b93;--line:#ececef;--soft:#f7f7f8;--ok:#137a3c;--bad:#b42318}
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;display:flex;background:#fff;color:var(--fg);
+       font:13px/1.55 -apple-system,"SF Pro Text","PingFang SC",sans-serif;
+       -webkit-font-smoothing:antialiased}
+  aside{width:300px;flex:0 0 300px;border-right:1px solid var(--line);display:flex;flex-direction:column}
+  .top{padding:14px 16px 8px;display:flex;justify-content:space-between;align-items:baseline}
+  .top b{font-size:12px;letter-spacing:.5px}
+  .top span{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .tabs{display:flex;gap:6px;padding:0 16px 10px}
+  .tabs button{background:#fff;border:1px solid var(--line);border-radius:7px;padding:4px 9px;
+               font-size:11.5px;cursor:pointer;font-family:inherit;color:var(--dim)}
+  .tabs button[aria-pressed="true"]{color:var(--fg);border-color:#c9c9d1;background:var(--soft)}
+  #list{flex:1;overflow:auto;padding:2px 8px 12px}
+  .m{padding:9px 8px;border-radius:7px;cursor:pointer;display:flex;
+     justify-content:space-between;gap:10px;align-items:center}
+  .m:hover{background:var(--soft)}
+  .m[aria-selected="true"]{background:var(--soft)}
+  .m.off{opacity:.45}
+  .name{font-size:12.5px}
+  .dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--ok);
+       margin-right:7px;vertical-align:1px}
+  .m.off .dot{background:var(--dim)}
+  .sub{color:var(--dim);font-size:11px;margin-left:12px;font-variant-numeric:tabular-nums}
+  .price{font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .foot{border-top:1px solid var(--line);padding:9px 16px;font-size:11px;color:var(--dim);
+        font-variant-numeric:tabular-nums}
+
+  main{flex:1;display:flex;flex-direction:column;padding:24px 30px;min-width:0;overflow:auto}
+  .kicker{font-size:11px;color:var(--dim);letter-spacing:.6px;margin-bottom:12px}
+  .pick{display:flex;justify-content:space-between;align-items:baseline;
+        padding-bottom:14px;border-bottom:1px solid var(--line)}
+  .pick h1{margin:0;font-size:19px;font-weight:600;letter-spacing:-.2px}
+  .pick .p{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+  dl{display:grid;grid-template-columns:64px 1fr;gap:8px 14px;margin:16px 0 0;font-size:13px}
+  dt{color:var(--dim)}
+  dd{margin:0;font-variant-numeric:tabular-nums}
+  dd.mono,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+  .go{background:var(--fg);color:#fff;border:0;border-radius:8px;padding:10px 22px;
+      font-size:13px;cursor:pointer;font-family:inherit}
+  .go:hover{background:#000}
+  .go:disabled{background:var(--dim);cursor:default}
+  .row1{display:flex;align-items:center;gap:14px;margin-top:18px}
+  .u{font-size:11px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .err{color:var(--bad);font-size:12px;margin-top:18px;line-height:1.7;white-space:pre-wrap}
+  .cmd{margin-top:22px;padding:12px 14px;background:var(--soft);border-radius:8px;
+       font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;
+       white-space:pre-wrap;word-break:break-all;color:var(--fg)}
+  .note{margin-top:20px;font-size:11.5px;color:var(--dim);line-height:1.8}
+</style>
+</head>
+<body>
+<aside>
+  <div class="top"><b>CompShare</b><span id="ts">—</span></div>
+  <div class="tabs" id="tabs">
+    <button data-gpu="4090" aria-pressed="true">4090</button>
+    <button data-gpu="4090_48G" aria-pressed="false">4090 48G</button>
+    <button data-gpu="5090" aria-pressed="false">5090</button>
+  </div>
+  <div id="list"></div>
+  <div class="foot" id="foot">—</div>
+</aside>
+
+<main>
+  <div class="kicker">stock = ResourceEnough from CheckCompShareResourceCapacity</div>
+  <div class="pick">
+    <h1 id="pickName">—</h1>
+    <div class="p" id="pickPrice"></div>
+  </div>
+  <dl>
+    <dt>zone</dt><dd id="dZone">—</dd>
+    <dt>spec</dt><dd id="dSpec">—</dd>
+    <dt>image</dt><dd id="dImage" class="mono">—</dd>
+    <dt>billing</dt><dd id="dCharge">pay-as-you-go · free while stopped</dd>
+  </dl>
+  <div class="row1">
+    <button class="go" id="go" disabled>Open console</button>
+    <span class="u" id="hint"></span>
+  </div>
+  <div class="cmd" id="cmd"></div>
+  <div class="err" id="err"></div>
+  <div class="note" id="note"></div>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+let GPU = "4090", ROWS = [], SEL = null, IMAGE = null;
+
+const money = (v) => (v == null ? "—" : `¥${v.toFixed(2)}`);
+
+function render(rows) {
+  const box = $("#list");
+  box.innerHTML = "";
+  rows.forEach((r) => {
+    const el = document.createElement("div");
+    el.className = "m" + (r.enough ? "" : " off");
+    el.setAttribute("aria-selected", String(SEL && SEL.zone === r.zone && SEL.cards === r.cards));
+    el.innerHTML = `<div><div class="name"><span class="dot"></span>${r.name}</div>
+        <div class="sub">${r.cards} card · ${r.cpu} cpu · ${r.mem}G · ${r.kind}</div></div>
+      <div class="price">${r.quote ? money(r.quote.instance) : (r.enough ? "in stock" : "out")}</div>`;
+    el.onclick = () => { SEL = r; render(ROWS); detail(); };
+    box.appendChild(el);
+  });
+}
+
+function detail() {
+  if (!SEL) {
+    $("#pickName").textContent = "—"; $("#pickPrice").textContent = "";
+    $("#dZone").textContent = "—"; $("#dSpec").textContent = "—";
+    $("#dImage").textContent = IMAGE || "—"; $("#hint").textContent = "";
+    $("#cmd").textContent = ""; $("#go").disabled = true;
+    return;
+  }
+  $("#pickName").textContent = `${SEL.name} · ${SEL.gpu} ${SEL.cards} card`;
+  $("#pickPrice").textContent = SEL.quote ? `${money(SEL.quote.instance)}/h` : "—";
+  $("#dZone").textContent = `${SEL.region} / ${SEL.zone} (${SEL.kind})`;
+  $("#dSpec").textContent = `${SEL.cards} × ${SEL.gpu} · ${SEL.cpu} cpu · ${SEL.mem}G`;
+  $("#dImage").textContent = IMAGE || "—";
+  $("#hint").textContent = SEL.enough ? "" : "out of stock; listed only";
+  $("#go").disabled = !SEL.enough;
+  $("#cmd").textContent = SEL.enough
+    ? `compshare create --region ${SEL.region} --zone ${SEL.zone} --gpu ${SEL.gpu} \\\n` +
+      `  --cards ${SEL.cards} --cpu ${SEL.cpu} --mem-gb ${SEL.mem} \\\n` +
+      `  --image ${IMAGE} --password '***'`
+    : "";
+  $("#go").onclick = () => window.open("https://www.compshare.cn/gpus", "_blank");
+}
+
+async function load() {
+  try {
+    const q = new URLSearchParams({ gpu: GPU });
+    const r = await fetch(`/api/state?${q}`);
+    const d = await r.json();
+    $("#ts").textContent = d.ts || "—";
+    IMAGE = d.image;
+    if (!d.ok) {
+      ROWS = []; SEL = null; render([]); detail();
+      $("#err").textContent = d.error || "unknown error";
+      $("#foot").textContent = "not ready";
+      return;
+    }
+    $("#err").textContent = "";
+    ROWS = d.rows.filter((x) => x.cards === 1).sort((a, b) =>
+      (b.enough - a.enough) ||
+      ((a.quote?.instance ?? 1e9) - (b.quote?.instance ?? 1e9)) ||
+      (b.mem - a.mem));
+    const live = ROWS.filter((x) => x.enough).length;
+    $("#foot").textContent = `${live} in stock / ${ROWS.length} combos`;
+    $("#note").textContent = "Disks bill by capacity: deleting files does not refund. The system disk is free up to 100G (50G in container zones).";
+    if (!SEL || !ROWS.some((x) => x.zone === SEL.zone && x.cards === SEL.cards)) {
+      SEL = ROWS.find((x) => x.enough) || null;
+    }
+    render(ROWS); detail();
+  } catch (e) {
+    $("#err").textContent = String(e);
+  }
+}
+
+$("#tabs").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  GPU = b.dataset.gpu;
+  [...$("#tabs").children].forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  SEL = null; load();
+});
+
+load();
+setInterval(load, 60000);
+</script>
+</body>
+</html>

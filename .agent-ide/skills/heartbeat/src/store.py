@@ -1,9 +1,11 @@
-"""状态存放：配置、待办、日志全部落在本技能自己的 data/ 下，绝不进项目目录。
+"""State: config, todos and log all live under this skill's own data/, never inside a
+project directory.
 
-为什么强调这一点——上一版把待办写在 <project>/.codebuddy/lobster/tasks.json，
-同一个项目里的另一个会话（另一个 agent）能读到它，于是「一个会话的心跳」
-变成了「整个项目的心跳」。数据放哪，决定了作用域有多大；作用域要等于会话，
-数据就必须离开项目目录。
+Why it matters -- the previous version wrote todos to
+<project>/.codebuddy/lobster/tasks.json, where another session (another agent) in the
+same project could read them, turning "one session's heartbeat" into "the whole
+project's heartbeat". Where the data lives decides how wide the scope is; the scope
+has to equal the session, so the data has to leave the project directory.
 """
 from __future__ import annotations
 
@@ -20,25 +22,29 @@ TASKS = DATA / "tasks"
 
 DEFAULT_CONFIG = {
     "enabled": False,
-    # 允许名单：非空时只有这些会话会心跳；空表示不限（但仍要命中 bindings）。
+    # Allow list: when non-empty only these sessions heartbeat; empty means no limit
+    # (bindings still have to match).
     "sessions": [],
     "exclude": [],
-    # binding = {session: <会话 id>, tasks: <工作根目录>}，session 是唯一身份。
-    # 没有按目录绑这一说：一个项目常有多个会话，按目录绑会把同项目的其它 agent
-    # 一起拦，那是上一版真实的污染方式。
+    # binding = {session: <session id>, tasks: <work root>}; session is the only identity.
+    # Binding by directory does not exist: one project often runs several sessions, and
+    # binding by directory catches every other agent in it -- the real contamination of
+    # the previous version.
     "bindings": [],
-    # 一条链（一段无人值守的连续推进）里最多推多少次。
+    # How many pushes one chain (one unattended run of consecutive progress) may contain.
     "max_nudge_per_chain": 200,
-    # 距上一次推送超过这个间隔，视为新链、计数归零。
+    # A gap longer than this since the last push starts a new chain and resets the count.
     "chain_gap_seconds": 1800,
-    # 同一项连续多少次推送都没换来产物增长，就自动 block 换下一项。
+    # Push the same item this many times without evidence growth and it is autoblocked
+    # in favour of the next one.
     "stall_limit": 6,
-    # 待办超过这么多小时没有新产物就不再拦。
-    # 注意是按「最后一次推进」（last_progress_at）算，不是按「最后一次推送」——
-    # 按推送算的话，只要它还在推就永远不会过期，这道闸等于没有。
+    # Stop intervening once todos have gone this many hours without new evidence.
+    # Measured from the last progress (last_progress_at), not the last push -- counting
+    # from pushes means it never expires while it keeps pushing, and the gate is gone.
     "max_age_hours": 24,
-    # 推送前跑的一条外部命令（可选）：stdout 非空就把它附在提示里。
-    # 上一版这里写死了「查 GPU 是否在计费」，那属于某个项目的耦合，不该进通用工具。
+    # Optional external command run before a push: non-empty stdout is appended to the hint.
+    # The previous version hardcoded "check whether the GPU is billing", which is one
+    # project's coupling and does not belong in a general tool.
     "pre_nudge_check": "",
 }
 
@@ -64,14 +70,17 @@ def log(line: str) -> None:
 
 
 def match_binding(cfg: dict, session: str = "") -> dict | None:
-    """会话 → 命中的 binding。只认 session 精确相等，别的路径一律不命中。
+    """session -> the matching binding. Only an exact session match counts; nothing else
+    matches.
 
-    返回 None 意味着「这不是我的会话」，调用方必须完全静默：不打印、不写日志。
+    None means "not my session", and the caller must stay fully silent: no print, no
+    log line.
 
-    为什么连「按目录」都不留：同一个项目里通常同时开着几个会话（不同任务、不同
-    agent），它们的 cwd 完全相同。按目录匹配等于「一个会话开心跳，全项目被拦」，
-    这正是上一版的污染方式。cwd 在这个判断里没有任何信息量——它只能说明大家
-    在同一个仓库里，不能说明谁该被派活。
+    Why even the directory fallback is gone: one project usually runs several sessions
+    at once (different tasks, different agents) with an identical cwd. Matching on the
+    directory means "one session heartbeats, the whole project is interrupted" -- the
+    contamination of the previous version. cwd carries no information here: it proves
+    everyone sits in the same repository, not who should be dispatched.
     """
     for b in cfg.get("bindings") or []:
         if b.get("session") and session and session == b["session"]:
@@ -80,7 +89,8 @@ def match_binding(cfg: dict, session: str = "") -> dict | None:
 
 
 def store_key(binding: dict | None) -> str:
-    """待办文件名。按会话隔离，同一个项目里的不同会话各有各的文件。"""
+    """Todo file name. Isolated per session, so different sessions in one project each
+    get their own file."""
     b = binding or {}
     if b.get("store"):
         return str(b["store"])
@@ -112,10 +122,10 @@ def save_tasks(binding: dict | None, data: dict) -> None:
 
 
 def remember_session(session: str, cwd: Path) -> None:
-    """记住见过的会话，这样 `bind --session` 才有 id 可选。
+    """Remember sessions seen, so `bind --session` has an id to pick from.
 
-    这是唯一在「未命中」路径上发生的写操作，且只写一次 per 会话；
-    除此之外未命中的路径什么都不做。
+    This is the only write that happens on the "not matched" path, and it writes once
+    per session; otherwise the unmatched path does nothing at all.
     """
     if not session:
         return

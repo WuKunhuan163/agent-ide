@@ -1,11 +1,13 @@
-"""钩子处理体：在「本来就要停下来」的那一刻，把队列里的一件推回去。
+"""Hook body: at the moment the session would stop, push one queued item back.
 
-为什么用 Stop 而不是定时器：定时心跳即使没活也要调一次模型；Stop 钩子只在
-本轮自然结束的时刻判断，没待办就什么都不做，没有额外成本。这是同一个机制
-（主会话里的一个轮次，带完整上下文），只是触发点换了。
+Why Stop and not a timer: a periodic heartbeat calls the model even when there is
+nothing to do; the Stop hook decides only at the moment the turn ends naturally, and
+with nothing pending it does nothing at no cost. Same mechanism (one turn inside the
+main session, with full context), different trigger.
 
-一条铁律贯穿全文件：**推送权只在这里**。agent 没有任何命令能让它「现在就推
-一件」——它只能记账。所以「自己给自己派活」在接口上不存在。
+One iron rule runs through the whole file: **only this file may push**. No command
+lets the agent push an item right now -- it can only record. "Assigning work to
+itself" does not exist in the interface.
 """
 from __future__ import annotations
 
@@ -20,32 +22,36 @@ from . import queue, store
 
 
 def message(task: dict, remaining: int, extra: str = "") -> str:
-    """喂回给模型的话：派哪一件、做成什么样算完、怎么销账、做完就停。"""
+    """The text fed back to the model: which item, what counts as done, how to record
+    it, and stop there."""
     hint = str(task.get("hint") or "").strip()
     if hint:
-        # 匿名模式：不报 id、不报进度。该做哪一件由产物文件自己决定——
-        # 报编号会让人按编号去凑，而不是回头去看已经写了什么。
+        # Anonymous mode: no id, no progress. Which item to do is decided by the
+        # evidence file itself -- naming the id invites gaming the count instead of
+        # looking at what was actually written.
         lines = [f"[heartbeat] {hint}"]
     else:
         total = int(task.get("total") or 0)
         done = int(task.get("done") or 0)
-        head = (f"[heartbeat] {task.get('id')} 进度 {done}/{total}，还剩 {total - done} 次。"
-                if total else f"[heartbeat] 待办未清（还剩 {remaining} 项）。")
-        lines = [head, f"这一次只派 1 件：{task.get('id')} — {task.get('text')}"]
+        head = (f"[heartbeat] {task.get('id')} progress {done}/{total}, {total - done} left."
+                if total else f"[heartbeat] todos remain ({remaining} left).")
+        lines = [head, f"one item this turn: {task.get('id')} - {task.get('text')}"]
 
     if task.get("judge"):
-        lines.append(f"判据（做成什么样算完）：{task['judge']}")
+        lines.append(f"done means: {task['judge']}")
     if task.get("evidence"):
         pat = task.get("evidence_pattern") or queue.DEFAULT_PATTERN
-        lines.append(f"产物：{task['evidence']}（记账时数其中匹配 {pat} 的行）")
+        lines.append(f"evidence: {task['evidence']} (the record counts lines matching {pat})")
 
-    arg = "" if hint else f" {task.get('id')}"      # 匿名模式下不给 id，inc 自动取当前件
+    arg = "" if hint else f" {task.get('id')}"      # anonymous mode passes no id; inc takes the current item
     lines.append(
-        f"做完执行一次 `heartbeat.py inc{arg}`，然后立刻结束这一轮。"
-        f"没有新产物它 refuse；做不成用 `heartbeat.py block{arg} \"卡在哪\"`，不要谎报完成。"
+        f"when done run `heartbeat.py inc{arg}` once, then end this turn."
+        f" it refuses without new evidence; if it cannot be done use"
+        f" `heartbeat.py block{arg} \"where it is stuck\"`, never a false claim of completion."
     )
-    lines.append("不要在同一轮里接着做第 2 件。下一次派活由钩子在你停下时发出，"
-                 "不由你发起——你也没有能主动触发它的命令。")
+    lines.append("Do not start a second item in the same turn. The next dispatch comes"
+                 " from the hook when you stop, not from you -- and you have no command"
+                 " that triggers it.")
     if extra:
         lines.append(extra)
     return "\n".join(lines)
@@ -64,11 +70,13 @@ def _pre_check(cfg: dict, root: Path) -> str:
 
 
 def _target(payload: dict) -> tuple[str, dict, dict, dict] | None:
-    """统一的会话解析：该不该管这个会话、它绑在哪、队列是什么。
+    """Shared session resolution: whether this session is mine, where it is bound, and
+    what its queue holds.
 
-    两个挂载点共用这一段，避免各写一遍前置判断而慢慢长出两套规则。
-    未命中一律返回 None，调用方必须完全静默：不输出、不写日志——否则别的会话
-    每收尾一次就往日志里塞一行，真正的信号会被淹掉。
+    Both mount points share this block so the precondition does not get written twice
+    and drift into two rule sets. A miss returns None, and the caller must stay fully
+    silent: no output, no log line -- otherwise every wrap-up of every other session
+    adds a line and the real signal drowns.
     """
     cfg = store.config()
     if not cfg.get("enabled"):
@@ -86,13 +94,16 @@ def _target(payload: dict) -> tuple[str, dict, dict, dict] | None:
 
 
 def handle(payload: dict) -> dict | None:
-    """只在主会话的 Stop 上工作；返回要输出的 JSON（要拦），或 None（不拦、不吭声）。
+    """Works only on the main session's Stop; returns the JSON to emit (intervene) or
+    None (stay out of it, say nothing).
 
-    为什么拒绝 SubagentStop：子代理与父会话共用同一个 session_id，payload 里没有
-    任何字段能把它们分开。一旦接受 SubagentStop，父会话派出去的子代理（跑下载、
-    跑构建这类长任务）一收尾就会被当成「主会话停了」，于是被塞进一条完全无关的
-    待办。session 绑定在这种场景下失效——不是匹配写错了，而是 session 本身粒度
-    不够。宁可少一个挂载点，也不能把活派给正在干别的事的 agent。
+    Why SubagentStop is refused: a subagent shares its parent's session_id, and no
+    field in the payload separates them. Accept SubagentStop and every subagent the
+    parent dispatched (downloads, builds, long jobs) looks like "the main session
+    stopped" the moment it finishes, so it gets handed a completely unrelated todo.
+    Session binding breaks down here -- not because the match is written wrong, but
+    because a session is the wrong granularity. Better one mount point fewer than
+    work dispatched to an agent busy with something else.
     """
     if (payload.get("hook_event_name") or "Stop") != "Stop":
         return None
@@ -112,16 +123,18 @@ def handle(payload: dict) -> dict | None:
     now = time.time()
     root = store.work_root(binding)
 
-    # 闸一：太久没有新产物就不再拦。
-    # 按「最后一次推进」算，不按「最后一次推送」——后者每次推送都会刷新，
-    # 只要它还在推就永远不过期，那道闸等于不存在。
+    # Gate one: stop intervening once no new evidence has appeared for too long.
+    # Measured from the last progress, not the last push -- the latter refreshes on
+    # every push, so as long as it keeps pushing nothing ever expires and the gate
+    # does not exist.
     last_progress = float(data.get("last_progress_at") or data.get("created_at") or now)
     age_h = (now - last_progress) / 3600
     if age_h > float(cfg.get("max_age_hours") or 24):
         store.log(f"stale {age_h:.1f}h pending={len(todo)}")
         return None
 
-    # 闸二：一条链最多推多少次。隔得够久就算新链、计数归零。
+    # Gate two: how many pushes one chain may contain. A long enough gap starts a new
+    # chain and the count resets.
     chain = data.get("_chain") or {}
     fresh_chain = (now - float(chain.get("at") or 0)) > float(cfg.get("chain_gap_seconds") or 1800)
     chain_count = 0 if fresh_chain else int(chain.get("count") or 0)
@@ -130,8 +143,10 @@ def handle(payload: dict) -> dict | None:
         store.log(f"giveup chain={chain_count}/{limit} pending={len(todo)}")
         return None
 
-    # 闸三：同一件连着推却没产物，就累加 stall；到顶换下一件。
-    # 「有没有进展」只有一个判据：上一次推送时记下的行数，和现在比。
+    # Gate three: pushing the same item with no evidence accumulates stall; at the cap
+    # it moves to the next item.
+    # "Did anything progress" has exactly one criterion: the line count recorded at
+    # the last push, compared with now.
     first = todo[0]
     cur = queue.evidence_lines(first, root)
     last = data.get("_last_nudge") or {}
@@ -142,7 +157,8 @@ def handle(payload: dict) -> dict | None:
 
     if int(first["_stall"]) >= int(cfg.get("stall_limit") or 6):
         first["status"] = "blocked"
-        first["blocked_reason"] = f"连续 {first['_stall']} 次推送后产物仍是 {cur} 行，自动 block"
+        first["blocked_reason"] = (f"autoblocked: {first['_stall']} pushes in a row left the"
+                                  f" evidence at {cur} lines")
         store.log(f"autoblock task={first.get('id')} stall={first['_stall']} lines={cur}")
         store.save_tasks(binding, data)
         rest = queue.pending(data)
@@ -165,7 +181,7 @@ def handle(payload: dict) -> dict | None:
 
 
 def dump(payload: dict) -> int:
-    """把钩子拿到的 payload 打出来，用于确认上游到底传了什么。"""
+    """Print the payload the hook received, to confirm what upstream actually sends."""
     print(json.dumps(payload, ensure_ascii=False, indent=2))
     return 0
 
