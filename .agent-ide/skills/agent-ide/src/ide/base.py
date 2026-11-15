@@ -7,6 +7,9 @@ is the same for all of them, so it lives here.
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+import bisect
+import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -139,29 +142,109 @@ class SessionStore(ABC):
         convs = self.conversations()
         return max(convs, key=self.last_write_time) if convs else None
 
+    def _stamped(self, conv: Path) -> list[tuple[float, Path]]:
+        """Message files with their mtime, sorted oldest first.
+
+        One `scandir` + `stat` pass. Measured on a 110k-file conversation:
+        0.6 s to list, 3.5 s to stat them all cold (0.7 s warm). Parsing the
+        same set is 28 s, so the whole point of this pass is to decide what
+        *not* to parse.
+        """
+        out: list[tuple[float, Path]] = []
+        folder = conv / "messages"
+        if not folder.is_dir():
+            return out
+        with os.scandir(folder) as it:
+            for entry in it:
+                if not entry.name.endswith(".json"):
+                    continue
+                try:
+                    out.append((entry.stat().st_mtime, Path(entry.path)))
+                except OSError:
+                    continue
+        out.sort(key=lambda pair: pair[0])
+        return out
+
     def read_messages(
-        self, conv: Path, since: datetime | None = None, margin_secs: int = 120
+        self,
+        conv: Path,
+        since: datetime | None = None,
+        margin_secs: int = 120,
+        until: datetime | None = None,
+        tail: int | None = None,
     ) -> list[Message]:
         """Chronological messages of one conversation, filtered by timestamp.
 
-        File mtime is only a cheap pre-filter (with a margin): the authoritative
-        filter is the message's own timestamp, so a file written late but
-        stamped early is still included.
+        Only the files that can contribute are parsed. mtime decides the
+        candidate window -- it tracks the message timestamp to within seconds,
+        and the authoritative filter is still the message's own `at`, so a file
+        written late but stamped early stays included.
+
+        `tail` is a hint from `--last N`: N messages that survive filtering are
+        wanted from the end, so parsing starts at the end and walks backwards
+        until N are in hand. It is a hint, not a contract -- the caller still
+        slices.
         """
-        cutoff = since.timestamp() - margin_secs if since else None
+        stamped = self._stamped(conv)
+        if not stamped:
+            return []
+
+        lo, hi = 0, len(stamped)
+        if since is not None or until is not None:
+            mtimes = [m for m, _ in stamped]
+            if since is not None:
+                lo = bisect.bisect_left(mtimes, since.timestamp() - margin_secs)
+            if until is not None:
+                hi = bisect.bisect_right(mtimes, until.timestamp() + margin_secs)
+            hi = max(hi, lo)
+
+        if tail and since is None and until is None:
+            # Start with a generous block: many files are tool results that
+            # filter out, so N files yield well under N messages.
+            want = max(tail * 4 + 50, tail)
+            start = max(lo, len(stamped) - want)
+            while True:
+                msgs = self._parse_span(stamped, start, len(stamped), None, until)
+                if len(msgs) >= tail or start == 0:
+                    return msgs
+                start = max(0, start - want)
+                # Guard against a conversation whose newest files are all
+                # empty: widen, but do not re-parse the same span twice.
+                if start == 0:
+                    return msgs
+
+        return self._parse_span(stamped, lo, hi, since, until)
+
+    def _parse_span(
+        self,
+        stamped: list[tuple[float, Path]],
+        lo: int,
+        hi: int,
+        since: datetime | None,
+        until: datetime | None,
+    ) -> list[Message]:
         out: list[Message] = []
-        for path in self.message_files(conv):
-            if cutoff is not None:
-                try:
-                    if path.stat().st_mtime < cutoff:
-                        continue
-                except OSError:
-                    continue
+        span = hi - lo
+        # Parsing is the expensive half (0.25 ms per file, 28 s over 110k).
+        # A silent 28 s looks like a hang, so show the count when it is long
+        # enough to matter. stderr only: stdout stays the rendered text.
+        show = span >= 2000
+        if show:
+            print(f"\rread: 0/{span} files", end="", file=sys.stderr, flush=True)
+        for done, (_, path) in enumerate(stamped[lo:hi], 1):
+            if show and done % 2000 == 0:
+                print(f"\rread: {done}/{span} files  {done / span:5.0%}",
+                      end="", file=sys.stderr, flush=True)
             message = self.parse_file(path)
             if message is None or message.is_empty:
                 continue
             if since and message.at and message.at < since:
                 continue
+            if until and message.at and message.at > until:
+                continue
             out.append(message)
+        if show:
+            print(f"\rread: {span}/{span} files  100%  {len(out)} kept",
+                  file=sys.stderr, flush=True)
         out.sort(key=lambda m: (m.at or datetime.min.replace(tzinfo=timezone.utc), m.mid))
         return out

@@ -204,10 +204,9 @@ def _checked(args: argparse.Namespace) -> None:
         raise fail(Exit.Cli.USAGE, f"--top {args.top}: must be 1 or more.")
     if args.last is not None and args.last < 1:
         raise fail(Exit.Cli.USAGE, f"--last {args.last}: must be 1 or more.")
-    if args.out:
-        parent = Path(args.out).expanduser().parent
-        if not parent.exists():
-            raise fail(Exit.Cli.USAGE, f"--out {args.out}: {parent} does not exist.")
+    # --out has no parent check on purpose: the canonical export directory is
+    # created on demand, so "the folder is missing" is a normal first run, not
+    # a usage error.
 
 
 def _store(args: argparse.Namespace):
@@ -237,17 +236,28 @@ def cmd_context(args: argparse.Namespace) -> None:
     store = _store(args)
 
     if args.probe:
-        hits = context.probe_keys(store, _needle_file(args.probe), args.top)
+        hits = context.probe_keys(store, _needle_file(args.probe), args.top,
+                                  max_files=args.max_files)
         if not hits:
             raise AgentIdeError(
                 2,
                 "no conversation matches this fragment: 0 hits. "
-                "The fragment is not in this store. What to do next is a rule, "
-                "not a guess — see ~/.codebuddy/rules/guide-probe-miss.md "
-                "(or this skill's 'A miss is a stop, not a hint to search harder'). "
-                "Exit 2.")
-        for key, n in hits:
-            print(f"{key}\t{n}")
+                "First check the kept/dropped line above: if it dropped conversations, "
+                "the session you are in may be one of them — retry with --max-files 0, "
+                "or read --bindings and go straight to --key. "
+                "Otherwise the fragment is not in this store: see "
+                "~/.codebuddy/rules/guide-probe-miss.md. Exit 2.")
+        print("# 下面是结果：key<TAB>hits<TAB>msgs<TAB>bytes", file=sys.stderr, flush=True)
+        for hit in hits:
+            # stdout stays a clean table: key, hits, messages, bytes.
+            print(f"{hit.key}\t{hit.hits}\t{hit.msgs}\t{hit.bytes}")
+            if hit.files >= context.PROBE_MAX_CONVERSATION_FILES * 0.7:
+                print(
+                    f"probe: {hit.key} holds {hit.files} message files "
+                    f"(default cap {context.PROBE_MAX_CONVERSATION_FILES}). "
+                    f"Past the cap a conversation is dropped unread, so this key "
+                    f"needs --max-files 0 (or --key) to be found again.",
+)
         return
 
     if not args.key:
@@ -264,12 +274,29 @@ def cmd_context(args: argparse.Namespace) -> None:
         store, conv, last=args.last, since=args.since, until=args.until,
         with_tools=not args.no_tools, stamps=args.stamps,
     )
-    if args.out:
-        out = Path(args.out).expanduser()
-        out.write_text(text, encoding="utf-8")
-        print(f"{out}: {len(text.splitlines())} lines, {len(text)} bytes")
-    else:
-        print(text)
+    out = _export_path(args, conv.name)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(text, encoding="utf-8")
+    # The path is the idempotent location for this key; the file is rewritten on
+    # every window, so a copy is something you make deliberately (`cp`), never a
+    # second export. Printing the whole text is refused on purpose: a 160 MB
+    # conversation printed into a context window is not "reading" it.
+    print(f"{out}\t{len(text.splitlines())}\t{len(text)}")
+
+
+def _export_path(args: argparse.Namespace, key: str) -> Path:
+    """The one place a conversation's full text is allowed to land.
+
+    Per key, per machine: a global conversation is not this project's private
+    file, so it goes under the global project's `data/` when there is one. The
+    name is the key, which is also what makes the overwrite automatic -- a new
+    export of the same conversation cannot create a second file.
+    """
+    try:
+        home = config.global_home(paths.project_root(), seed=False)
+    except Exception:
+        home = paths.project_root()
+    return (paths.data_dir(home) / "context" / f"{key}.md").resolve()
 
 
 def cmd_violations(args: argparse.Namespace) -> None:
@@ -333,7 +360,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--root", metavar="PATH", help="history root, when detection is stale")
     p.add_argument("--id", metavar="ID", help="agent id bound to a conversation (see --bindings)")
     p.add_argument("--bindings", action="store_true", help="list agent id -> conversation key")
-    p.add_argument("--probe", metavar="FILE", help="file holding a reply fragment; prints keys")
+    p.add_argument("--max-files", type=int, default=None, metavar="N",
+                   help="probe: drop conversations with more than N message files; 0 = no cap "
+                        "(a main session of 70k+ files is only findable this way)")
+    p.add_argument("--probe", metavar="FILE",
+                   help="file holding a reply fragment; prints key, hits, msgs, bytes")
     p.add_argument("--key", metavar="KEY", help="conversation key to render")
     p.add_argument("--last", type=int, metavar="N", help="only the last N messages")
     p.add_argument("--since", metavar="WHEN", help="window start (ISO or epoch)")
@@ -341,7 +372,6 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--top", type=int, metavar="N", help="probe: at most N keys")
     p.add_argument("--no-tools", action="store_true", help="render: omit tool calls/results")
     p.add_argument("--stamps", action="store_true", help="render: prefix each message with its UTC time (@HH:MM:SSZ)")
-    p.add_argument("--out", metavar="FILE", help="write the rendered text here")
     p.set_defaults(run=cmd_context)
 
     p = sub.add_parser("violations", help="record a judgement (catalogue is staging/ledger/violations.json)")
@@ -375,4 +405,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except BrokenPipeError:
+        # `| head` closing the pipe is not a failure of the read.
+        raise SystemExit(0)

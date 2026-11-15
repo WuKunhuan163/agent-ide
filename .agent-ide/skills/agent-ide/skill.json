@@ -3,7 +3,10 @@
     "install.command",
     "replicas.py",
     "pyproject.toml",
-    "pyrightconfig.json"
+    "pyrightconfig.json",
+    "ledger/method.md",
+    "ledger/violations.md",
+    "ledger/violations.json"
   ],
   "install": {
     "kind": "python"

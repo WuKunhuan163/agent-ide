@@ -14,10 +14,16 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+from typing import NamedTuple
 
 import json
 import os
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+import sys as _sys
+
+
+class Sys:
+    maxsize = 2**63 - 1
 import re
 import sys
 import shutil
@@ -36,7 +42,11 @@ CONFIG = Path(__file__).resolve().parent.parent / "data" / "config.json"
 # Probe prior: the target is a *fresh* session, so a conversation far larger than
 # this project's own cannot be it. Count entries only — counting 185k files costs
 # 0.24 s, `stat`-ing them costs 7 s. A literal, never recomputed at runtime.
-PROBE_MAX_CONVERSATION_FILES = 1000
+# Measured on this machine: a needle for a fresh session, so anything with more
+# files than this cannot be the source. Counted with os.scandir, never stat.
+PROBE_MAX_CONVERSATION_FILES = 2000
+# 覆盖：AGENT_IDE_PROBE_MAX_FILES=0 表示不设上限（长会话必须能探）
+PROBE_MAX_FILES_ENV = "AGENT_IDE_PROBE_MAX_FILES"
 
 def transcripts_config() -> dict:
     """The `transcripts` block of agent-ide's own config: ide, history_root, bindings."""
@@ -105,20 +115,78 @@ def conversation_dirs(store) -> list[Path]:
 # -------------------------------------------------------------------- probe
 
 
-def probe_keys(store, fragment_file: Path, limit: int | None = None) -> list[tuple[str, int]]:
+class ProbeHit(NamedTuple):
+    """One matching conversation: how often it matched, and how big it is.
+
+    The two size numbers are not decoration. A key alone says "this is the
+    session"; it does not say whether the session is 12 messages or 4000, and
+    that changes how the answer should be read -- a two-message match is a
+    fragment quoted somewhere, a 4000-message match is the session itself. The
+    third number matters for the other reason: anything above the cap is
+    *unprobeable*, so a key sitting at 1900/2000 files is one edit away from
+    disappearing from every future probe.
+    """
+
+    key: str
+    hits: int
+    msgs: int
+    bytes: int
+    files: int
+
+
+
+
+# ------------------------------------------------------------------ scan worker
+# 模块级函数：ProcessPoolExecutor 只能 pickle 顶层函数，所以扫描逻辑不放在闭包里。
+_W = {}
+
+
+def _worker_init(raw_needles, cjk_runs, needles):
+    _W["raw"] = raw_needles
+    _W["cjk"] = cjk_runs
+    _W["n"] = needles
+
+
+def _scan_one(payload):
+    name, raw_path = payload
+    path = Path(raw_path)
+    try:
+        blob = path.read_bytes()
+    except OSError:
+        return None
+    if any(n in blob for n in _W["raw"]):
+        return name
+    if _W["cjk"] and b"\\u" not in blob:
+        if not any(r in _DELETABLE.sub(b"", blob) for r in _W["cjk"]):
+            return None
+    try:
+        body = _normalise("\n".join(_strings(json.loads(blob))))
+    except Exception:
+        body = _normalise(blob.decode("utf-8", "replace"))
+    return name if any(n in body for n in _W["n"]) else None
+
+
+def probe_keys(store, fragment_file: Path, limit: int | None = None,
+               max_files: int | None = None, processes: int | None = None) -> list[ProbeHit]:
     """Keys whose message files contain any non-empty line of the fragment file.
 
-    A probe looks for a *fresh* session: the fragment names one sentence that
-    session produced, and that session began empty. Anything far larger than the
-    conversation bound to this project cannot be it, so it is skipped unread —
-    the bound conversation's own size sets the scale (5% by default). That cut is
-    what makes a probe over a 1 GB store take seconds instead of minutes.
+    Three levels, cheapest first, and all of them exact in what they claim:
 
-    Comparison is on *decoded, normalised* text — JSON unescaping, NFKC, full-width
-    to half-width, backticks and whitespace removed — because a fragment copied out
-    of a UI differs from the stored bytes in exactly those ways and nowhere else.
-    Normalising is not an option: a strict byte compare answers "not present" to
-    sentences that are present, which is worse than being slow.
+    1. **Count gate, no stat.** A needle names a *fresh* session, so a conversation
+       with more than `PROBE_MAX_CONVERSATION_FILES` message files cannot be it. The
+       count comes from `os.scandir`, never from sizes: one `stat` per conversation
+       cost 7 s on a 185k-file store, counting cost 0.24 s.
+    2. **Byte-equal needle.** A fragment copied out of a reply is byte-identical to
+       what was stored, so one C substring test per file answers the common case.
+    3. **Sound prefilter, then the lenient pass.** The lenient pass (JSON unescape,
+       full-width folding, emphasis stripped) costs ~1 ms per file, and it only ever
+       *deletes or maps* characters. So a CJK run from the needle — which carries no
+       folding — must be present in the file once the deletable bytes are removed;
+       if it is not, no normalisation can produce the needle there.
+
+    Comparison is on decoded, normalised text for level 3 because a fragment copied
+    out of a UI differs from the stored bytes in exactly those ways. Levels 1-2 are
+    filters, not answers: they can only pass a file through to level 3.
 
     Progress goes to stderr so stdout stays a clean key<TAB>hits table.
     """
@@ -126,69 +194,133 @@ def probe_keys(store, fragment_file: Path, limit: int | None = None) -> list[tup
         encoding="utf-8", errors="replace").splitlines() if ln.strip()]
     if not needles:
         raise ValueError(f"{fragment_file}: no non-empty line to match")
+    needles_raw = list(needles)
     needles = [_normalise(n) for n in needles]
+    if not any(needles):
+        raise ValueError(
+            f"{fragment_file}: every line is empty after normalisation — the fragment "
+            f"holds only characters that carry no text (U+FFFD, zero-width, spaces). "
+            f"Copy a longer stretch of the reply, or pick a line with words in it.")
 
     convs = conversation_dirs(store)
     files_of = {c.name: store.message_files(c) for c in convs}
     count = {k: len(v) for k, v in files_of.items()}
 
-    keep = [c for c in convs if count[c.name] <= PROBE_MAX_CONVERSATION_FILES]
+    cap = max_files
+    if cap is None:
+        cap = int(os.environ.get(PROBE_MAX_FILES_ENV, PROBE_MAX_CONVERSATION_FILES))
+    keep = [c for c in convs if cap <= 0 or count[c.name] <= cap]
     dropped = len(convs) - len(keep)
     files = [(c, p) for c in keep for p in files_of[c.name]]
     print(f"probe: {len(keep)}/{len(convs)} conversations kept"
-          f" (> {PROBE_MAX_CONVERSATION_FILES} files dropped: {dropped}),"
+          f" (> {cap if cap > 0 else Sys.maxsize} files dropped: {dropped}),"
           f" {len(files)} files", file=sys.stderr, flush=True)
 
-    hits: dict[str, int] = {}
-    t0 = time.monotonic()
     queue = list(files)
+    raw_needles = [ln.encode("utf-8") for ln in needles_raw if ln]
+    # A CJK run is the safe prefilter: the lenient pass never folds a CJK
+    # character into another, so if the run is absent from the file with the
+    # deletable bytes removed, no normalisation can produce the needle.
+    cjk_runs = [r.encode("utf-8") for r in (_core_run(n) for n in needles_raw)
+                if len(r) >= 3 and all("\u4e00" <= ch <= "\u9fff" for ch in r)]
+    t0 = time.monotonic()
+
+    hits = {}
     done = 0
+    # 进度只报里程碑：首条 + 1/2/5/10/20/50/100%。大库全扫 20 万文件时，
+    # 每 500 条刷一次会把终端冲掉，读数反而看不见。
+    marks = [0.01, 0.02, 0.05, 0.10, 0.20, 0.50, 1.00]
+    steps = [max(1, int(len(queue) * m)) for m in marks]
+    step_i = 0
+    jobs = [(conv.name, str(path)) for conv, path in queue]
+    workers = processes or max(2, (os.cpu_count() or 4))
+    use_procs = len(jobs) > 20000 and workers > 1
+    if use_procs:
+        pool_ctx = ProcessPoolExecutor(
+            max_workers=workers,
+            initializer=_worker_init,
+            initargs=(raw_needles, cjk_runs, needles),
+        )
+    else:
+        _worker_init(raw_needles, cjk_runs, needles)
+        pool_ctx = ThreadPoolExecutor(max_workers=min(32, workers * 4))
 
-    def scan(item):
-        conv, path = item
-        try:
-            blob = path.read_bytes()
-        except OSError:
-            return None
-        try:
-            body = _normalise("\n".join(_strings(json.loads(blob))))
-        except Exception:
-            body = _normalise(blob.decode("utf-8", "replace"))
-        return conv.name if any(n in body for n in needles) else None
-
-    # Reading is I/O bound and the containment test runs in C, so threads (not
-    # processes) buy the parallelism without pickling 10k paths.
-    with ThreadPoolExecutor(max_workers=min(16, (os.cpu_count() or 4) * 2)) as pool:
-        for name in pool.map(scan, queue, chunksize=32):
+    with pool_ctx as pool:
+        mapper = pool.map(_scan_one, jobs, chunksize=64) if use_procs else pool.map(_scan_one, jobs, chunksize=64)
+        for name in mapper:
             done += 1
             if name:
                 hits[name] = hits.get(name, 0) + 1
-            if done % 500 == 0 or done == len(queue):
-                print(f"\rprobe: {done}/{len(queue)} files  {done/len(queue):5.0%}  "
+            label = None
+            if done == 1:
+                label = f"{1/len(queue):.0%}" if len(queue) > 100 else "0%"
+            elif step_i < len(steps) and done >= steps[step_i]:
+                label = f"{marks[step_i]:.0%}"
+                step_i += 1
+            if label:
+                print(f"probe: {label:>4} ({done}/{len(queue)}) "
                       f"{time.monotonic()-t0:5.1f}s  hits={len(hits)}",
-                      end="", file=sys.stderr, flush=True)
+                      file=sys.stderr, flush=True)
     print(file=sys.stderr)
 
-    out = sorted(hits.items(), key=lambda kv: kv[1], reverse=True)
+    sized = {
+        name: ProbeHit(
+            key=name,
+            hits=n,
+            msgs=count[name],
+            bytes=sum(f.stat().st_size for f in files_of[name] if f.is_file()),
+            files=count[name],
+        )
+        for name, n in hits.items()
+    }
+    out = sorted(sized.values(), key=lambda h: (h.hits, h.msgs), reverse=True)
     return out[:limit] if limit else out
+
+
+
+
+
+def _deletable():
+    """The bytes the lenient pass removes: whitespace, storage quoting, emphasis marks."""
+    return re.compile(rb"[\s`\\*_]")
+
+
+_DELETABLE = _deletable()
+
+
+def _core_run(needle: str) -> str:
+    """The longest run of letters/CJK in a needle: punctuation and whitespace are
+    what the lenient pass deletes, so a run of these survives it."""
+    best, cur = "", ""
+    for ch in needle:
+        if ch.isalnum() or "\u4e00" <= ch <= "\u9fff":
+            cur += ch
+        else:
+            if len(cur) > len(best):
+                best = cur
+            cur = ""
+    return best if len(best) > len(cur) else cur
 
 
 # ------------------------------------------------------------------- render
 
 
-def _load(store, conv: Path, since: str | None, until: str | None) -> list[Message]:
+def _load(store, conv: Path, since: str | None, until: str | None,
+          tail: int | None = None) -> list[Message]:
+    """Read the messages a render can actually use, and nothing else.
+
+    `tail` is passed straight through: with `--last N` there is no reason to
+    parse a 110k-file conversation to keep the final two messages.
+    """
     since_dt = parse_ts(since)
     until_dt = parse_ts(until)
-    msgs = store.read_messages(conv, since=since_dt)
-    if until_dt:
-        msgs = [m for m in msgs if m.at is None or m.at <= until_dt]
-    return msgs
+    return store.read_messages(conv, since=since_dt, until=until_dt, tail=tail)
 
 
 def render_conversation(store, conv: Path, *, last: int | None = None,
                         since: str | None = None, until: str | None = None,
                         with_tools: bool = True, stamps: bool = False) -> str:
-    msgs = _load(store, conv, since, until)
+    msgs = _load(store, conv, since, until, tail=last)
     if last:
         msgs = msgs[-last:]
 
@@ -335,6 +467,14 @@ def _build_table() -> dict[int, str | None]:
     })
     for cp in (0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x20, 0xA0, 0x3000):
         table[cp] = None
+    # Transport noise: characters that carry no meaning and exist only because the
+    # text was copied, re-encoded or truncated mid-sequence. U+FFFD is what a lost
+    # byte becomes — keeping it makes every needle containing it unmatchable, and
+    # deleting it is what the reader would do anyway.
+    for cp in (0xFFFD, 0x00AD, 0x200B, 0x200C, 0x200D, 0x2060, 0xFEFF, 0xFE0F, 0xFEFE):
+        table[cp] = None
+    for cp in range(0x2000, 0x200B):  # en/em/thin spaces → nothing, same as ASCII space
+        table[cp] = None
     return table
 
 
@@ -385,10 +525,15 @@ def _strip_emphasis(text: str) -> str:
     in Python's `\\w`, CJK characters are word characters, so emphasis markers touching them would not match
     the closing test and never be stripped.
     """
-    text = _BOLD.sub(_unwrap, text)
-    text = _BOLD_UNDER.sub(_unwrap, text)
-    text = _ITALIC_STAR.sub(_unwrap, text)
-    text = _ITALIC_UNDER.sub(_unwrap, text)
+    # A pass whose marker character is absent cannot match. Most messages carry
+    # neither `*` nor `_`, and four regex passes over 13 KB of prose cost more
+    # than the JSON parse; the guard is what keeps the whole probe in seconds.
+    if "*" in text:
+        text = _BOLD.sub(_unwrap, text)
+        text = _ITALIC_STAR.sub(_unwrap, text)
+    if "_" in text:
+        text = _BOLD_UNDER.sub(_unwrap, text)
+        text = _ITALIC_UNDER.sub(_unwrap, text)
     return text
 def _normalise(text: str) -> str:
     """Defeat the ways a copied sentence differs from the stored bytes.
