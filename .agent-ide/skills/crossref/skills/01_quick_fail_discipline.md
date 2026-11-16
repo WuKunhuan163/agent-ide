@@ -1,28 +1,30 @@
-# 01 · 快速失败纪律（Time Budget & Quick-Fail Discipline）
+# 01 · Time budget and quick-fail discipline
 
-> **维护策略**：实战效率第一。找论文/下载全文默认快速失败，只有用户明确要求「仔细找」等极少数情况才放开预算。
+> **Maintenance policy**: throughput first. Finding a paper or fetching full text fails fast by default; the budget is lifted only in the rare case where the user explicitly asks to keep digging.
 
-## 默认时间预算
+## Default time budget
 
-| 环节 | 预算 | 超时动作 |
+**Fail fast on a budget, not on a hunch**: each step below has a time it may take and what to do when that time runs out.
+
+| Step | Budget | On timeout |
 |---|---|---|
-| 单篇元数据查询（crossref search/work） | ≤ 1 分钟 | 换关键词一次，仍失败即记录"未检索到" |
-| 单篇全文下载 | ≤ 5 分钟、≤ 3 种来源 | 超过即记录"未获取全文 + 原因" |
-| 批量任务（如 7 篇） | 单篇独立计时，不串行拖累全局 | 卡住的篇目标记 pending，先推进能完成的 |
+| Single-record metadata lookup (crossref search/work) | ≤ 1 minute | change the query once, then record "not found" |
+| Full-text fetch of one paper | ≤ 5 minutes, ≤ 3 sources | record "full text not obtained + reason" |
+| Batch (e.g. 7 papers) | timed per paper; one slow paper must not stall the batch | mark the stuck ones pending and move on |
 
-## 放弃判定（默认满足任一即放弃）
+## Giving up (any one of these, by default)
 
-1. Unpaywall/OpenAlex/Crossref 均返回 `is_oa=False`（付费墙且无合法 OA）→ 直接放弃全文，保留元数据+摘要
-2. 下载返回 HTML/验证码/403（反爬拦截）且换 2 个来源仍失败 → 放弃
-3. 渠道为 Sci-Hub/非法镜像 → 一律不尝试（版权红线）
+1. Unpaywall/OpenAlex/Crossref all say `is_oa=False` (paywalled, no lawful OA) → drop the full text, keep metadata + abstract
+2. The download returns HTML / a captcha / 403 (anti-scraping) and two other sources fail the same way → drop it
+3. The channel is Sci-Hub or any mirror of that kind → never attempted (copyright line)
 
-## 例外（放开预算的少数情况）
+## Exceptions (the few cases where the budget is lifted)
 
-- 用户/决策者明确说「仔细找」「必须下到」「再试试」
-- 文献是奠基性/高被引作品，公开镜像概率高，可多试 2 个大学镜像
-- 用户提供了账号/浏览器手动下载途径
+- The user or decision-maker says "keep looking", "we need the file", "try again"
+- The work is foundational or highly cited, so an open mirror is likely — two extra university mirrors are allowed
+- The user supplies credentials or a way to download it through their own browser
 
-## 输出约定
+## Output convention
 
-放弃某篇时，在报告里写清楚：`refXXX 未获取全文 | 原因: 付费墙无OA / SPA反爬 / 403 | 备选: 无`。
-不静默失败，也不无限绕路。
+When a paper is dropped, the report says so explicitly: `refXXX full text not obtained | reason: paywalled, no OA / SPA anti-scraping / 403 | alternative: none`.
+No silent failure, and no endless detour.
