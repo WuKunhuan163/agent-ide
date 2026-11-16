@@ -1,28 +1,28 @@
-"""后台看门狗：实例上没有任务在跑，就把它关掉。
+"""Background watchdog: shut the instance down when nothing is running on it.
 
-它**不是**「检测到断连就关机」。三件事实决定了这个区别：
+It is **not** "power off on a dropped connection". Three facts force that difference:
 
-1. 容器不能自我关机，`poweroff` 只停进程，计费照走；
-2. SSH 断连对容器不可见，它眼里一切正常；
-3. `nohup` 的任务在断连后本来就该继续跑——断连关机等于第一次网络抖动就杀掉长任务。
+1. A container cannot power itself off -- `poweroff` stops processes and billing keeps running;
+2. A dropped SSH connection is invisible inside the container, where everything looks fine;
+3. A `nohup` job is supposed to survive a disconnect -- powering off on disconnect would kill long jobs at the first network hiccup.
 
-真正要防的场景是：我这边停了（会话结束、Mac 睡了），而机器还开着。所以判据是
-「有没有任务在跑」，不是「有没有连接」。
+The situation actually worth guarding against: my side stopped (session ended, the Mac slept) while the machine stays up. So the test is
+"is any job running", not "is any connection open".
 
-**不认进程名。** 早先的探测是 `pgrep` 找 `run.py|train.py`，那等于维护一张名单：
-换个脚本名、套层 `torchrun`、跑在没有 GPU 的 CPU 机上，都会被判成「闲着」。
-现在的判据是三个物理量：`nvidia-smi` 的算力进程数与最高利用率、`/proc/loadavg`
-的一分钟负载、`/root/autodl-tmp` 的写盘时间。跟脚本叫什么无关，CPU 模式也成立。
+**Process names are not consulted.** The earlier probe was `pgrep` for `run.py|train.py`, which amounts to maintaining a name list: rename the script,
+wrap it in `torchrun`, run it on a GPU-less machine and it all reads as "idle".
+The test is now three physical quantities: compute process count and peak utilisation from `nvidia-smi`, the one-minute load from `/proc/loadavg`,
+and the write time of `/root/autodl-tmp`. Nothing to do with what the script is called, and it holds on a CPU-only machine too.
 
-连续 `rounds` 次判闲才真正 `stop`，避免训练在两个 epoch 之间的正常间隙里被关掉。
-网络不通时**不推进计数**：宁可多花一小时的钱，也不误杀一个跑了一半的任务。
+Only `rounds` consecutive idle verdicts actually trigger `stop`, so a normal gap between two epochs is not a shutdown.
+When the network is unreachable the count is **not advanced**: better to pay for an extra hour than to kill a half-finished job.
 
-**开机即挂，等它真起来再开始数。** `power_on` 之后实例要先经过
-`starting`/`booting` 才到 `running`，早先的实现一看到不是 `running` 就退出，
-于是看门狗在真正开始追踪之前就已经死了。现在先等（`boot_grace_seconds`），
-起来之后才进入计数循环；只有「已经 running 过又变成 shutdown」才算结束。
+**Arm it at boot, start counting once the machine is really up.** After `power_on` the instance goes through
+`starting`/`booting` before `running`; the earlier implementation exited the moment it saw anything else,
+so the watchdog died before it ever began tracking. It now waits (`boot_grace_seconds`) and enters the counting loop
+only once the machine is up; the run ends only when an instance that was running turns into shutdown.
 
-配置一律在 `data/config.json` 的 `watchdog` 段里，不读任何环境变量。
+Configuration lives entirely in the `watchdog` section of `data/config.json`; no environment variables are read.
 """
 from __future__ import annotations
 
@@ -43,21 +43,21 @@ from src import client  # noqa: E402
 from src.client import AUTH, NET, NO_TOKEN, OK, SSH, USAGE, CliError  # noqa: E402
 
 DEFAULTS = {
-    "interval_seconds": 60,      # 起来之后每分钟看一次
-    "idle_minutes": 1,           # 这一分钟内有过写盘就算在用
-    "rounds": 30,                # 连续 30 次判闲才关机（60s × 30 = 30 分钟）
-    "boot_grace_seconds": 900,   # 等实例从 shutdown 走到 running 的上限
-    "gpu_util_min": 10,          # 最高一张卡的利用率到这个数就算在用（%）
-    "cpu_load_min": 1,           # 一分钟负载到这个数就算在用（CPU 模式的判据）
+    "interval_seconds": 60,      # once a minute after the machine is up
+    "idle_minutes": 1,           # any write within that minute counts as in use
+    "rounds": 30,                # 30 idle verdicts in a row before shutdown (60s x 30 = 30 min)
+    "boot_grace_seconds": 900,   # upper bound on waiting for shutdown -> running
+    "gpu_util_min": 10,          # peak card utilisation at or above this counts as in use (%)
+    "cpu_load_min": 1,           # one-minute load at or above this counts as in use (the CPU-mode test)
 }
 PROBE_MARK = "---AUTODL---"
 PROBE_TIMEOUT = 60
-BOOT_POLL_SECONDS = 15          # 起来之前勤快点问，起来之后按 interval 走
-# token 失效这类错误重试也没有意义，但一次失败可能只是抖动：连续这么多次才放弃。
+BOOT_POLL_SECONDS = 15          # poll harder before it is up; use interval afterwards
+# Retrying a dead token is pointless, but one failure may be a blip: give up only after this many in a row.
 MAX_BLIND_TICKS = 12
 
 
-# --------------------------------------------------------------------------- 配置与状态
+# --------------------------------------------------------------------------- config and state
 
 def state_file() -> str:
     return os.path.join(client.data_dir(), "watchdog.json")
@@ -68,7 +68,7 @@ def log_file() -> str:
 
 
 def settings() -> dict:
-    """`data/config.json` 的 watchdog 段，缺的键用默认值补齐。"""
+    """The watchdog section of `data/config.json`, missing keys filled from the defaults."""
     merged = dict(DEFAULTS)
     try:
         with open(client.config_file(), encoding="utf-8") as fh:
@@ -128,7 +128,7 @@ def log(line: str) -> None:
         fh.write(f"{stamp} {line}\n")
 
 
-# --------------------------------------------------------------------------- 判据（纯函数）
+# --------------------------------------------------------------------------- the test (pure functions)
 
 @dataclass(frozen=True)
 class Decision:
@@ -139,15 +139,15 @@ class Decision:
 
 @dataclass(frozen=True)
 class Usage:
-    """一次探测看到的用量。三项都跟进程名无关，所以换脚本、套 torchrun、纯 CPU 都成立。"""
-    load: float      # /proc/loadavg 的一分钟值
-    apps: int        # nvidia-smi 里占着卡的计算进程数
-    util: float      # 所有卡里最高的利用率（%）
-    touched: bool    # idle 窗口内 /root/autodl-tmp 有新文件
+    """Usage seen by one probe. None of the three depends on a process name, so a renamed script, a torchrun wrapper or a CPU-only box all work."""
+    load: float      # the one-minute value from /proc/loadavg
+    apps: int        # compute processes holding a card, per nvidia-smi
+    util: float      # peak utilisation across all cards (%)
+    touched: bool    # a new file appeared under /root/autodl-tmp within the idle window
 
 
 def busy(usage: Usage, *, util_min: int, load_min: int) -> str | None:
-    """在用就返回理由，闲着返回 None。"""
+    """Return the reason it is in use, or None when idle."""
     if usage.apps:
         return f"{usage.apps} process(es) on the GPU"
     if usage.util >= util_min:
@@ -160,7 +160,7 @@ def busy(usage: Usage, *, util_min: int, load_min: int) -> str | None:
 
 
 def decide(usage: Usage, *, streak: int, rounds: int, util_min: int, load_min: int) -> Decision:
-    """一轮探测之后该做什么。不联网，便于测试。streak 是之前连续判闲的次数。"""
+    """What to do after one probe round. No network, so it is testable. streak is the number of idle verdicts so far."""
     why = busy(usage, util_min=util_min, load_min=load_min)
     if why:
         return Decision("idle", 0, why)
@@ -171,9 +171,9 @@ def decide(usage: Usage, *, streak: int, rounds: int, util_min: int, load_min: i
 
 
 def parse_probe(text: str) -> Usage:
-    """解析探测输出：`键 值` 三行，PROBE_MARK 之后是写盘命中。
+    """Parse probe output: three `key value` lines, then the write hit after PROBE_MARK.
 
-    缺 nvidia-smi（CPU 模式的机器）时 apps/util 保持 0，判据自动落到负载和写盘上。
+    Without nvidia-smi (a CPU-only machine) apps/util stay 0 and the test falls through to load and writes.
     """
     head, _, tail = text.partition(PROBE_MARK)
     load, apps, util = 0.0, 0, 0.0
@@ -187,7 +187,7 @@ def parse_probe(text: str) -> Usage:
                 apps = int(value or 0)
             elif key == "util":
                 for part in value.split(","):
-                    util = max(util, float(part))  # [N/A] 之类会被下面的 except 跳过
+                    util = max(util, float(part))  # values like [N/A] are skipped by the except below
         except ValueError:
             continue
     return Usage(load=load, apps=apps, util=util, touched=bool(tail.strip()))
@@ -207,10 +207,10 @@ def probe_command(idle_minutes: int) -> str:
     )
 
 
-# --------------------------------------------------------------------------- 远端
+# --------------------------------------------------------------------------- remote
 
 def remote_exec(uuid: str, command: str, api: "client.Client") -> tuple[int, str]:
-    """跑一条远端命令，返回 (退出码, 输出)。返回码 255 表示 ssh 本身失败。"""
+    """Run one remote command, return (exit code, output). Code 255 means ssh itself failed."""
     data = api.call("GET", client.SNAPSHOT, {"instance_uuid": uuid})
     if not isinstance(data, dict):
         raise CliError(client.API, f"snapshot for {uuid} came back empty")
@@ -230,13 +230,13 @@ def remote_exec(uuid: str, command: str, api: "client.Client") -> tuple[int, str
     return done.returncode, (done.stdout or "") + (done.stderr or "")
 
 
-# --------------------------------------------------------------------------- 一轮
+# --------------------------------------------------------------------------- one round
 
 def wait_for_running(uuid: str, api: "client.Client", grace: int) -> str | None:
-    """等实例真的跑到 running。返回 None 表示起来了，否则返回放弃的理由。
+    """Wait until the instance really reaches running. None means it is up; otherwise the reason for giving up.
 
-    `power_on` 被接受 ≠ 已经 running：中间还有 starting/booting。早先的 tick 把
-    「不是 running」当成结束，于是 start 刚挂上的看门狗立刻自己退了。
+    `power_on` accepted != already running: starting/booting come in between. The earlier tick treated
+    "not running" as the end, so a watchdog attached by start immediately exited on its own.
     """
     start = time.time()
     while True:
@@ -248,10 +248,10 @@ def wait_for_running(uuid: str, api: "client.Client", grace: int) -> str | None:
         if state == "running":
             return None
         if state == "shutdown" and time.time() - start > 60:
-            # 开机一分钟了还是 shutdown：多半是这次开机被取消或失败了，别空等
+            # Still shutdown a minute after power-on: the boot was probably cancelled or failed -- do not wait idly
             return f"still {state} one minute after power_on"
         if time.time() >= start + grace:
-            # 先问再判超时：最后一次轮询不该被丢掉
+            # Ask before declaring a timeout: the last poll should not be thrown away
             return f"not running within {grace}s"
         time.sleep(BOOT_POLL_SECONDS)
 
@@ -271,7 +271,7 @@ def tick(uuid: str, cfg: dict, streak: int, api: "client.Client") -> Decision:
 
 def run_foreground(uuid: str, cfg: dict) -> int:
     try:
-        api = client.Client(client.load()["tokens"])   # 按 host 取槽：实例都在 Pro 那朵云
+        api = client.Client(client.load()["tokens"])   # one slot per host: instances all live on the Pro cloud
     except CliError as exc:
         log(f"cannot start: {exc}")
         return getattr(exc, "code", client.FAILED)
@@ -340,15 +340,15 @@ def run_foreground(uuid: str, cfg: dict) -> int:
         drop_state()
 
 
-# --------------------------------------------------------------------------- 前后台
+# --------------------------------------------------------------------------- foreground and background
 
 def spawn_in_background(uuid: str, cfg: dict | None = None) -> int:
-    """拉起一个脱离当前会话的看门狗；已在跑就不重复起。返回 pid，未启动返回 0。"""
+    """Spawn a watchdog detached from this session; do nothing if one is already running. Returns the pid, 0 if not started."""
     current = read_state()
     if current and current.get("uuid") == uuid and alive(int(current.get("pid", 0))):
         return int(current["pid"])
     if current and alive(int(current.get("pid", 0))):
-        return 0  # 另一个实例的看门狗还在跑；单容器纪律下这是不应发生的事
+        return 0  # another instance's watchdog is running; under single-container discipline this should not happen
 
     cfg = {**DEFAULTS, **(cfg or settings())}
     os.makedirs(client.data_dir(), exist_ok=True)

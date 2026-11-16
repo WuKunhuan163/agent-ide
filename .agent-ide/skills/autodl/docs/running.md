@@ -5,6 +5,8 @@ makes it right for probes and wrong for training.
 
 ## Two categories
 
+**Two categories of work, two different ways to run them**: the table says which one you are in before you type a command.
+
 | Work | How | Why |
 |---|---|---|
 | probe: `nvidia-smi`, `df`, `ls`, one-step smoke | `autodl exec <uuid> "…"` | seconds, you want the answer inline |
@@ -14,6 +16,8 @@ A long job started through `exec` without `nohup` dies with the session. The sym
 is a log that stops mid-epoch and no error anywhere.
 
 ## Long jobs
+
+**A long job is one that outlives your shell, and the block below is how it is started so that it does.**
 
 ```bash
 autodl exec "$UUID" "cd /root/autodl-tmp/project && mkdir -p /root/autodl-tmp/runs/exp1 && \
@@ -68,7 +72,7 @@ Three things happen in this order, and skipping the last one is what costs money
 
 Step 1 is not optional and step 3 does not delete anything — the disk survives a
 `stop`. What makes step 1 urgent is `release`. Layout, verification and the
-weights-vs-训练meta split live in `docs/artifacts.md`.
+weights-vs-training-metadata split live in `docs/artifacts.md`.
 
 If the run is long enough that you will not be watching, set a console-side timed
 shutdown as a backstop — the API can read `timed_shutdown_at` but cannot set it.

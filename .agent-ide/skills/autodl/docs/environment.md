@@ -7,6 +7,8 @@ driver match that the image was built to guarantee.
 
 ## Read the three facts first
 
+**Three facts decide everything after them, and the block below prints all three at once** — architecture, image, disk layout.
+
 ```bash
 autodl exec "$UUID" "python -V && nvcc -V | tail -2 && python -c 'import torch;print(torch.__version__, torch.version.cuda, torch.cuda.is_available())' && nvidia-smi --query-gpu=name,driver_version --format=csv,noheader"
 ```

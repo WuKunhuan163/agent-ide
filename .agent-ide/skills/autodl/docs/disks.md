@@ -5,8 +5,8 @@ way to lose an afternoon.
 
 | Path | What lives there | Survives | Size |
 |---|---|---|---|
-| `/` (system disk) | image, apt packages, conda envs, `/root/*` except the data disk | 关机 | small |
-| `/root/autodl-tmp` | whatever you put there | 关机 | large |
+| `/` (system disk) | image, apt packages, conda envs, `/root/*` except the data disk | power-off | small |
+| `/root/autodl-tmp` | whatever you put there | power-off | large |
 
 Never hardcode either number. Ask:
 
@@ -20,6 +20,8 @@ to `$HOME` fills a small system disk and the failure surfaces as a write error
 halfway through training, which reads like a code bug.
 
 ## Where a project should live
+
+**A project lives on exactly one disk, and the one it lives on decides whether it survives a release**: the tree below is the layout that follows.
 
 ```text
 /root/autodl-tmp/

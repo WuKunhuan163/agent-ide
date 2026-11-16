@@ -17,6 +17,8 @@ thirty checks in a row"** — not "no connection".
 
 ## Arming it
 
+**Arming it is one command and it survives your shell**: the block below is what you type, and the machine keeps doing it after you disconnect.
+
 ```bash
 autodl start <uuid>            # power on, watchdog armed automatically
 autodl start <uuid> --no-watch # power on bare, for a manual session
@@ -37,6 +39,8 @@ logs `running; watching usage`, and only then begins the streak. If the boot is
 cancelled or fails, it exits with a reason instead of waiting out the grace:
 
 ## What one tick does
+
+**One tick is a fixed sequence of checks, and the block below is its literal order** — a check moved earlier changes what a tick can still save.
 
 ```text
 state != running (after it has been running)? → exit, nothing to watch
@@ -127,6 +131,8 @@ asked for.
 has to be registered anywhere for the watchdog to see it.
 
 ## State and logs
+
+**The watchdog keeps its own state on disk, and the table says which file survives a reboot**: anything not in that column is lost with the machine.
 
 | File | Holds | Survives reboot |
 |---|---|---|

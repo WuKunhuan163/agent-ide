@@ -16,16 +16,16 @@ beforehand. See `docs/artifacts.md` for which files have to make that trip.
 
 ## The CPU mode is console-only
 
-AutoDL 的「无卡模式」是一台**没有 GPU 的计费档**：机器照常开机、SSH 照常可用，
-只是不占显卡，所以便宜得多。它适合改代码、装依赖、下行模型这类不碰 CUDA 的活。
-
+AutoDL's "GPU-less mode" is a **billing tier without a GPU**: the machine boots and SSH
+works as usual, it just holds no card, so it costs far less. It suits work that never
+touches CUDA — editing code, installing dependencies, pulling weights down.
 This API cannot reach it. `start` sends `payload: "gpu"`, which is the GPU boot,
 and there is no second payload value. So:
 
-- 要进无卡模式，只能去控制台点「无卡模式开机」；`autodl start` 只会开 GPU。
-- 已经在无卡模式里的机器，`ls` 依然显示 running，`exec` 依然可用 —— 判断依据是
-  `info <uuid>` 里的 GPU 字段与 `nvidia-smi` 是否报错，不是状态字符串。
-- 开机状态的机器，无卡与有卡之间切换要再走一次控制台关机/开机，不能热切。
+- The only way in is the console's "boot in GPU-less mode"; `autodl start` boots with the GPU.
+- A machine already in GPU-less mode still shows `running` in `ls`, and `exec` still works --
+  the tell is the GPU field in `info <uuid>` and whether `nvidia-smi` errors, not the status word.
+- Switching between GPU-less and GPU on a running machine needs a console stop/start; it is not hot-swappable.
 
 This is the one place where the honest answer is "the CLI is not enough, go to the
 console", and pretending otherwise only costs a GPU-hour.
@@ -62,7 +62,7 @@ So the only reliable stop is an outside call. Two habits that work:
   autodl stop "$UUID"
   ```
 
-- 或者干脆在控制台设「定时关机」兜底，再在本地按日志决定是否提前 `stop`。
+- Or set a "scheduled shutdown" in the console as a backstop, and let the local log decide whether to `stop` earlier.
 
 ## Snapshots
 

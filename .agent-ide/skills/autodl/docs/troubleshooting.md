@@ -7,7 +7,7 @@ answer means. The exit codes are the tool's own contract (see `SKILL.md` §Rules
 |---|---|---|
 | `autodl: no token …` (exit 3) | `autodl credentials` | token file empty or `AUTODL_TOKEN` unset |
 | exit 4 | `autodl info <uuid>` | token rejected — wrong account, or pasted with a `Bearer ` prefix |
-| exit 8 | nothing local fixes it | `无当前资源访问权限` = account×product gate on the dev API. Not 实名, not capacity: bogus spec/image/region return the same sentence, and an idle Pro card was refused too. Ask AutoDL to enable 「容器实例Pro 开放API」 for the account, quoting the `request_id` |
+| exit 8 | nothing local fixes it | `no access to the current resource` = account×product gate on the dev API. Not identity verification, not capacity: bogus spec/image/region return the same sentence, and an idle Pro card was refused too. Ask AutoDL to enable 「Container Instance Pro Open API」 for the account, quoting the `request_id` |
 | exit 6 | the API's own message | the request itself was refused for some other reason |
 | exit 7 | `ping`/retry | network to the API, not the instance |
 | `autodl exec` exit 9 | `which sshpass` | `sshpass` missing locally; it will not prompt |

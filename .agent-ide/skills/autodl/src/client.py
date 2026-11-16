@@ -1,10 +1,10 @@
-"""AutoDL 容器实例 Pro API：一个 token，九个端点，一个信封。
+"""AutoDL Container Instance Pro API: one token, nine endpoints, one envelope.
 
-这个文件只管三件事：凭证从哪来、请求怎么发、失败怎么分类。
+This file is responsible for three things: where the credential comes from, how a request is sent, and how a failure is classified.
 
-信封是唯一权威：失败也走 HTTP 200，所以「调用成功」不能从状态行读出来。
-两个文档坑在这里一次处理掉——`snapshot`/`status` 标 GET 却要带 body，一律改成
-query 参数；token 原样放进 `Authorization`，加 `Bearer ` 是这里最常见的 401。
+The envelope is the only authority: failures also come back as HTTP 200, so "the call succeeded" cannot be read off the status line.
+Two documented pitfalls are dealt with here once -- `snapshot`/`status` are marked GET but need a body, so they are always sent as
+query parameters; the token goes into `Authorization` verbatim, and adding `Bearer ` is the most common 401 here.
 """
 from __future__ import annotations
 
@@ -27,11 +27,11 @@ NO_ENTITLEMENT = 8
 SSH = 9
 
 DEFAULT_BASE_URL = "https://api.autodl.com"
-# 一个 host，一个 token。官方弹性部署文档开头就写：HOST 是 https://api.autodl.com，
-# token 在「控制台 -> 设置 -> 开发者Token」，与 Pro 同一个。实测：同一个 token 既能
-# `instance/pro/list`，也能 `machine/region/gpu_stock`；private.autodl.com 不是开发者 API
-# （/instance/pro/list 那里是 404，库存路径则回「登陆超时」），别往那儿发。
-ELASTIC_BASE_URL = "https://api.autodl.com"   # 名字留着：弹性部署的 base，不是另一朵云
+# One host, one token. The deployment docs say up front: the HOST is https://api.autodl.com,
+# and the token is under "console -> settings -> developer token", the same one Pro uses. Measured: one token works for
+# `instance/pro/list` and for `machine/region/gpu_stock`; private.autodl.com is not the developer API
+# (/instance/pro/list is a 404 there, and the stock path answers "login timed out") -- do not send there.
+ELASTIC_BASE_URL = "https://api.autodl.com"   # name kept: this is the deployment base, not another cloud
 TIMEOUT = 30.0
 
 CREATE = "/api/v1/dev/instance/pro/create"
@@ -44,22 +44,22 @@ RELEASE = "/api/v1/dev/instance/pro/release"
 IMAGE_SAVE = "/api/v1/dev/instance/pro/image/save"
 IMAGE_LIST = "/api/v1/dev/instance/pro/image/private/list"
 
-# 库存（弹性部署那套，不是实例那套）：按区报每个型号的空闲/总量。两个都在私有云上。
-STOCK_REGION = "/api/v1/dev/machine/region/gpu_stock"   # POST，可按区过滤
-STOCK_ALL = "/api/v1/dev/machine/gpu_stock"             # GET，无参数，全量
+# Stock (the deployment side, not the instance side): idle/total per model, by region. Both live on the private cloud.
+STOCK_REGION = "/api/v1/dev/machine/region/gpu_stock"   # POST, filterable by region
+STOCK_ALL = "/api/v1/dev/machine/gpu_stock"             # GET, no parameters, everything
 
-# 算力市场：控制台「算力市场」那张表用的就是它，**不需要 token**（未登录也能看价格）。
-# 开发者 API 里没有报价接口，价格只在这里；它按主机返回整机价 + enable_container_pro 标记。
+# The compute market: this is what the console "compute market" table uses, and it **needs no token** (prices are visible signed out).
+# The developer API has no quote endpoint; prices exist only here. It returns per host: whole-machine price plus the enable_container_pro flag.
 MARKET = "/api/v1/machine/list"
 
-TOKEN_STEPS = "控制台 -> 设置 -> 开发者Token"
+TOKEN_STEPS = "console -> settings -> developer token"
 
-# 信封里表示「凭据没通过」的 code：这些才值得在报错里补一句本地诊断
+# Envelope codes meaning "the credential did not pass": only these deserve a local diagnosis in the error.
 AUTH_CODES = {"AuthorizeFailed", "Unauthorized", "InvalidToken", "TokenExpired"}
 
 
 class CliError(Exception):
-    """一次失败，自带退出码和修复指引。"""
+    """One failure, carrying its exit code and a way to fix it."""
 
     def __init__(self, code: int, message: str) -> None:
         super().__init__(message)
@@ -67,7 +67,7 @@ class CliError(Exception):
 
 
 class ApiError(CliError):
-    """信封里 ``code != "Success"``。request_id 是官方支持唯一能追的字段。"""
+    """Envelope with ``code != "Success"``. request_id is the only field official support can trace."""
 
     def __init__(self, code_name: str, message: str, request_id: str, path: str) -> None:
         detail = f"{path} refused: {code_name}: {message or 'no message'}"
@@ -81,26 +81,27 @@ class ApiError(CliError):
 
 
 class NoEntitlement(CliError):
-    """`BadRequest: 无当前资源访问权限` —— 账号-产品闸门，不是参数问题，也不是没实名。
+    """`BadRequest: no access to the current resource` -- an account-by-product gate, not a parameter problem and not missing verification.
 
-    证据链（每条都是实测，顺序就是服务端的判定顺序）：
-    1. `{}` 缺必填 → `RequestParameterIsWrong`，`disk 9999` 同样。所以参数校验在最前面。
-    2. 不存在的规格 id / 不存在的镜像 / 不存在的区 → 全部回**同一句**。三件不同的事共用
-       一句文案，只能是它们之前还有一道统一的闸门，而不是逐个资源的查找失败。
-    3. 最关键的一条：`autodl await` 抓到过市场里真实空闲的 Pro `4090D`，立刻下单，仍被
-       同一句拒绝。所以也不是「没有可分配容量」。
+    The evidence chain (each item measured; the order is the order the server decides in):
+    1. `{}` with a required field missing -> `RequestParameterIsWrong`; `disk 9999` likewise. So parameter validation runs first.
+    2. A spec id that does not exist / an image that does not exist / a region that does not exist -> all return **the same sentence**. Three different
+       things sharing one wording can only mean a single gate ahead of them, not a lookup failing per resource.
+    3. The decisive one: `autodl await` caught a genuinely idle Pro `4090D` in the market, ordered immediately, and was
+       refused with that same sentence. So it is not "no allocatable capacity" either.
 
-    结论：这道闸门按账号+产品放行，与实名、与容量、与请求参数都无关。唯一能改它的是
-    AutoDL 侧开通（客服 / 控制台）。
+    Conclusion: the gate admits by account plus product, and has nothing to do with verification, capacity or request parameters. Only
+    AutoDL can change it (support / console).
     """
 
-    LABEL = "开发API无权限 (NO_ENTITLEMENT)"
+    LABEL = "no developer-API entitlement (NO_ENTITLEMENT)"
 
     def __init__(self, code_name: str, message: str, request_id: str, path: str) -> None:
-        detail = (f"{self.LABEL}: AutoDL 拒绝了 {path}（{code_name}: {message}）；"
-                  f"这是账号-产品闸门，不是参数、不是实名、也不是没卡 —— 实测不存在的规格/镜像/区"
-                  f"都回同一句，且市场报出空闲 Pro 卡后 create 仍被拒。等卡不会成功："
-                  f"需要 AutoDL 为该账号开通「容器实例Pro 开放API」，把 request_id 给客服")
+        detail = (f"{self.LABEL}: AutoDL refused {path} ({code_name}: {message}); "
+                  f"this is an account-by-product gate -- not parameters, not verification, not a card shortage. "
+                  f"A spec, image or region that does not exist all answer with the same sentence, and create is still refused after "
+                  f"the market reports an idle Pro card. Waiting for a card will not help: AutoDL has to enable "
+                  f"the Container Instance Pro Open API for this account. Give support the request_id")
         if request_id:
             detail += f" (request_id {request_id})"
         super().__init__(NO_ENTITLEMENT, detail)
@@ -110,9 +111,9 @@ class NoEntitlement(CliError):
         self.path = path
 
 
-# --------------------------------------------------------------------------- 凭证
-# 全部配置都在 data/ 下，只看文件，不读环境变量：data/credentials.json 填 token，
-# data/config.json 放一个可选 base_url（默认官方地址）。谁在什么 shell 里跑都一样。
+# --------------------------------------------------------------------------- credentials
+# All configuration lives under data/ and is read from files only, never from the environment: data/credentials.json holds the token,
+# data/config.json may hold a base_url (official by default). Whichever shell you run from, the answer is the same.
 
 def data_dir() -> str:
     return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
@@ -146,20 +147,20 @@ def _read_file() -> dict:
 
 
 def load() -> dict:
-    """token / account / defaults，只从 data/credentials.json 来。
+    """token / account / defaults, taken only from data/credentials.json.
 
-    只有一种 token 对开发者 API 有效：控制台的「开发者Token」（`aud=develop_api`）。
-    Pro 与弹性部署共用它，差别在**账号权限**而不是凭据种类：
+    Only one kind of token works on the developer API: the console "developer token" (`aud=develop_api`).
+    Pro and deployment share it; the difference is **account entitlement**, not credential type:
 
-    | 产品线 | 需要 |
+    | Product line | Needs |
     |---|---|
-    | 容器实例 Pro | 个人实名或企业认证 |
-    | 弹性部署（部署/容器） | 企业认证 |
-    | 弹性部署 GPU 库存 | 实测普通 token 即可（本工具正在用） |
+    | Container Instance Pro | personal verification or enterprise certification |
+    | Deployment (deployment / container) | enterprise certification |
+    | Deployment GPU stock | an ordinary token is enough (measured; this tool relies on it) |
 
-    另外两种长得像 token 的东西都不该存：网页登录态（开发者 API 一律拒绝，存下来只会在
-    下一次调用里制造一个假的「登录超时」），以及任何别名表。老文件中若有 `tokens.pro`
-    或 `tokens.elastic`，读作同一个 token（写盘时会拍平成一个 `token` 字段）。
+    Two token-shaped things must not be stored either: the web login state (the developer API refuses it outright; storing it only
+    manufactures a fake "login timed out" on the next call), and any alias table. An old file with `tokens.pro`
+    or `tokens.elastic` reads as the same token (writing flattens it into a single `token` field).
     """
     data = _read_file()
     defaults = data.get("defaults") if isinstance(data.get("defaults"), dict) else {}
@@ -185,7 +186,7 @@ def require_token() -> str:
 
 
 def masked(token: str) -> str:
-    """认得出来，用不了。"""
+    """Recognisable, unusable."""
     if not token:
         return "(none)"
     if len(token) <= 8:
@@ -194,7 +195,7 @@ def masked(token: str) -> str:
 
 
 def token_aud(token: str) -> str | None:
-    """本地读 JWT 的 aud：不验签，也不打印任何内容。只为区分「凭据类型错」和「凭据已失效」。"""
+    """Read the `aud` of a local JWT: no signature check, nothing printed. Only to tell "wrong credential type" from "credential expired"."""
     parts = token.split(".")
     if len(parts) < 2:
         return None
@@ -208,24 +209,24 @@ def token_aud(token: str) -> str | None:
 
 
 def verify_token(token: str) -> None:
-    """拿这个 token 真打一次只读接口：过不了就不让写盘。
+    """Make one real read-only call with this token: if it does not pass, nothing is written.
 
-    实例列表是最低门槛（不需要 Pro 的实名，也不碰任何计费动作）。401/403 抛 AUTH
-    （token 不对），信封非 Success 抛 ApiError（token 对但账号被拒），网络不通抛 NET。
-    三种都不写盘，也不把「存下了」当成验证。
+    The instance list is the lowest bar (no Pro verification, no billing action). 401/403 raises AUTH
+    (wrong token), an envelope that is not Success raises ApiError (token fine, account refused), an unreachable network raises NET.
+    None of the three writes to disk, and "stored" is never taken as "verified".
     """
     Client(token).call("POST", LIST, {"page_index": 1, "page_size": 1})
 
 
 def store_token(token: str) -> str:
-    """写入 0600，保留人写的其余字段。调用前必须先 verify_token。"""
+    """Write with 0600, keeping the other hand-written fields. verify_token must run first."""
     token = token.strip()
     if not token:
         raise CliError(NO_TOKEN, "refusing to store an empty token")
     path = credentials_file()
     data = _read_file() or {"account": "",
                             "defaults": {"gpu_spec": "", "image": "", "cuda": 118, "region": ""}}
-    data.pop("tokens", None)   # 拍平：曾经按云分过槽，现在只有一种 token
+    data.pop("tokens", None)   # flatten: there used to be a slot per cloud, now there is one token
     data["token"] = token
     os.makedirs(data_dir(), exist_ok=True)
     with open(path, "w", encoding="utf-8") as handle:
@@ -239,26 +240,26 @@ def default(key: str, fallback=None):
     return load()["defaults"].get(key) or fallback
 
 
-# --------------------------------------------------------------------------- 请求
+# --------------------------------------------------------------------------- requests
 
 def base_url() -> str:
-    # data/config.json 的 base_url：把地址指向代理或本地桩服务，没有就用官方地址
+    # base_url from data/config.json: point the address at a proxy or a local stub; otherwise the official one.
     data = _read_json(config_file(), "data/config.json", USAGE)
     return str(data.get("base_url") or DEFAULT_BASE_URL).rstrip("/")
 
 
 def setting(key: str, fallback=None):
-    """data/config.json 的顶层键：非机密、可提交、跨 shell 一致。"""
+    """Top-level keys of data/config.json: non-secret, committable, identical across shells."""
     data = _read_json(config_file(), "data/config.json", USAGE)
     value = data.get(key)
     return fallback if value is None or value == "" else value
 
 
 def stock_base_url() -> str:
-    """库存在同一个 host 上（官方弹性部署文档的 HOST 就是 api.autodl.com）。
+    """Stock lives on the same host (the deployment docs give api.autodl.com as the HOST).
 
-    保留 stock_base_url 这个覆盖点，只为把它指到代理或本地桩；不要用它切「另一朵云」，
-    因为不存在另一朵云。
+    stock_base_url is still readable only to point at a proxy or a local stub; do not use it to switch "another cloud",
+    because there is no other cloud.
     """
     return str(setting("stock_base_url", base_url())).rstrip("/")
 
@@ -272,7 +273,7 @@ class Client:
         self._transport = transport or _urllib_transport
 
     def call(self, method: str, path: str, body: dict | None = None, base: str | None = None):
-        """发一次请求，返回信封里的 data。base 只用来把地址指到代理或桩服务。"""
+        """Send one request and return the envelope data. base only points the address at a proxy or a stub."""
         method = method.upper()
         url = (base or base_url()) + path
         token = self.token
@@ -288,14 +289,14 @@ class Client:
         try:
             return _interpret(method, path, status, text)
         except ApiError as exc:
-            # AuthorizeFailed 的 msg 是「登录超时，请重新登录」，看不出到底哪一层错了。
-            # 本地能读 aud：同一种报错下，凭据类型错和凭据失效要给的下一步完全不同。
+            # AuthorizeFailed carries "login timed out, please sign in again", which does not say which layer failed.
+            # The aud is readable locally: under one and the same error, a wrong credential type and an expired one need completely different next steps.
             if exc.code_name in AUTH_CODES:
                 raise ApiError(exc.code_name, f"{exc.message}; {self._hint(token)}", exc.request_id, path) from None
-            if "无当前资源访问权限" in exc.message:
-                # token 有效（余额、库存都能通）但账号层没通过：Pro 要个人实名或企业认证，
-                # 弹性部署的部署/容器要企业认证。跟卡、区、规格都无关，换着试没有意义。
-                # 单独一个退出码 8，应用层据此直接说「没有实名认证」，不必转述服务端原句。
+            if "no access to the current resource" in exc.message or "无当前资源访问权限" in exc.message:
+                # Token is valid (balance and stock both answer) but the account layer did not pass: Pro needs personal verification or enterprise
+                # certification, and deployment containers need enterprise certification. Nothing to do with cards, regions or specs, so retrying is pointless.
+                # A separate exit code 8 lets the caller say "not verified" instead of relaying the server sentence.
                 raise NoEntitlement(exc.code_name, exc.message, exc.request_id, path) from None
             raise
 
@@ -304,20 +305,20 @@ class Client:
         if not aud:
             return f"not a signed token (no aud claim): copy the string itself from {TOKEN_STEPS}"
         if aud == "develop_api":
-            # 官方文档写明：Pro 需要个人实名/企业认证；未认证的账号拿着有效 token 也一样被拒，
-            # 而服务端给的就是这句「登录超时」，看不出是认证问题。
-            return (f"aud={aud} (Pro 开发者Token), right type but rejected: regenerate it at {TOKEN_STEPS}; "
+            # The docs state: Pro needs personal verification or enterprise certification; an unverified account is refused even with a valid token,
+            # and the server says "login timed out", which does not reveal that it is a verification problem.
+            return (f"aud={aud} (Pro developer token), right type but rejected: regenerate it at {TOKEN_STEPS}; "
                     f"a fresh one failing the same way means the account is not verified "
-                    f"(Pro 需个人实名或企业认证)")
+                    f"(Pro needs personal verification or enterprise certification)")
         return (f"aud={aud}: not a developer-API token; a browser login token looks the same shape "
                 f"but is refused here — take the string from {TOKEN_STEPS}")
 
 
 def anonymous_json(path: str, body: dict) -> dict:
-    """不带 token 地 POST 一次，返回信封里的 data。只给公开接口用（算力市场）。
+    """POST once without a token and return the envelope data. Public endpoints only (the compute market).
 
-    市场接口是控制台同源的公开接口：未登录也能读，所以这里既不读 token 也不发
-    Authorization —— 拿一个坏 token 去问反而可能被 401。
+    The market endpoint is public, the same one the console uses: readable signed out, so no token is read and no
+    Authorization is sent -- asking with a bad token can get you a 401 instead.
     """
     status, text = _urllib_transport(
         "POST", base_url() + path, {"Content-Type": "application/json"},
