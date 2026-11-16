@@ -1,4 +1,4 @@
-This booklet is the rule set for **structural** duplication: the same fact living in several places, a shared module that knows one deployment, a file with no stable boundary. It does not cover prose (see `06_natural_logic.md`) or patch shape. It applies while advising — the agent names the risk and the canonical move; the user applies the change unless a turn explicitly authorises otherwise.
+This booklet is the rule set for **structural** duplication: the same fact living in several places, a shared module that knows one deployment, a file with no stable boundary. It does not cover prose (see `08_natural_logic.md`) or patch shape. It applies while advising — the agent names the risk and the canonical move; the user applies the change unless a turn explicitly authorises otherwise.
 
 **One line:** high entropy means a maintainer must reconcile several truths; de-entropy means one canonical layer per concern, splits at stable boundaries, and asserts or regeneration so dependents stay tied to the canonical source.
 
@@ -8,7 +8,7 @@ This booklet is the rule set for **structural** duplication: the same fact livin
 - A shared module, symbol or class name embeds a deployment-specific id — one product, one tenant, one screen, one feature.
 - A monolith grows without a single reviewable unit or a stable boundary.
 - A generated artifact was edited while its source stayed unchanged.
-- A plan proposes audit plus massive rewrite in one turn, or refactoring outside the numbered scope.
+- Scope discipline (audit plus rewrite in one turn, refactoring outside the numbered scope) is not structural entropy; it is enforced in `04_execution_discipline.md` §4.
 
 Report as **risk plus canonical move**, not as a drive-by rewrite.
 
@@ -30,6 +30,7 @@ Report as **risk plus canonical move**, not as a drive-by rewrite.
 - No instance-specific identifiers in shared code; stable semantic names there, one-off layout or screen names only in scoped modules.
 - Short names in shared code; verbose names stay scoped.
 - Migrating an implementation: delegate or wrap the old one. Parallel duplicate logic is a new source of truth.
+- This section is about identifiers in code. Coining names in prose — stage names, numbered frameworks, invented categories — is `08_natural_logic.md` §11.
 
 # 4. State and workflow
 
@@ -94,4 +95,4 @@ Only the parts that differ from the sections above:
 
 # 12. Non-goals
 
-Language-agnostic lint rules, framework choices, deployment topology, and any particular code generator. Also out of scope: prose quality (`06_natural_logic.md`) and patch shape (`101_advisor_mode.md`).
+Language-agnostic lint rules, framework choices, deployment topology, and any particular code generator. Also out of scope: prose quality (`08_natural_logic.md`) and patch shape (`01_advisor_mode.md`).

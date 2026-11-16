@@ -1,4 +1,4 @@
-This booklet is the rule set for how long a call is allowed to take, and what a call that has not returned means. It governs **timing, not task content**. The failure it exists to prevent has two faces: the agent that fires a command with no idea whether it takes two seconds or twenty minutes and then sits on it, and the agent that treats "nothing came back yet" as "it failed" and loses a reply that was still being written.
+This booklet is the rule set for how long a call is allowed to take, and what a call that has not returned means. It covers two situations only: the read-only command the advisor runs to establish a fact, and the command the advisor asks the user to run. Long runs that produce the change are the user's, not the advisor's. It governs **timing, not task content**. The failure it exists to prevent has two faces: the agent that fires a command with no idea whether it takes two seconds or twenty minutes and then sits on it, and the agent that treats "nothing came back yet" as "it failed" and loses a reply that was still being written.
 
 # 1. Every call has a duration, and it must be estimated first
 

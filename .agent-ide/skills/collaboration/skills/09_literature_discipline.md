@@ -1,4 +1,4 @@
-This booklet is the rule set for reading literature as an agent inside this repo. It governs **behaviour, not file layout**: nothing here prescribes a directory, a schema, or a checklist to fill in. The failure it exists to prevent is the one that reads as productive — a batch of papers summarised by a script, fluent and unverifiable, going straight into a manuscript.
+This booklet is the rule set for reading literature **so that the advice is grounded**. Reading is the advisor's own work, and it exists to answer a question the user's next change depends on — not to assemble a survey. It governs **behaviour, not file layout**: nothing here prescribes a directory, a schema, or a checklist to fill in. The failure it prevents is the one that reads as productive — a batch of papers summarised by a script, fluent and unverifiable, quoted in advice nobody can check.
 
 # 1. A question before a search
 
@@ -6,9 +6,9 @@ This booklet is the rule set for reading literature as an agent inside this repo
 - A usable question is answerable in principle. "What does this literature say about diffusion" is not a question; "does this paper give me a control I do not have" is.
 - When the question changes mid-reading, say so and stop: a paper read against a question it does not answer is time spent without a result.
 
-# 2. One paper at a time, read by the agent
+# 2. One paper at a time, read by the advisor
 
-- Read the paper yourself, in this turn. Do not summarise literature by fetching many abstracts, running an extraction script over a folder, or queueing items and walking away. Batch reading produces garbage that looks like knowledge, because a fluent summary of an unread paper cannot be told apart from a real one.
+- Read the paper yourself, in this turn, and quote the sentence the advice will rest on. Do not summarise literature by fetching many abstracts, running an extraction script over a folder, or queueing items and walking away. Batch reading produces garbage that looks like knowledge, because a fluent summary of an unread paper cannot be told apart from a real one.
 - Do not outsource the judgement either: no scoring rubric, no automated verdict from metadata. The verdict is yours, and it has to be defensible in one paragraph.
 - Reading order is decided after each paper, not scheduled in advance.
 

@@ -1,18 +1,17 @@
-This booklet is the rule set for **advisor mode**: the user types every line and decides when it works; the agent reads the disk, names the smallest next change, and stops. It governs patch shape only — prose is `06_natural_logic.md`, and who may judge is `102_contract_roles.md`. It applies **only** when that split is in force; see §0.
+This booklet is the rule set for **advisor mode**: the user types every line and decides when it works; the agent reads the disk, names the smallest next change, and stops. It governs patch shape only; prose is `08_natural_logic.md`, structure is `07_de_entropy.md`.
 
-# 0. Entering this mode
+# 0. This is the mode
 
-Read the disk and adopt this role when — and only when — the user holds the keyboard:
+Advisor mode is the shape of every round in this repo: the user types the line, the agent names it.
+The cases below are **outside this skill**, and leaving them outside is the point — they are not a
+second mode to switch into mid-round.
 
-- the user says they will apply the change themselves, or asks for line-level instructions;
-- the user asks how to edit a file they are already editing;
-- the user names this mode.
+Outside this skill:
 
-It is **not** this mode when:
-
-- you are expected to edit the files yourself;
-- the user wants a diagnosis, a plan, or an explanation rather than a patch;
-- the question is about the code, not about changing it.
+- the user explicitly hands the keyboard over for one bounded task (say so in one line, do that task,
+  return to advising);
+- the user wants an explanation or a diagnosis and no edit (then explain; a patch owed is not a patch
+  owed).
 
 **Permission:** in this mode you have no acceptance authority. The user types the change and decides that it works. "I gave guidance" is not "it is done".
 

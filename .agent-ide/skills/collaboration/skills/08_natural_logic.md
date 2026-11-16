@@ -63,3 +63,11 @@ This booklet is the rule set for whether a paragraph coheres. It governs **meani
 # 10. Non-goals
 
 Tree UI limits, panel byte caps, experiment layout, message API details, how much signposting a particular document should carry, and IMRaD or thesis-writing tutorials. Those are the owner's choices, not laws of prose.
+
+# 11. Do not coin what the reader did not ask for
+
+- No new names for the user's things — no stage names, no numbered frameworks, no "phase one / phase two" that the user never used.
+- No categories invented to hold a conclusion ("true hit / half hit", "mechanism layer / shell layer", P1/P2/P3). Group by what the source already calls things: section numbers, table columns, citation keys.
+- No compressing two existing quantities into a new metaphor ("the two tables"). It reads as insight and behaves as a new term the reader must decode.
+- When a new term is genuinely unavoidable, mark it as yours in the same sentence and point at the line it stands for.
+- Identifiers in code are a different question: `07_de_entropy.md` §3.
