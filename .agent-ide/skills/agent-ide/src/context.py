@@ -45,7 +45,7 @@ CONFIG = Path(__file__).resolve().parent.parent / "data" / "config.json"
 # Measured on this machine: a needle for a fresh session, so anything with more
 # files than this cannot be the source. Counted with os.scandir, never stat.
 PROBE_MAX_CONVERSATION_FILES = 2000
-# 覆盖：AGENT_IDE_PROBE_MAX_FILES=0 表示不设上限（长会话必须能探）
+# Override: AGENT_IDE_PROBE_MAX_FILES=0 means no limit (a long session must stay probeable)
 PROBE_MAX_FILES_ENV = "AGENT_IDE_PROBE_MAX_FILES"
 
 def transcripts_config() -> dict:
@@ -138,7 +138,7 @@ class ProbeHit(NamedTuple):
 
 
 # ------------------------------------------------------------------ scan worker
-# 模块级函数：ProcessPoolExecutor 只能 pickle 顶层函数，所以扫描逻辑不放在闭包里。
+# Module-level function: ProcessPoolExecutor can only pickle top-level functions, so the scan is not a closure.
 _W = {}
 
 
@@ -195,14 +195,14 @@ def probe_keys(store, fragment_file: Path, limit: int | None = None,
         encoding="utf-8", errors="replace").splitlines() if ln.strip()]
     if not needles:
         raise ValueError(
-            f"{fragment_file}: 针是空的（0 行非空文本）。把被找的那句话原文写进这个文件，"
-            f"例如：printf '%s' '<一句原文>' > {fragment_file}；"
-            f"不要 cat 它，也不要往里写多条候选。")
+            f"{fragment_file}: the needle is empty (0 non-blank lines). Write the exact sentence you are looking for into this file,"
+            f"e.g. printf '%s' '<one sentence of the original>' > {fragment_file};"
+            f"do not cat it, and do not put several candidates in it.")
     needles_raw = list(needles)
     needles = [_normalise(n) for n in needles]
     if not any(needles):
         raise ValueError(
-            f"{fragment_file}: 针里只有不可见字符（U+FFFD／零宽／空格），归一化后为空 — the fragment "
+            f"{fragment_file}: the needle holds only invisible characters (U+FFFD / zero-width / space) and is empty after normalisation — the fragment "
             f"holds only characters that carry no text (U+FFFD, zero-width, spaces). "
             f"Copy a longer stretch of the reply, or pick a line with words in it.")
 
@@ -231,8 +231,8 @@ def probe_keys(store, fragment_file: Path, limit: int | None = None,
 
     hits = {}
     done = 0
-    # 进度只报里程碑：首条 + 1/2/5/10/20/50/100%。大库全扫 20 万文件时，
-    # 每 500 条刷一次会把终端冲掉，读数反而看不见。
+    # Progress reports milestones only: the first item plus 1/2/5/10/20/50/100%. Scanning
+    # 200k files, flushing every 500 entries washes the terminal out and the reading hides.
     marks = [0.01, 0.02, 0.05, 0.10, 0.20, 0.50, 1.00]
     steps = [max(1, int(len(queue) * m)) for m in marks]
     step_i = 0

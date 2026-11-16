@@ -250,7 +250,7 @@ def cmd_context(args: argparse.Namespace) -> None:
                 "or read --bindings and go straight to --key. "
                 "Otherwise the fragment is not in this store: see "
                 "~/.codebuddy/rules/guide-probe-miss.md. Exit 2.")
-        print("# 下面是结果：key<TAB>hits<TAB>msgs<TAB>bytes<TAB>last(UTC)", file=sys.stderr, flush=True)
+        print("# results below: key<TAB>hits<TAB>msgs<TAB>bytes<TAB>last(UTC)", file=sys.stderr, flush=True)
         for hit in hits:
             # stdout stays a clean table: key, hits, messages, bytes.
             import datetime as _dt

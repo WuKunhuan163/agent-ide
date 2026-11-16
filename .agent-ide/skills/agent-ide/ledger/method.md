@@ -45,7 +45,7 @@ So the order is fixed: write the rule where the agent will look, push it, then d
 
 ## 1.9 The prompt states the task, never the doctrine
 
-A case tests whether an agent **finds and follows** a rule. If the prompt names the document — "follow `docs/strategy/results-first-narrative.md`" — the case measures reading comprehension on demand, and any agent that can open a file passes. The rule must be reachable in the materials, at the path a competent agent would look, and the prompt must not point at it.
+A case tests whether an agent **finds and follows** a rule. If the prompt names the document — "follow `docs/strategy/execution-loop.md`" — the case measures reading comprehension on demand, and any agent that can open a file passes. The rule must be reachable in the materials, at the path a competent agent would look, and the prompt must not point at it.
 
 Three consequences:
 
