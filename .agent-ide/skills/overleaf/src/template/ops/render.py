@@ -15,8 +15,8 @@ from src.store.model import Block, Project
 from src.store.schema import Manifest, check_content
 from src.store.validate import extract_cite_keys, extract_ref_labels, text_of
 
-from src.template.block_base import BaseBlock
-from src.template.registry import load_instance, resolve_block_class
+from src.template.core.block_base import BaseBlock
+from src.template.core.registry import load_instance, resolve_block_class
 
 
 def render_project(
@@ -105,7 +105,7 @@ def render_project(
 def copy_instance_assets(instance_id: str, out_dir: str) -> None:
     """Copy .sty/.cls/.bst plus asset dirs from an instance into the build dir."""
     spec, _ = load_instance(instance_id)
-    idir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "instances", instance_id)
+    idir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "instances", instance_id)
     assets = spec.get("assets", ["assets", "thumbnails"])
     for item in os.listdir(idir):
         full = os.path.join(idir, item)

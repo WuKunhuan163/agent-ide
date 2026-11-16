@@ -4,9 +4,9 @@ import re
 import sys
 from src.store import errors
 from src.store.errors import DataError
-from src.template.template_base import BaseTemplate
+from src.template.core.template_base import BaseTemplate
 
-from src.template.block_base import BaseBlock
+from src.template.core.block_base import BaseBlock
 
 from src.template.instances.fri.layout import (
     FRI_BLOCK_SKIP,
@@ -188,8 +188,8 @@ class Template(BaseTemplate):
         """Open the font/paragraph group for a text region.
 
         `indent=True` (article body): paragraphs take a first-line indent of
-        `FRI_PAR_INDENT` ("文段顶格") with no inter-paragraph skip, while every
-        heading keeps its own explicit `\\noindent` ("标题不顶格"). `indent=False`
+        `FRI_PAR_INDENT` (body paragraphs indented) with no inter-paragraph skip, while every
+        heading keeps its own explicit `\\noindent` (headings flush). `indent=False`
         keeps the legacy flush-left + block-skip behaviour used by the back matter.
         """
         par_skip = "0pt" if indent else rf"{FRI_BLOCK_SKIP} plus 1pt minus 2pt"
@@ -218,7 +218,7 @@ class Template(BaseTemplate):
         ]
 
     def _bibliography_compact_list_preamble(self) -> list[str]:
-        # Hanging indent ("首行 [1] 顶格、续行缩进"): the label is flush with the
+        # Hanging indent (the [1] label sits flush, continuation lines indent): the label is flush with the
         # column's left edge and wrapped lines align to the reference text. The
         # `thebibliography` argument sets `\labelwidth` to the widest label, so
         # these lines only re-assert the classic article.cls geometry (they are

@@ -27,8 +27,10 @@ Instance directories are deliberately not added to `sys.path`.
 
 ## The plugin contract
 
+**A block is a class the builder imports, and the contract below is what it must expose**: a block that satisfies this compiles, and one that does not fails at init.
+
 ```python
-from src.template.block_base import BaseBlock
+from src.template.core.block_base import BaseBlock
 
 
 class Block(BaseBlock):
@@ -87,7 +89,7 @@ A block's visibility is the **top-level `display`** in `block.json`: `false`
 makes the renderer emit nothing for that block and its subtree while the block
 stays in the tree. Set it with `edit add --display` / `edit set --at <block>.display`,
 never through `content`. It is read once per node by `BaseBlock.should_display`
-at the render boundary (`render.py`).
+at the render boundary (`ops/render.py`).
 
 A `display` key **inside `content` does not work**. The block-level call passes
 `{"display": block.display, "content": block.content}`, and the top-level flag is
@@ -117,72 +119,6 @@ each block against the manifest (`check_content`). A missing required field or a
 unlisted field is `CONTENT_INVALID` — both when you write the block and when you
 build. Plugins can therefore index `self.content["field"]` directly for required
 fields instead of re-validating them.
-
-## Catalog: `cvpr`
-
-| Type | Kind | Required | Optional |
-|---|---|---|---|
-| `section` | container | `title` | `label`, `unnumbered`, `align`, `margin_top`, `margin_bottom` |
-| `subsection` | container | `title` | `label`, `align` |
-| `subsubsection` | container | `title` | `label`, `align` |
-| `text` | leaf | `text` | `align`, `margin_top`, `margin_bottom` |
-| `figure` | leaf | — (needs `path` or `images`) | `path`, `images`, `caption`, `label`, `width`, `columns`, `span_columns`, `use_subfigures`, `placement`, `is_teaser`, `caption_margin_top` |
-| `table` | leaf | `rows` | `header`, `caption`, `label`, `columns`, `placement`, `span_columns`, `size`, `midrules`, `notes`, `align`, `margin_top`, `margin_bottom` |
-| `list` | leaf | `items` | `style` (`itemize`/`enumerate`), `compact`, `align`, `margin_top`, `margin_bottom` |
-| `teaser` | leaf | — (needs `path` or `paths`) | `path`, `paths`, `caption`, `label` |
-| `equation` | leaf | `math` | `label` |
-| `math` | leaf | `math` | — |
-| `code` | leaf | `code` | `language`, `caption`, `label`, `align` |
-| `bibliography` | leaf | `bibtex` | `style` |
-| `acknowledgements` | container | `text` | — |
-| `arxiv_margin` | leaf | `text` | — |
-
-Allowed children — `section`: `text`, `figure`, `table`, `list`, `equation`,
-`math`, `subsection`, `subsubsection`, `teaser`, `code`; `subsection` and
-`subsubsection`: the same minus `subsection`/`teaser`;
-`acknowledgements`: `text`, `figure`, `equation`, `math`, `list`.
-
-### `table` and `list` in practice
-
-Cells in `rows` / `header` / `items` are **verbatim LaTeX**, so `\textbf{}`,
-`$\pm$`, `\multicolumn{2}{c}{...}` and `\cite{key}` are written inline rather
-than exposed as fields. `columns` takes a raw `tabular` column spec
-(`p{2.1cm}` included); omitted, it is `l` followed by `c`. Rows shorter than the
-widest row are padded with empty cells instead of being rejected.
-
-`midrules` is a list of 1-based body row indices to draw an `\hline` after —
-the group separator of a results table. Rules are `\hline`, not
-`\toprule`/`\midrule`: no shipped instance loads `booktabs`, and a document that
-needs booktabs must load it itself in a `text` block before first use.
-
-`span_columns: true` promotes `table` to `table*` for a full-width float;
-`size` prepends a size switch (`\small`, `\footnotesize`) inside the float;
-`notes` renders a `\footnotesize` note under the rules.
-
-## Catalog: `fri`
-
-| Type | Kind | Required | Optional |
-|---|---|---|---|
-| `section` | container | `title` | `label`, `paragraphs`, `content`, `display`¹ |
-| `subsection` | container | `title` | `label`, `paragraphs`, `content`, `display`¹ |
-| `text` | leaf | `text` | `display`¹, `align`, `margin_top`, `margin_bottom` |
-| `figure` | leaf | — (needs `path` or `images`) | `path`, `images`, `caption`, `label`, `width`, `columns`, `span_columns`, `use_subfigures`, `placement`, `caption_margin_top` |
-| `equation` | leaf | `math` | `label` |
-| `math` | leaf | `math` | — |
-| `code` | leaf | `code` | `language`, `caption`, `label` |
-| `bibliography` | leaf | `bibtex` | `style` |
-| `acknowledgements` | container | `text` | — |
-| `arxiv_margin` | leaf | `text` | — |
-| `journal_header` | leaf | — | `journal_name`, `citation`, `homepage`, `publisher_logo_path`, `cover_path`, `use_custom_thumbnails`, `display`¹ |
-
-¹ Declared in the manifest but **inert** at block level — a `display` inside `content` is never read; use the top-level flag. See [`display`](#display).
-
-Allowed children — `section`: `text`, `figure`, `equation`, `math`,
-`subsection`, `code`; `subsection`: `text`, `figure`, `equation`, `math`,
-`code`; `acknowledgements`: `text`, `figure`, `equation`, `math`.
-
-`fri` overrides `text`, `section`, `subsection` and `code` with its own
-typography, and adds `journal_header` for the page-1 masthead.
 
 ## Field reference
 

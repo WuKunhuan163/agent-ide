@@ -6,6 +6,8 @@ block tree, and the generated `.tex` is treated as disposable output.
 
 ## The loop
 
+**The loop is four commands and one judgement; the block below is the commands**, and the judgement is yours between them.
+
 ```
 init → read the schema → edit one node → validate → build --no-compile → build → clean
 ```

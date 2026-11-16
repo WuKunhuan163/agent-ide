@@ -35,7 +35,7 @@ FRI_TABLE_FLOAT_MARGIN = "2pt"
 FRI_PAGE_NUMBER_SIZE = FRI_RUNNING_FONT
 FRI_FIGURE_SCALE_DEFAULT = 0.8
 
-# Body paragraph first-line indent ("文段顶格"): a third of the original four
+# Body paragraph first-line indent (paragraphs are not flush): a third of the original four
 # body characters wide, tuned for the two-column body. Section/subsection titles
 # never indent (`\noindent`), so the two stay distinct.
 FRI_PAR_INDENT = "1.3333em"

@@ -4,7 +4,12 @@ How to read an existing instance and how to add a new one. An instance is a
 journal or conference layout: which block types exist, how content flows into
 TeX, and which assets ride along.
 
+
+**An instance may carry `docs/`.** When a venue has its own writing strategy, the strategy lives in `src/template/instances/<id>/docs/` and the manifest names it with a `docs` key. Two instances may hold near-identical copies on purpose: the loop is shared, the vocabulary of a result row and a protocol is not, and each copy records what it changed.
+
 ## What an instance is
+
+**An instance is a directory with a fixed shape, not a configuration file**: the tree below is the shape, and the directories under it are what the tool reads.
 
 ```
 src/template/instances/<id>/
@@ -25,6 +30,8 @@ it produces goes into the build directory.
 `template.json`.
 
 ## `template.json`
+
+**Every key here is read by the builder, and a wrong type fails at build time rather than at validate time**: the table is the contract between you and the tool.
 
 | Key | Type | Read by | Meaning |
 |---|---|---|---|

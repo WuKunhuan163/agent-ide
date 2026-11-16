@@ -14,5 +14,12 @@
     "directories": [
         "docs",
         "src"
+    ],
+    "exclude": [
+        "src/template/docs/data/*",
+        "!src/template/docs/data/README.md",
+        "!src/template/docs/data/_template",
+        "!src/template/docs/data/returns",
+        "!src/template/docs/data/units"
     ]
 }

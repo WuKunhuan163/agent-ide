@@ -2,7 +2,7 @@ import os
 import re
 import sys
 
-from src.template.block_base import BaseBlock
+from src.template.core.block_base import BaseBlock
 
 from src.template.instances.fri.layout import (  # noqa: E402
     FRI_BLOCK_SKIP,

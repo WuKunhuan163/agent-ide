@@ -23,8 +23,8 @@ from src.store import content_id
 from src.store.errors import DataError
 from src.store.migrate import migrate_legacy
 from src.store.schema import Manifest
-from src.template.compile import CompileError
-from src.template.registry import list_instances, load_instance, manifest_for
+from src.template.ops.compile import CompileError
+from src.template.core.registry import list_instances, load_instance, manifest_for
 
 
 def _json_arg(raw: str) -> dict:

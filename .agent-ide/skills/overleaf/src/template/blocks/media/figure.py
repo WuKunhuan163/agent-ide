@@ -3,7 +3,7 @@ import sys
 from src.store import errors
 from src.store.errors import DataError
 
-from src.template.block_base import BaseBlock
+from src.template.core.block_base import BaseBlock
 
 class Block(BaseBlock):
     def validate(self):

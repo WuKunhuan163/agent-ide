@@ -20,7 +20,7 @@ import os
 from src.store import errors
 from src.store.errors import DataError
 
-from src.template.template_base import BaseTemplate
+from src.template.core.template_base import BaseTemplate
 
 # Fixed scan order for block groups under `blocks/`; first hit wins.
 BLOCK_GROUPS = ("text", "media", "tables", "math", "refs")
@@ -32,8 +32,8 @@ _spec_cache: dict[str, tuple[float, dict]] = {}
 
 
 def template_root() -> str:
-    """`<skill>/src/template`."""
-    return os.path.dirname(os.path.abspath(__file__))
+    """`<skill>/src/template` — one level above `core/`, which holds this module."""
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def instances_root() -> str:

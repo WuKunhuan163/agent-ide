@@ -8,7 +8,7 @@ teaser in a `\\twocolumn[...]` band.
 """
 import re
 
-from src.template.template_base import BaseTemplate
+from src.template.core.template_base import BaseTemplate
 
 
 class Template(BaseTemplate):

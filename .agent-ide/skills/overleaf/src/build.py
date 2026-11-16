@@ -1,7 +1,7 @@
 """Build pipeline: store state -> template render -> TeX -> PDF.
 
 The only place that touches both layers. It reads project state through
-`src.store.api`, renders through `src.template.render`, then compiles.
+`src.store.api`, renders through `src.template.ops.render`, then compiles.
 """
 from __future__ import annotations
 
@@ -14,9 +14,9 @@ from src.store.errors import DataError
 from src.store.index import build_indexes
 from src.store.schema import Manifest
 
-from src.template import compile as tex_compile
-from src.template import render as template_render
-from src.template.registry import manifest_for
+from src.template.ops import compile as tex_compile
+from src.template.ops import render as template_render
+from src.template.core.registry import manifest_for
 
 
 def build(agent_id: str, project_id: str, *, do_compile: bool = True) -> dict:

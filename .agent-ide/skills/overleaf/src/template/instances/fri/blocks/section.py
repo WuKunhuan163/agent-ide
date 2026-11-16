@@ -1,6 +1,6 @@
 """FRI body section heading: the shared `section` with journal typography.
 
-The heading is always flush left ("标题不顶格"): it carries an explicit
+The heading is always flush left (no first-line indent on a heading): it carries an explicit
 `\\noindent` so the paragraph indent set by the enclosing `fribody` group only
 affects the `text` blocks underneath it.
 """

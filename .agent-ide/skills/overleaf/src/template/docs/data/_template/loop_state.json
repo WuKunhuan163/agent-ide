@@ -1,0 +1,27 @@
+{
+  "id": "<identifier>",
+  "root": {
+    "name": "<心愿一句话>",
+    "children": [
+      {
+        "name": "<这一枝交出去什么>",
+        "children": [
+          {
+            "name": "<一个执行单元能交出的东西>",
+            "weight": 100,
+            "state": "not_started",
+            "ratio": 0,
+            "depends": [],
+            "evidence": "",
+            "est_min": 0,
+            "id": "A1"
+          }
+        ],
+        "id": "A"
+      }
+    ],
+    "id": "ROOT"
+  },
+  "weight_history": [],
+  "note": "叶子 weight 合计 100；state ∈ not_started|in_progress|paused|done；ratio ∈ [0,1]；children 顺序即 DFS 序"
+}

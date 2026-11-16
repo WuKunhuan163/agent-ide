@@ -1,7 +1,7 @@
 import os
 import shutil
 
-from src.template.block_base import BaseBlock
+from src.template.core.block_base import BaseBlock
 
 # Bundled stand-ins shipped beside this block in `instances/fri/assets/`, used
 # when the project supplies no custom image. Keeping them on disk is what makes

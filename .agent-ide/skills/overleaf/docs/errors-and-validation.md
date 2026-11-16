@@ -5,6 +5,8 @@ to work through a broken build.
 
 ## Three failure shapes
 
+**Three shapes of failure, three different fixes**: find the shape you are looking at before reading the message.
+
 | Shape | Example output | Exit |
 |---|---|---|
 | `DataError` | `Error: CONTENT_INVALID: path=section/text: field=content: missing required content field(s): text` | 1 |
@@ -119,6 +121,8 @@ telling you to use `--no-compile`. Use `--no-compile` to render TeX without TeX
 installed, then compile elsewhere; `brew install tectonic` fixes it locally.
 
 ## Diagnostic loop
+
+**Diagnose in this order, and stop at the first step that answers**: the block below is the loop, not a checklist to run whole.
 
 ```bash
 O=.agent-ide/skills/overleaf/overleaf.py

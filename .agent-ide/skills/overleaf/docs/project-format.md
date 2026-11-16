@@ -6,6 +6,8 @@ any of it.
 
 ## Where projects live
 
+**A project is a directory the tool can find without being told where it is**: the tree below is what that means on disk.
+
 ```
 <skill>/data/projects/<agent_id>/<project_id>/
 ├── project.json          # identity: template binding + metadata

@@ -26,7 +26,7 @@ from src.store import errors
 from src.store.layout import resolve_arg
 from src.store.errors import DataError
 from src.store.schema import Manifest
-from src.template.registry import manifest_for
+from src.template.core.registry import manifest_for
 
 _INDEX_RE = re.compile(r"^(\d+)_(.+)$")
 
