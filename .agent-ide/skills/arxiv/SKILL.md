@@ -9,58 +9,62 @@ description: >-
 
 # arxiv
 
-两个职责：检索 arXiv 预印本；把任意检索结果里的 PDF 落成本地文件。后者是它在流程里的主要用途。
+Two jobs: searching arXiv preprints, and turning a PDF from any search result into a local file. The second is what the pipeline mostly uses it for.
 
-## 核心命令
+## Core commands
+
+**The commands are one line each and print JSON, so the next step can consume them**: the block below is the whole surface.
 
 ```bash
-# 检索（默认 arXiv 源）
+# search (arXiv source by default)
 .agent-tools/arxiv <options> "query string"
 
-# 检索 OpenAlex 源（跨学科、带被引数与 OA 链接），检索完直接下载
+# search OpenAlex (cross-disciplinary, with citation counts and OA links), download immediately
 .agent-tools/arxiv --source openalex --in title_abstract --year_from 2023 \
     --max_results 100 --download --out papers/ "3D Gaussian Splatting"
 
-# 事后下载任何带 pdf url 的结果 JSON
+# download later from any result JSON carrying a pdf url
 .agent-tools/arxiv download --from <result.json> [--out DIR] [--limit N] [--dry-run] \
     [--delay 1.2] [--retries 3]
 ```
 
-两个源共用一个 CLI 和同一套字段（`title/year/authors/pdf_link/citations/abstract/doi/venue`），`--download` 与 `download --from` 对两者一视同仁。差异只在检索侧：
+Both sources share one CLI and one field set (`title/year/authors/pdf_link/citations/abstract/doi/venue`), and `--download` / `download --from` treat them identically. They differ only on the search side:
 
-| | `--source arxiv`（默认） | `--source openalex` |
+| | `--source arxiv` (default) | `--source openalex` |
 |---|---|---|
-| 覆盖 | arXiv 预印本 | 跨学科，期刊+会议+预印本 |
-| 排序默认 | `submittedDate` | `relevance`（`--sort_by` 可改） |
-| 单次上限 | 分页，受 `--max_eval` 约束 | 200 条，无分页 |
-| 独有过滤 | `--min_citations` / `--min_upvotes` / `--abstract_contains` | `--year_from` / `--year_to` / `--in` |
-| 额外字段 | `hf_upvotes` | `openalex_id`、被引数来自 OpenAlex |
+| Coverage | arXiv preprints | cross-disciplinary: journals, conferences, preprints |
+| Default sort | `submittedDate` | `relevance` (`--sort_by` overrides) |
+| Per-call limit | paginated, bounded by `--max_eval` | 200 records, no pagination |
+| Exclusive filters | `--min_citations` / `--min_upvotes` / `--abstract_contains` | `--year_from` / `--year_to` / `--in` |
+| Extra fields | `hf_upvotes` | `openalex_id`, citations come from OpenAlex |
 
-`--from` 接受本技能的检索快照，也接受任何含 `pdf_url`/`pdf_link` 的 JSON；链接不限于 arxiv.org，AAAI OJS、PLOS、机构库同样处理。
+`--from` accepts this skill's own result snapshots and any JSON holding `pdf_url` or `pdf_link`; the host need not be arxiv.org — AAAI OJS, PLOS and institutional repositories are handled the same way.
 
-## 检索语义与限制（`--source arxiv`）
+## Search semantics and limits (`--source arxiv`)
 
-- 查询按空格切词，每词编码成 `all:<term>`，用 `+AND+` 连接；`and` / `or` / `not` 被丢弃，`A AND B` 等价于 `A B`。
-- 不支持字段限定：`ti:gaussian` 会被当成 `all:ti:gaussian` 发给 API，返回 HTTP 400，整次搜索空结果，无降级。
-- 不支持短语引号；查询过长或含特殊符号同样易 400。
-- `--min_citations` 的数值来自 Crossref `query.bibliographic` 的第一条，不校验标题相似度，因此可能取到另一篇论文的计数；预印本常为 0。需要可靠被引数时用 `--source openalex`。
-- 富化的代价固定：即使 `--min_upvotes`、`--min_citations` 都是 0，每篇仍发 2 次请求（HuggingFace + Crossref），串行。
-- 分页每页 10 条，总评估上限 `--max_eval`（默认 100），翻页间隔 `--delay`（默认 3.0 s）；`--exclude-cache` 命中 `data/fetch/cache.json` 时打 `[cached]` 并跳过。
+- The query is split on whitespace, each term encoded as `all:<term>` and joined with `+AND+`; `and` / `or` / `not` are dropped, so `A AND B` is the same as `A B`.
+- No field qualifiers: `ti:gaussian` is sent as `all:ti:gaussian`, the API answers HTTP 400, the whole search returns empty, and there is no fallback.
+- No quoted phrases; an over-long query or special characters likewise tend to produce 400.
+- `--min_citations` reads the count from the first Crossref `query.bibliographic` hit without checking title similarity, so it can take another paper's count; preprints usually score 0. Use `--source openalex` when the count matters.
+- Enrichment costs a fixed amount: even with `--min_upvotes` and `--min_citations` both 0, each record still costs two serial requests (HuggingFace + Crossref).
+- Pagination is 10 per page, the evaluation ceiling is `--max_eval` (default 100), and pages are spaced by `--delay` (default 3.0 s); `--exclude-cache` prints `[cached]` and skips on a cache hit in `data/fetch/cache.json`.
 
-## 下载规则（写在代码里）
+## Download rules (baked into the code)
 
-- 浏览器 User-Agent（AAAI 一类主机会断连默认 python UA）
-- 首字节必须是 `%PDF`，否则删除不落盘（失败常返回 200 + HTML）
-- 先写 `.part`，校验通过再原子改名；主机支持 `Range` 时可续传
-- 目标文件已存在则跳过，命令可重复执行
-- 4xx 计入 skipped；连接/5xx 重试 `--retries` 次（默认 3）后计入 failed，有 failed 时退出码 1
+- A browser User-Agent (hosts such as AAAI OJS drop the default python UA).
+- The first bytes must be `%PDF`, otherwise the file is deleted rather than written (failures often return 200 with HTML).
+- Write `.part` first, rename atomically after the check passes; resume when the host supports `Range`.
+- Skip if the target file already exists, so the command is repeatable.
+- 4xx counts as skipped; connection errors and 5xx are retried `--retries` times (default 3) then counted as failed, and any failure makes the exit code 1.
 
-选项与示例见 [skills/01_usage.md](skills/01_usage.md)。
+Options and examples: [skills/01_usage.md](skills/01_usage.md).
 
-## 与相邻技能
+## Neighbouring skills
 
-| 技能 | 分工 |
+**Three neighbouring skills do overlapping work deliberately; the table says which one owns what** so a lookup does not happen twice.
+
+| Skill | Division of labour |
 |---|---|
-| `crossref` | 已知 DOI/ISSN 时的权威元数据与刊内检索，只产元数据，不下载 |
-| `pdf-reader` | PDF/URL → 文本，输入是本技能下好的文件 |
-| `overleaf` | 块树 → LaTeX → PDF |
+| `crossref` | authoritative metadata and journal-scoped search for a known DOI/ISSN; metadata only, never downloads |
+| `pdf-reader` | PDF or URL → text; its input is a file this skill downloaded |
+| `overleaf` | block tree → LaTeX → PDF |

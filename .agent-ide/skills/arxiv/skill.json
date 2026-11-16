@@ -1,19 +1,18 @@
 {
-    "install": {
-        "kind": "python"
-    },
-    "python": {
-        "requirements": [
-            "requests"
-        ]
-    },
-    "files": [
-        "SKILL.md",
-        "arxiv.py"
-    ],
-    "directories": [
-        "skills",
-        "src",
-        "tests"
+  "install": {
+    "kind": "python"
+  },
+  "python": {
+    "requirements": [
+      "requests"
     ]
+  },
+  "files": [
+    "SKILL.md",
+    "arxiv.py"
+  ],
+  "directories": [
+    "skills",
+    "src"
+  ]
 }

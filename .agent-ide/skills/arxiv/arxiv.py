@@ -17,37 +17,37 @@ sys.exit = clean_exit
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="文献调研助手 - arXiv 官方高可用排异缓存架构")
-    parser.add_argument("query", help="搜索关键词")
-    parser.add_argument("--max_results", "-m", type=int, help="返回的新文献数量")
+    parser = argparse.ArgumentParser(description="Literature search: arXiv and OpenAlex, with cache, Crossref citations and HF upvotes")
+    parser.add_argument("query", help="search terms")
+    parser.add_argument("--max_results", "-m", type=int, help="how many new papers to return")
     parser.add_argument(
         "--sort_by",
         "-s",
         type=str,
         choices=["relevance", "submittedDate", "lastUpdatedDate"],
         default=None,
-        help="排序方式：relevance, submittedDate, lastUpdatedDate（arxiv 默认 submittedDate，openalex 默认 relevance）",
+        help="sort order: relevance, submittedDate, lastUpdatedDate (arxiv defaults to submittedDate, openalex to relevance)",
     )
-    parser.add_argument("--min_upvotes", type=int, default=0, help="最低 Hugging Face 每日点赞数过滤")
-    parser.add_argument("--min_citations", type=int, help="最低 Crossref 引用数过滤")
-    parser.add_argument("--abstract_contains", type=str, help="摘要必须包含的关键词（忽略大小写）")
-    parser.add_argument("--max_eval", type=int, default=100, help="最大评估文献数量（防止死循环）")
-    parser.add_argument("--delay", type=float, help="两次请求间的延迟（RPS控制）")
-    parser.add_argument("--exclude-cache", action="store_true", help="启用排异模式")
+    parser.add_argument("--min_upvotes", type=int, default=0, help="minimum Hugging Face daily upvotes")
+    parser.add_argument("--min_citations", type=int, help="minimum Crossref citation count")
+    parser.add_argument("--abstract_contains", type=str, help="abstract must contain this keyword (case-insensitive)")
+    parser.add_argument("--max_eval", type=int, default=100, help="cap on papers evaluated, so a thin filter cannot loop forever")
+    parser.add_argument("--delay", type=float, help="delay between requests, in seconds (rate control)")
+    parser.add_argument("--exclude-cache", action="store_true", help="exclude anything already in the cache")
     parser.add_argument("--source", choices=["arxiv", "openalex"], default="arxiv",
-                        help="检索源：arxiv（默认）或 openalex（跨学科、带被引与 OA PDF）")
+                        help="source: arxiv (default) or openalex (cross-disciplinary, carries citations and OA PDFs)")
     parser.add_argument("--year_from", type=str, default=None,
-                        help="openalex 源：起始年份，如 2023")
+                        help="openalex only: first year, e.g. 2023")
     parser.add_argument("--year_to", type=str, default=None,
-                        help="openalex 源：结束年份")
+                        help="openalex only: last year")
     parser.add_argument("--in", dest="search_in", choices=["fulltext", "title_abstract"],
                         default="fulltext",
-                        help="openalex 源：检索范围（title_abstract 更精确）")
+                        help="openalex only: where to search (title_abstract is the more precise one)")
     parser.add_argument("--download", action="store_true",
-                        help="检索后直接下载命中的 PDF")
-    parser.add_argument("--out", default=None, help="PDF 目标目录，默认 data/fetch/pdfs/")
+                        help="download the PDFs of whatever matched")
+    parser.add_argument("--out", default=None, help="PDF destination directory, default data/fetch/pdfs/")
     parser.add_argument("-v", "--verbose", action="store_true",
-                        help="每条打印完整字段（默认每条一行：title<TAB>year<TAB>cites<TAB>pdf）")
+                        help="print every field (default is one line per paper: title<TAB>year<TAB>cites<TAB>pdf)")
     return parser.parse_args()
 
 
