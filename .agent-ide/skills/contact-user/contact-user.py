@@ -118,10 +118,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> None:
-    from src.quick_access import ensure_quietly
-
     _default_sigpipe()
-    ensure_quietly()
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv[:1] == ["resolve"]:
         from src.paths import project_root
@@ -213,7 +210,7 @@ def dispatch(parser: argparse.ArgumentParser, args, agent_id: str | None) -> int
                                     fix=args.fix_binding)
 
     if agent_id is None:
-        parser.error("--id is required (see COLDSTART.md to resolve your id)")
+        parser.error("--id is required (pass the id this session works under)")
     if args.recent is not None:
         archive.print_recent(agent_id, args.recent)
         return Exit.OK

@@ -100,6 +100,8 @@ directory, while the checkpoint commits `<local>`. A linked worktree or submodul
 
 ## 5. Load context
 
+**Loading context is one command, and it must run before the first question**: the block below is that command with the path it writes.
+
 ```bash
 <local>/.agent-tools/contact-user --id <id> --recent 20
 ```

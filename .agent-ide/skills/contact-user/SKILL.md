@@ -1,12 +1,30 @@
 ---
 name: contact-user
 description: >-
-  Blocking user channel for this repo: the agent writes two input files, the user answers in a GUI window, the CLI prints the reply, and the round is archived and checkpointed. Also the only way to read the IDE conversation: when the user asks "what did you just do", "read the full context", "看看语境", the first command is `.agent-tools/contact-user --id <id> --ide-context`.
+  Blocking user channel: the agent writes two input files, the user answers in a GUI window, the CLI prints the reply, and the round is archived and checkpointed. Reading the IDE transcript is a different tool — `agent-ide context` (`--probe` to locate, `--key` to render); contact-user is only the channel for asking the user.
 ---
 
 # contact-user
 
 The user is reachable only through this tool. The IDE chat panel is not the channel.
+
+## The id for this project — look it up, never hard-code it
+
+- **Resolve the id before using it**: `contact-user --bindings` lists every pair.
+  Take the row whose name matches this project's folder. Once bound, read with
+  `--id <id>` — do **not** re-run `--bind-conversation`.
+- **Never run `--bind-conversation` against another project's id.** Ids are
+  per project; binding this repo's conversation under a foreign id pollutes that
+  project's history. When a probe says nothing is bound, run `--bindings` first:
+  if this project already has a row, the id in hand is wrong — change the id,
+  not the binding.
+- **"Full context" means the IDE session text printed by `--ide-context`** — not
+  a memory file, not `git log`, not the current context window. On "read the
+  context", "what did I say earlier", the first command is `--ide-context`, and
+  the answer comes from that text.
+- Default budget is 100 rounds; raise it with `--ide-context <N>`, and add
+  `--since YYYY-MM-DD` to bound it by time.
+
 
 ## Reading the conversation — start here
 
@@ -22,9 +40,11 @@ window is still worth reading:
 
 ```
 contact-user: probe store=... ide=codebuddy convs=80
-contact-user: probe binding=毕设->ba9f3f5d files=19279 span=2026-10-10..2026-10-26 \
-               ws=/Users/.../毕设 [OK]
+contact-user: probe binding=<id>-><conv8> files=19279 span=<first>..<last> \
+               ws=<abs path to this repo> [OK]
 ```
+
+`<id>` must be this repository's row in `--bindings`; never copy a name out of an example.
 
 `[OK]` means the bound conversation records the current directory as its
 workspace. `[UNKNOWN]` means it records none, so ownership cannot be confirmed —
@@ -120,6 +140,8 @@ wanted.
 
 ## A round
 
+**A round is a request file, a wait, and an archived answer — in that order**, and the block below is one whole round.
+
 ```bash
 # 1. read the session the agent is about to report on (unlocks the round)
 #    the last line it prints is this round's anchor:
@@ -156,6 +178,8 @@ The output itself is plain UTF-8 text (no JSON envelope, no escapes, no colour),
 Input files are consumed before the window opens and archived. After a git failure (exit 40) rewrite both before re-contacting.
 
 ## Reading back
+
+**Reading the answer back is a separate command from asking**, which is what lets a round be replayed later from the archive.
 
 ```bash
 .agent-tools/contact-user --id <id> --recent 20   # last N rounds, oldest first
@@ -250,6 +274,8 @@ Output is data on stdout and one-line notes on stderr (`contact-user: ...`):
 ### [18:10:45] user                <- one block per message
 ### [18:10:52] assistant
 ### [18:10:53] tool
+
+**The transcript below is what a completed round leaves on disk**: the tool call, the question, the answer, in the order they happened.
 ```
 
 Every message, reasoning, tool call and tool output is printed in full: there is
@@ -282,6 +308,8 @@ Rounds are archived per agent id. To move rounds between ids (time-bounded):
 The id is chosen by the user and is **not** the project folder name. Resolve it in this order: the current message → the session context → an id already under `data/contact_msg/` (prefer an existing one; ask if several) → `contact-user resolve` (project basename) only when none exists.
 
 ## Exit codes
+
+**The exit codes separate "the user answered" from "nobody answered in time"**, and the second one is not a failure of the tool.
 
 | Code | Meaning | What to do |
 |---|---|---|

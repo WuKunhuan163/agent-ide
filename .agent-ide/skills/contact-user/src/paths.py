@@ -49,10 +49,11 @@ def stamp() -> str:
 
 
 def input_text(agent_id: str, kind: str) -> Path:
-    """`kind` is `contact` or `commit`. 一人一目录：data/input/<id>/<kind>_msg.txt
+    """`kind` is `contact` or `commit`: data/input/<id>/<kind>_msg.txt
 
-    目录按 id 分开，是为了让同一台机器上的多个 agent 不必靠文件名后缀区分，
-    也免得把 id 拼进文件名再解析回来。
+    One directory per id, so several agents on one machine never have to tell
+    their drafts apart by a filename suffix, and never have to parse an id back
+    out of a name.
     """
     return data("input", agent_id, f"{kind}_msg.txt")
 

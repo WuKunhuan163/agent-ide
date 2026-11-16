@@ -8,6 +8,7 @@ A round is two files with the same timestamp prefix:
 from __future__ import annotations
 import shutil
 from datetime import datetime
+import sys
 from pathlib import Path
 
 from .exit_codes import Exit
@@ -124,11 +125,18 @@ def _free_name(path: Path) -> Path:
 def delete(agent_id: str) -> int:
     if not agent_id:
         return Exit.Runtime.MISSING_ID
+    moved = 0
     for kind in (RESPONSE, CONTACT, "autosave"):
         folder = data(kind, agent_id)
         if folder.is_dir():
             _trash(folder)
-    print(f"moved {agent_id} to the trash")
+            moved += 1
+    if not moved:
+        # A typo'd id and a clean id look the same from here. Saying "moved" to
+        # both is how a wrong id gets confirmation it never earned.
+        print(f"nothing to delete: no archived data for {agent_id}", file=sys.stderr)
+        return Exit.OK
+    print(f"moved {agent_id} to the trash ({moved} folder{'s' if moved > 1 else ''})")
     return Exit.OK
 
 

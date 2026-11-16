@@ -132,12 +132,13 @@ def _load_inputs(agent_id: str) -> tuple[str, str]:
 
 def _read_required(path, *, missing: int, empty: int) -> str:
     if not path.is_file():
-        print(f"contact-user: 缺草稿 {path}\n"
-              f"       路径以 `--id <id> --input-path` 打印的为准", file=sys.stderr)
+        print(f"contact-user: missing draft {path}\n"
+              f"       write to the paths printed by `--id <id> --input-path`",
+              file=sys.stderr)
         raise SystemExit(missing)
     text = path.read_text(encoding="utf-8")
     if not text.strip():
-        print(f"contact-user: 草稿是空的 {path}", file=sys.stderr)
+        print(f"contact-user: draft is empty {path}", file=sys.stderr)
         raise SystemExit(empty)
     return text.strip()
 
