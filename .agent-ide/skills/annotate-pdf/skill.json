@@ -1,0 +1,15 @@
+{
+    "install": {
+        "kind": "python"
+    },
+    "python": {
+        "requirements": ["pymupdf"],
+        "runtime": {
+            "version": "3.11.9"
+        }
+    },
+    "files": [
+        "page.html"
+    ],
+    "directories": []
+}

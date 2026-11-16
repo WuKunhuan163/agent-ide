@@ -1,7 +1,7 @@
 # Executor · venue adaptation (`<id>`) · the minimum
 
 > This file writes **only what this discipline or venue can say**: what things are called, what counts as failure, how the four questions are phrased here.
-> The layer's own clauses live in the shared `src/template/docs/strategy-roleplay/`; **do not repeat them here**.
+> The layer's own clauses live in the shared `src/template/docs/strategy-results-first/`; **do not repeat them here**.
 
 **What one row is in this discipline.** <e.g. one sample / one labelled set / one metric reading, carrying dataset · split · metric · setting; a row missing one of those is half a row.>
 

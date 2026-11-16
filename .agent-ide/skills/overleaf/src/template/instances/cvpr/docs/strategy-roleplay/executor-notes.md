@@ -1,6 +1,6 @@
 # Executor · venue adaptation (cvpr) · the minimum
 
-> This file carries **only what the venue can say**: what things are called, and what counts as failure here. **The layer's own clauses live in the shared `src/template/docs/strategy-roleplay/`**; read both.
+> This file carries **only what the venue can say**: what things are called, and what counts as failure here. **The layer's own clauses live in the shared `src/template/docs/strategy-results-first/`**; read both.
 
 one number on one benchmark: dataset · split · metric · setting (resolution, number of views, training time). A number without its setting is not comparable to the baseline it claims to beat.
 

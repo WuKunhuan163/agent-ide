@@ -1,5 +1,7 @@
 # Working order: results → footing → narrative
 
+**Where `data/<identifier>/` is**: `<tree>/docs/strategy-results-first/data/<identifier>/` — the material sits beside these documents, not at the project root. `<project root>/data/` is a different tree and will never hold it; a path written `data/<id>/…` below is that one.
+
 **This file states the loop; the vocabulary lives one level down.** A reader holding only this file knows the shape of a round but not the nouns of the field it is run in: which quantity a row carries, what a "protocol" is called here, what the venue prints. That is by design — the loop is shared, the words belong to the instance (`src/template/instances/<id>/docs/strategy-roleplay/executor-notes.md`). Two consequences follow. An answer built on this file alone is correct in shape and silent in words; it must say so rather than supply a vocabulary. And when the words do exist in the instance, they are quoted, not paraphrased — a renamed quantity is a new quantity.
 
 ## The story in six sentences
@@ -54,7 +56,7 @@ The loop is usually entered on a project that is **already partly run** — anal
 
 Guessing here is expensive in a way that compounds: an unadapted module keeps producing numbers from the wrong build, and every later pass inherits them.
 
-**Entering the project is §3.1 of this file; commissioning it is `src/template/docs/strategy-roleplay/01-supervisor.md` (the interface) and `skill.md` (method and expectations) — one copy shared by every instance.** This file states what a loop is and which work is next. How a project is entered, how the next work leaves the room as a fence, and how a returned result is read live in the role documents beside that file — `00-owner.md` (who wishes), `01-supervisor.md` (who commissions), `02-lead.md` (who answers the four questions, dispatches and collects), `03-executor.md` (who does the item). **These exist in one copy only, in `docs/strategy-roleplay/`, and are never copied into any `instances/<id>/`**; the venue vocabulary has one exit: `instances/<id>/docs/strategy-roleplay/executor-notes.md`.
+**Entering the project is §3.1 of this file; commissioning it is `src/template/docs/strategy-results-first/01-supervisor.md` (the interface) and `skill.md` (method and expectations) — one copy shared by every instance.** This file states what a loop is and which work is next. How a project is entered, how the next work leaves the room as a fence, and how a returned result is read live in the role documents beside that file — `00-owner.md` (who wishes), `01-supervisor.md` (who commissions), `02-lead.md` (who answers the four questions, dispatches and collects), `03-executor.md` (who does the item). **These exist in one copy only, in `docs/strategy-results-first/`, and are never copied into any `instances/<id>/`**; the venue vocabulary has one exit: `instances/<id>/docs/strategy-roleplay/executor-notes.md`.
 
 **What comes next splits into two kinds of work, and only one of them is the loop.** A round can hold both, and a report that names only the second is describing a loop that cannot start.
 

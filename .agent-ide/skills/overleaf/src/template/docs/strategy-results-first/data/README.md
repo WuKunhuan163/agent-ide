@@ -1,6 +1,6 @@
 # `data/<identifier>/` — one directory per id
 
-**This holds one concrete project's commission**, not part of the template: `data/<identifier>/` contains `WISH.md` (the wish verbatim) and `BOSS_CONTEXT.md` (the context).
+**This holds one concrete project's commission**, not part of the method: `data/<identifier>/` sits beside the documents that produce it and contains `WISH.md` (the wish verbatim) and `BOSS_CONTEXT.md` (the context).
 
 ## Two disciplines
 
@@ -14,7 +14,7 @@
 **`agent-ide push` copies the whole `data/` across** — so every project receiving this skill sees `data/prelim-report/` (that is the thesis project's wish). **First act after landing in a new project**:
 
 ```bash
-rm -rf <project>/.agent-ide/skills/overleaf/src/template/docs/data/<not-your-id>
+rm -rf <project>/.agent-ide/skills/overleaf/src/template/docs/strategy-results-first/data/<not-your-id>
 ```
 
 Keeping it costs more than disk space: analysing the wish, the main agent **reads someone else's wish list**, and because that looks "very complete" it stops asking you for an identifier. **Exactly one id may remain: this project's own.**

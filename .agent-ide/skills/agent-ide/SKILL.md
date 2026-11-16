@@ -46,16 +46,17 @@ id: <identifier>
 
 ## Publishing to GitHub — what to do when someone says "publish"
 
-One command, no staging:
+One command, two steps, no staging:
 
 ```bash
 .agent-tools/agent-ide publish <skill> [<skill> ...]
 ```
 
-It clones the configured repo shallow into a temp directory, copies the named
-packages' whitelisted files in, commits, and pushes. Nothing is left behind, and
-nothing outside the whitelist is published. `--from-github` runs the same path
-backwards.
+**Step one is the push you would otherwise forget.** For every named package that exists in this project, its whitelisted files are copied to the global tree first, and the command prints that as a `push:` line. **Step two** clones the configured repo shallow into a temp directory, copies the same packages from the global tree in, commits, and pushes. Nothing is left behind, and nothing outside the whitelist is published.
+
+**Why the order is inside the command**: reading only the global tree meant that a package edited here and never pushed was published in its older global shape, with the command exiting 0 — the one failure that looks like success. A name that exists only in the global tree is left alone on step one (a package this project never edited, not an error).
+
+`--from-github` runs step two backwards and does not touch this project's packages.
 
 **The only input is one string**, `github.publish_repo`, read from the first of
 these that has it:

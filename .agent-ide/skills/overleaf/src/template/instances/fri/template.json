@@ -200,5 +200,5 @@
     }
   },
   "docs": "docs/",
-  "docs_note": "Loop (shared): src/template/docs/results-first-narrative.md; instance detail: docs/results-first-narrative.md"
+  "docs_note": "Loop (shared): src/template/docs/strategy-results-first/execution-loop.md; instance detail: docs/strategy-results-first/execution-loop.md"
 }

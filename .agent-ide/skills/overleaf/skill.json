@@ -1,25 +1,22 @@
 {
-    "install": {
-        "kind": "python"
-    },
-    "python": {
-        "requirements": [],
-        "runtime": {
-            "version": "3.11.9"
-        }
-    },
-    "files": [
-        "SKILL.md"
-    ],
-    "directories": [
-        "docs",
-        "src"
-    ],
-    "exclude": [
-        "src/template/docs/data/*",
-        "!src/template/docs/data/README.md",
-        "!src/template/docs/data/_template",
-        "!src/template/docs/data/returns",
-        "!src/template/docs/data/units"
-    ]
+  "install": {
+    "kind": "python"
+  },
+  "python": {
+    "requirements": [],
+    "runtime": {
+      "version": "3.11.9"
+    }
+  },
+  "files": [
+    "SKILL.md"
+  ],
+  "directories": [
+    "docs",
+    "src"
+  ],
+  "exclude": [
+    "src/template/docs/strategy-results-first/data/*",
+    "!src/template/docs/strategy-results-first/data/README.md"
+  ]
 }

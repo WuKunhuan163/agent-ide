@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="zh"><meta charset="utf-8"><title>feedback</title>
+<style>
+:root { --bg:#fcfcfa; --ink:#1c1c1a; --dim:#9a978d; --line:#e6e3da; --mark:#ffe9a3; --hl:#d9f2e3; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+  font:14px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; }
+#top { position:sticky; top:0; z-index:5; background:#fff; border-bottom:1px solid var(--line);
+  padding:7px 14px; display:flex; gap:10px; align-items:center; font-size:12px; color:var(--dim); }
+#top b { color:var(--ink); font-weight:600; }
+#top .sp { flex:1; }
+#doc { max-width:1040px; margin:0 auto; padding:24px 18px 45vh; }
+.ln { display:flex; }
+.ln .no { width:46px; flex:none; text-align:right; padding-right:12px; color:#c3c0b6;
+  font-size:11px; user-select:none; }
+.ln .tx { flex:1; white-space:pre-wrap; word-break:break-word; }
+.ln.h { font-weight:700; }
+mark { padding:0 1px; position:relative; cursor:pointer; border-radius:2px; }
+mark .bdg { position:absolute; top:-9px; left:-3px; font-size:9px; line-height:1;
+  padding:1px 3px; border-radius:6px; color:#3a3a34; border:1px solid rgba(0,0,0,.18); }
+#tip { position:fixed; z-index:40; display:none; max-width:340px; background:#fff;
+  border:1px solid #d6d3c9; border-radius:6px; box-shadow:0 8px 28px rgba(0,0,0,.13);
+  padding:8px 9px; font-size:12px; line-height:1.5; }
+#tip .t { white-space:pre-wrap; margin-bottom:6px; }
+#tip .a { display:flex; gap:6px; }
+#tip button { font-size:11px; padding:2px 8px; }
+#box { position:fixed; z-index:30; display:none; background:#fff; border:1px solid #cfccc2;
+  border-radius:6px; box-shadow:0 6px 24px rgba(0,0,0,.10); padding:8px; width:440px; }
+#box .q { font-size:11px; color:#6b6b62; background:#f4f2ea; padding:3px 6px;
+  border-radius:3px; margin-bottom:6px; max-height:54px; overflow:auto; }
+#box textarea { width:100%; min-height:64px; font:inherit; font-size:13px; padding:6px;
+  border:1px solid var(--line); border-radius:4px; resize:vertical; }
+#box .r { display:flex; gap:6px; margin-top:6px; align-items:center; font-size:11px; color:var(--dim); }
+button { font:inherit; font-size:12px; padding:3px 10px; border:1px solid var(--line);
+  background:#fff; border-radius:4px; cursor:pointer; }
+button.p { background:#1a6b4a; color:#fff; border-color:#1a6b4a; }
+#list { max-width:1040px; margin:0 auto; padding:0 18px 60px; }
+#list h3 { font-size:12px; color:var(--dim); font-weight:500; margin:26px 0 8px;
+  border-top:1px solid var(--line); padding-top:12px; }
+.e { padding:6px 8px; border-left:2px solid var(--mark); margin-bottom:6px; font-size:13px; }
+.e .m { font-size:11px; color:var(--dim); }
+.e .x { float:right; cursor:pointer; color:#bbb; }
+</style>
+<div id="top"><b id="name"></b><span id="cnt"></span><span class="sp"></span>
+  <button id="copy">复制全部</button><button id="clear">删除全部</button></div>
+<div id="doc"></div>
+<div id="list"></div>
+<div id="tip"><div class="t" id="tiptext"></div><div class="a"><button id="tcopy">复制</button><button id="tdel">删除</button></div></div>
+<div id="box">
+  <div class="q" id="quote"></div>
+  <textarea id="note" placeholder="这里怎么改（Enter 保存，Shift+Enter 换行，Esc 取消）"></textarea>
+  <div class="r"><span id="pos"></span><span class="sp" style="flex:1"></span>
+    <button id="cancel">取消</button><button class="p" id="ok">保存</button></div>
+</div>
+
+<script>
+let lines = [], items = [], target = null, tipI = -1, hideT = null;
+const PAL = ["#ffe9a3","#ffd9cb","#d5f0e2","#d6e4ff","#ecdcff","#ffdff0","#e8f6c8","#fff1c2","#cfe9ea","#f2dccb"];
+const $ = s => document.querySelector(s);
+
+const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+async function boot() {
+  const ID = decodeURIComponent(location.pathname.split("/").filter(Boolean)[0] || "");
+  const d = await (await fetch("/api/" + ID + "/doc")).json();
+  lines = d.lines; items = d.items;
+  $("#name").textContent = d.id + " · " + d.doc.split("/").pop();
+  render();
+}
+
+function render() {
+  $("#doc").innerHTML = lines.map((t, i) => {
+    const n = i + 1;
+    const h = /^#{1,6}\s/.test(t) ? " h" : "";
+    return `<div class="ln${h}" data-n="${n}"><div class="no">${n}</div><div class="tx">${esc(t) || " "}</div></div>`;
+  }).join("");
+  items.forEach((a, i) => {
+    const color = PAL[i % PAL.length];
+    const parts = a.parts || [{line: a.line, text: a.quote}];
+    parts.forEach((pt, j) => {
+      const el = document.querySelector(`.ln[data-n="${pt.line}"] .tx`);
+      if (!el) return;
+      const txt = el.innerHTML, q = esc(pt.text);
+      const badge = j === 0 ? `<sup class="bdg" style="background:${color}">${i + 1}</sup>` : "";
+      const paint = s => `<mark data-i="${i}" style="background:${color}">${s}${badge}</mark>`;
+      if (q && txt.includes(q)) el.innerHTML = txt.replace(q, () => paint(q));
+      else if (pt.text) el.innerHTML = paint(txt);
+    });
+  });
+  $("#cnt").textContent = items.length ? `${items.length} 条` : "";
+  $("#list").innerHTML = items.length ? "<h3>已记下的反馈</h3>" + items.map((a, i) =>
+    `<div class="e"><span class="x" data-i="${i}">×</span>
+     <div class="m">L${a.line}${a.end && a.end !== a.line ? "-L" + a.end : ""}</div><div>«${esc(a.quote)}»</div><div>${esc(a.note)}</div></div>`).join("") : "";
+  $("#list").querySelectorAll(".x").forEach(x => x.onclick = async () => {
+    await fetch("/api/" + ID + "/del", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({index: +x.dataset.i})});
+    await boot();
+  });
+}
+
+function sync() {
+  fetch("/api/" + ID + "/save", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({items})}).then(render);
+}
+
+document.addEventListener("mouseup", () => {
+  const s = window.getSelection();
+  if (!s || s.isCollapsed || !s.toString().trim()) return;
+  const r = s.getRangeAt(0);
+  const rows = [...document.querySelectorAll(".ln")].filter(el => r.intersectsNode(el.querySelector(".tx")));
+  if (!rows.length) return;
+  const first = +rows[0].dataset.n, last = +rows[rows.length - 1].dataset.n;
+  const parts = [];
+  rows.forEach(el => {
+    const tx = el.querySelector(".tx");
+    const rr = document.createRange();
+    rr.selectNodeContents(tx);
+    if (+el.dataset.n === first) { try { rr.setStart(r.startContainer, r.startOffset); } catch (e) {} }
+    if (+el.dataset.n === last)  { try { rr.setEnd(r.endContainer, r.endOffset); } catch (e) {} }
+    const text = rr.toString().replace(/\s+/g, " ").trim();
+    if (text) parts.push({line: +el.dataset.n, text});
+  });
+  if (!parts.length) return;
+  const quote = parts.map(x => x.text).join(" / ");
+  target = {line: first, end: last, parts, quote};
+  $("#quote").textContent = quote;
+  $("#pos").textContent = "L" + target.line;
+  $("#note").value = "";
+  const box = $("#box");
+  box.style.display = "block";
+  const rect = r.getBoundingClientRect();
+  const left = Math.max(8, Math.min(rect.left, window.innerWidth - 452));
+  let top = rect.bottom + 8;
+  if (top + 210 > window.innerHeight) top = Math.max(8, rect.top - 210);
+  box.style.left = left + "px";
+  box.style.top = top + "px";
+  $("#note").focus();
+});
+
+$("#ok").onclick = async () => {
+  const note = $("#note").value.trim();
+  if (!note || !target) return;
+  const item = {line: target.line, end: target.end, parts: target.parts, quote: target.quote, note};
+  $("#box").style.display = "none";
+  window.getSelection().removeAllRanges();
+  await fetch("/api/" + ID + "/add", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({item})});
+  await boot();
+};
+$("#cancel").onclick = () => { $("#box").style.display = "none"; window.getSelection().removeAllRanges(); };
+$("#note").onkeydown = e => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("#ok").click(); }
+  if (e.key === "Escape") $("#cancel").click();
+};
+const tip = () => $("#tip");
+function showTip(i, x, y, note, rect) {
+  tipI = i;
+  $("#tiptext").textContent = (i + 1) + ".  " + note;
+  const t = tip();
+  t.style.display = "block";
+  t.style.left = Math.min(Math.max(8, x - 24), window.innerWidth - 352) + "px";
+  let ty = y + 16;
+  if (ty + 110 > window.innerHeight) ty = Math.max(8, y - 130);
+  t.style.top = ty + "px";
+}
+$("#doc").addEventListener("mouseover", e => {
+  const m = e.target.closest && e.target.closest("mark");
+  if (!m) return;
+  clearTimeout(hideT);
+  const i = +m.dataset.i, a = items[i];
+  if (!a) return;
+  const r = m.getBoundingClientRect();
+  showTip(i, r.left, r.bottom, a.note);
+});
+$("#doc").addEventListener("mouseout", e => {
+  if (!(e.target.closest && e.target.closest("mark"))) return;
+  hideT = setTimeout(() => { if (tipI >= 0) tip().style.display = "none"; }, 220);
+});
+tip().addEventListener("mouseenter", () => clearTimeout(hideT));
+tip().addEventListener("mouseleave", () => { tip().style.display = "none"; });
+$("#tcopy").onclick = async () => {
+  const a = items[tipI]; if (!a) return;
+  const rng = a.end && a.end !== a.line ? `L${a.line}-L${a.end}` : `L${a.line}`;
+  await navigator.clipboard.writeText(`${rng}  «${a.quote}»\n${a.note}`);
+  $("#tcopy").textContent = "已复制"; setTimeout(() => $("#tcopy").textContent = "复制", 1000);
+};
+$("#tdel").onclick = async () => {
+  if (tipI < 0) return;
+  const i = tipI; tipI = -1; tip().style.display = "none";
+  await fetch("/api/" + ID + "/del", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({index: i})});
+  await boot();
+};
+$("#clear").onclick = () => {
+  if (!confirm("删除全部反馈？")) return;
+  items = []; sync();
+};
+$("#copy").onclick = async () => {
+  const t = items.map((a, i) => `${i+1}. L${a.line}  «${a.quote}»\n   ${a.note}`).join("\n\n");
+  await navigator.clipboard.writeText(t);
+  $("#copy").textContent = "已复制";
+  setTimeout(() => $("#copy").textContent = "复制全部", 1200);
+};
+boot();
+</script>
+</html>

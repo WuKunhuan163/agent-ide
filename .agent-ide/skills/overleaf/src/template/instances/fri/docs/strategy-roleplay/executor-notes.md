@@ -1,6 +1,6 @@
-# 执行层 · 会场适配（fri）· 最少量
+# Executor · venue adaptation (fri) · the minimum
 
-> 这一份**只有会场才说得出的东西**：名词怎么叫、本会场怎样算失败。**层本身的条款在共享 `src/template/docs/strategy-roleplay/03-executor.md`**，两份一起读，missing不可。
+> **This file holds only what the venue can say**: what the nouns are called, and what counts as a failure here. **The layer's own clauses are in the shared `src/template/docs/strategy-results-first/03-executor.md`**; the two are read together, and neither is optional.
 
 **A row.**
 

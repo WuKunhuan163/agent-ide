@@ -102,8 +102,9 @@ After assembly, the renderer asserts the document is whole:
 - every rendered block must still appear as `% [BEGIN_BLOCK: <id>]`.
 
 Either failure is `MALFORMED_FILE` with no path. It means a `Template` assembled
-the body in a way that lost blocks — see
-[`templates.md`](templates.md) → *The two hard requirements*.
+the body in a way that lost blocks: the assembly must carry every block through
+and close with `\end{document}`, and a block lost in the join is the author's
+defect, not the compiler's.
 
 ## Compile failures
 

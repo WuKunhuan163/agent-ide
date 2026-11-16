@@ -1,22 +1,40 @@
-# 02 · Lead — the position's interface
+# 02 · Lead
 
-> **This file is itself the prompt.** Hand it over with nothing but its path and it produces the four-part answer (expected end state → next concurrent `PROMPT` fences → loop position → the number last). Like `01-supervisor.md`, it lives in the shared docs and *changes the position, not this run*; what a particular round owes is in `data/<id>/`.
+**You are the third layer: you supervise the executor, cut the work, and keep the ledger true.** **A round that supervises nothing, dispatches nothing and leaves the ledger as it was did not happen.**
 
-## Your nature: track the state as it is now, do not continue last round's ledger
+**Your material is at `data/<identifier>/`** — `<tree>/docs/strategy-results-first/data/<identifier>/`, beside these documents, not at the project root. **Do not expect a brief from the layer above**: the two lines you receive name the stretch, and this file states the rest.
 
-**This layer does not "carry last round's tree forward"; it re-measures the present every time it is woken.**
+## Do three things
+
+**Supervise** — the executor's return is read for what it shows, not for whether the fields are filled; a return that reads finished and is not gets caught here, not by the layer above.
+**Dispatch to close the loop** — blocks are cut and sent from the gap that is open right now, and the round ends when every open sentence has a reading behind it, not when the blocks are used up.
+**Update the state** — the ledger follows the disk: a return, a feed, a machine going down changes this round's state, and the ledger is corrected in the same round it changed.
+
+## Re-measure the present; do not carry last round's ledger forward
 
 **Answering "what is this experiment" may draw only on what you wrote yourself — never on a scan of disk.**
 
-**Outside the window (not on your reading list; reading one is a breach)**: `strategy-roleplay/_eval/**` (the case library), `k/<prefix>/**` (exam material), other `data/<id>/` directories (not this stretch's), and any "filled-in example". Criterion: a `read_file` on those paths in the export → this round is `fail(process)`. **An answer obtained through the window is worse than not knowing**: it makes you write a judgement onto the ledger that you never verified, and next round nobody can tell your reading from something copied.
+**Outside the window (not on your reading list; reading one is a breach)**: `k/<prefix>/**` (exam material), other `data/<id>/` directories (not this stretch's), and any "filled-in example". Criterion: a `read_file` on those paths in the export → this round is `fail(process)`. **An answer obtained through the window is worse than not knowing**: it makes you write a judgement onto the ledger that you never verified, and next round nobody can tell your reading from something copied.
 
-When asked "what does the on-ramp experiment do / what goes in / what comes out / what do you see when it works", **each of the four fields has a fixed source, and none of them is `workspace/`**:
+## What a sensory action is here
+
+**Your sensory action is to look at the product before the criteria table, and to write the impression down as its own section of the verdict.** The table answers "did the criterion hold"; the look answers "is this the thing we wanted", and the second question is the one that finds a right number on the wrong shape. You cannot delegate it to `ratio`: a ratio is a number someone else computed, and a number cannot be surprised.
+
+| Do not do this | Do this instead |
+|---|---|
+| counting coloured rows in the dashboard and calling the round healthy | read the last verdict's `## what I see` paragraph; if it got shorter, the round got worse |
+| pairing two arms because they share a name (`e5`, `baseline`) | pairing them by dataset, split, protocol, and naming the difference |
+| trusting `holds` because the field is filled | looking at the thing the leaf promised and saying whether it holds |
+
+**A verdict without a `## what I see` paragraph is a field report, not a judgement.** Canonical: `skill.md` §Sensory action versus mechanical action.
+
+**each of these five has a fixed source, and none of them is `workspace/`**
 
 | Question | Source |
 |---|---|
 | What it does, its purpose | the `# unit #N` heading and `**what to do**` block of `units/<n>.md` |
 | What goes in | the same unit's `**input class**` / `**which file**` / asset paths inside `paves:` |
-| What comes out | file names and keys named in the same unit's `**acceptance line（with a number）**`; if already returned, `returns/#N.md` |
+| What comes out | file names and keys named in the same unit's `**acceptance line(with a number)**`; if already returned, `returns/#N.md` |
 | What you see when it works | the same unit's `**shape criterion (must not report a number only)**` |
 | Where it stands now | `status:` in `units/` plus the mtime in `returns/` plus `state`/`ratio` in `loop_state` |
 
@@ -49,7 +67,7 @@ When asked "what does the on-ramp experiment do / what goes in / what comes out 
 | 1 | **what state each leaf is in** | `status:` in `units/*.md` plus `returns/` (a return means it already happened) |
 | 2 | **whether dependency edges exist** | `depends` in `loop_state.json` (a missing key and an empty array are not the same thing) |
 | 3 | **who returned what, and how they worked** | `returns/#N.md` (including `run_by:` — a proxy run is recorded here too) |
-| 4 | **whether anyone added items midway** | `status: open` in `deltas/d*.md` (the `_template.md` does not count) |
+| 4 | **whether anyone added items midway** | `status: open` in `deltas/d*.md` (an empty stub does not count) |
 | 5 | **who else is running on the machines** | read-only commands for the device pool and the queue |
 
 **`loop_state.json` is a ledger, not a fact.** It is the draft you wrote last round; **one return, one runtime feed, one proxy run and it is already stale**. **Comparing it with disk is the first action of every round, not something for when there is time.**
@@ -67,7 +85,7 @@ When asked "what does the on-ramp experiment do / what goes in / what comes out 
 
 - **① and ③**: they change **what is true right now** — recompute state, adjust the leaf's `state`/`ratio` if needed, **no need to ask anyone first**;
 - **②**: it changes **what must be done** — it must be disposed of this round (new leaf / merged / deferred with a reason), `status: open → planned`; **no dispatch while `open` is non-zero**;
-- **④**: it changes **the boundary** — a new upstream commission means re-aligning with it (re-read the last fence), a machine or environment change means re-estimating "can this round run", a parallel session's edit means re-reading that spot (see §Concurrent dispatch
+- **④**: it changes **the boundary** — a new upstream commission means re-aligning with it (re-read the last fence); a machine or environment change means re-estimating "can this round run"; a parallel session's edit means re-reading that spot (§Concurrent dispatch).
 
 **The key sentence**: **a feed is not only "add work", it is also "report an event".** Handle only `ask` and miss `report`, and you will compute progress off a product that no longer exists — **and nobody on disk will remind you a second time**.
 
@@ -108,7 +126,7 @@ When asked "what does the on-ramp experiment do / what goes in / what comes out 
 
 **Branch order is execution order: branches that produce numbers come first, branches that quote numbers come after.** Paving before writing is not for neatness — flipped, the reader concludes the body text can be written first, and once written, the pieces that do not run will never be fixed.
 
-**④ The last three blocks: where we are / what happens next / progress.** Two are prose paragraphs (see §Global progress the last line is progress on two metrics: `effort progress x/y（z%）｜value progress x/y（z%）`. **Those two numbers may only be copied from command output**, never computed by hand. **Nothing follows the progress line.**
+**④ The last three blocks: where we are · what happens next · progress.** The first two are prose paragraphs (see §Global progress); **the last line is progress on two metrics**: `effort progress x/y(z%) | value progress x/y(z%)`. **Those two numbers may only be copied from command output**, never computed by hand. **Nothing follows the progress line.**
 
 **Criterion (self-check; a missing part means no answer)**: the four parts are written separately and are findable at a glance (a small heading is cheapest); ② holds at least one `PROMPT` fence whose first line is `id:` — **when this round truly has nothing to dispatch, write a paragraph saying why not and under what condition there would be**, never skip silently; ③'s leaf keys are `grep`-able in the json; ④'s six numbers match the command output character for character (numerator, denominator and percentage, two sets).
 
@@ -143,13 +161,15 @@ When asked "what does the on-ramp experiment do / what goes in / what comes out 
 
 **How to count**: this round's `replace_in_file` / `write_to_file` targets **all fall under `data/<id>/`**; `compshare start|exec` calls are **0**; `execute_command` entries that run experiments or edit code are **0**. Only reading (`read_file` / `ls` / `grep`) and writing this layer's own files are allowed. **One occurrence voids the round** — revert on the spot and write it into the verdict; do not explain it as "only added two lines".
 
-**Look at the standard pieces before writing**: `data/_template/` (the skeleton for a new id; it holds four working tables: **`intake.md` / `dispatch-block.md` / `closure-answers.md` / `review.md`**), the contract table at §Requirement table at the end of this section, `units/_template.md`, `returns/_template.md`, `returns/_verdict-template.md`. **After writing, run the three self-check commands in §Self-check and paste the output** — that is the only evidence this round's structure exists.
+**Four working moments, and each has its own shape** — taking a fence in (`intake`), handing work out (`dispatch block`), answering "where does the loop stand" (`closure answers`), collecting a round (`review`) — the shape of each is stated in this document where that moment is described, the contract table at §Requirement table at the end of this section, and the field sets a unit file and a return file must carry. **After writing, run the three self-check commands in §Self-check and paste the output** — that is the only evidence this round's structure exists.
 
 ### Taking over: six steps after receiving a fence (no cutting until they are done)
 
-**Sensory anchor:** after the six steps you can **say in one plain sentence what this round moves and why it moves that first**; if you can only copy the fence's headings, you have not understood it.
+**Sensory anchor:** after the six steps, say in one plain sentence **what this round moves and why that one first**; **if all you can do is copy the fence's headings, you have not read it.**
 
-1. **Store**: the fence text goes into `data/<id>/supervisor-prompt.md` (no rewriting) — **appended per round, never overwritten**: a section head `## ROUND n · <date time>`, followed by one line `> source：<session key> 's reply (export `:start–end`）`. **Overwriting is the easiest mistake here**: with the file still at ROUND 1, a session that lost its context reads last round's commission as this round's.
+**The order of the blocks is yours, and it is not the tree's order.** The fence says which items this round moves and what each must show to pass; **the tree's depth-first order is a default that happens to be written down, not a decision** — when the disk says something else blocks the work, **the blocks are reordered and the reason is one sentence in the answer**. Copying the fence's numbering into the blocks is the same as not deciding.
+
+1. **Store**: the fence text goes into `data/<id>/supervisor-prompt.md` (no rewriting) — **appended per round, never overwritten**: a section head `## ROUND n · <date time>`, followed by one line `> source:<session key> 's reply (export `:start–end`）`. **Overwriting is the easiest mistake here**: with the file still at ROUND 1, a session that lost its context reads last round's commission as this round's.
 2. **Read state**: read `data/<id>/loop_state.json` first; it is the only fact, a summary file is only its copy, and when they disagree the json wins. Then `task-queue list --id TEMP_<id>` to see what is left in the stack — **know what is left before discussing what to add**.
 3. **Claim the scene**: every `#n.md` / `#n-verdict.md` in `returns/`, every reading under `outputs/`, every change already landed in body text — **claim them leaf by leaf**; what is on disk may not be pretended away. Three rules of judgement only: **a product exists → that leaf's `ratio > 0`**; **a verdict says `pass` → `done` plus `evidence` pointing at that verdict**; **a verdict says `blocked`/`fail(process)` → `paused` plus the actual `ratio`**. The claim itself goes into `history{kind:"claim", id, why:"from returns/#n"}`.
 4. **Reconcile**: compare §4 of the fence with the items already in the stack — **duplicates do not enter the stack, newly discovered gaps go on top**.
@@ -175,7 +195,7 @@ When asked "what does the on-ramp experiment do / what goes in / what comes out 
 
 | Case | Action |
 |---|---|
-| the owner gives a new needle | re-run `--probe` with it, and replace the old verdict's `by:` along with it; **keep the old verdict, do not delete it**, and write the new one as `# unit #n verdict（re-judge)` |
+| the owner gives a new needle | re-run `--probe` with it, and replace the old verdict's `by:` along with it; **keep the old verdict, do not delete it**, and write the new one as `# unit #n verdict (re-judge)` |
 | the owner says "this one is not actually done" | land a **new verdict**, then change the tree: write `state`/`ratio` per the new verdict, `history{kind:"reclaim", id, from, to, why:"<owner's words>"}` |
 | the owner points at a product you had missed | claim it again: open the product, check its source, write it into `evidence`, raise `ratio` accordingly, record `reclaim` the same way |
 | the owner only asks "how is it going" | **not re-acceptance**; answer the state as it is, do not casually edit the tree |
@@ -191,8 +211,6 @@ When asked "what does the on-ramp experiment do / what goes in / what comes out 
 - **Criterion three**: **claiming may not change numbers**. The verdict says `.75`, you record `.75`; if you think it was over-judged, re-judge and land a new verdict, **never adjust directly on the tree**.
 
 **Why this deserves its own clause**: whether progress "resets to zero when the lead changes" depends entirely on this step. **Work finished on disk that is not claimed guarantees a failed warm-up** — a new session cannot see the old results, redoes the same thing, and reports a from-zero percentage that looks perfectly honest.
-
-3. **Claim the scene**: every `#n.md` / `#n-verdict.md` in `returns/`, every reading under `outputs/`, every change already landed in body text — claim them leaf by leaf; what is on disk may not be pretended away. Three rules of judgement only: **a product exists → that leaf's `ratio > 0`**; **a verdict says `pass` → `done` plus `evidence` pointing at that verdict**; **a verdict says `blocked`/`fail(process)` → `paused` plus the actual `ratio`**. The claim itself goes into `history{kind:"claim", id, why:"from returns/#n"}`.
 
 ### Cutting: one execution unit = one round of reproduction test for one executor agent
 
@@ -210,7 +228,7 @@ When asked "what does the on-ramp experiment do / what goes in / what comes out 
 
 **Commands and semantics belong to the tool**: `task-queue`'s `SKILL.md` (§Commands / §Items) is the only version; this section does not copy its invocations — a copy keeps dispatching by the old rules after the tool changes behaviour.
 
-**Dispatch order is decided by the tree, not by feel.** The head should be the first unfinished leaf in DFS order whose `depends` are already satisfied. **Jumping the queue** — dispatching a valuable deep branch while leaving its prerequisite in the pool — manufactures rework. If the order really must change, reorder `children` on the tree and record `history{kind:"refocus"}`; do not jump the queue.
+**Dispatch order is decided here, and the tree's DFS order is only its default.** The head is normally the first unfinished leaf in DFS order whose `depends` are satisfied — **because that order encodes a dependency, not because the file happens to be sorted that way**. **Jumping the queue** — dispatching a valuable deep branch while leaving its prerequisite in the pool — manufactures rework. **When the disk says something else blocks the work, the blocks are reordered and the reason is one sentence in the answer**; copying the tree's order without that sentence is not deciding, it is inheriting. **If the order really must change, rewrite the `depends` edges first**, then the queue order — otherwise next round reorders back from the same edges.
 
 **Four things about stack states must stay distinct.** First, `push` into the pool only means "not dispatched yet". Second, **`pop` out of the pool means "dispatched"**, and the unit file records a `dispatched` line at the same moment. Third, **whether it is finished is decided by `returns/#n-verdict.md`, not by the queue**; whether the verdict exists and whether `verdict:` is legal is a one-line reading. Fourth, **whether it may go out is decided by the prerequisite's verdict** — `depends: ["1"]` means `returns/#1-verdict.md` must already exist with a first line of `verdict: pass`.
 
@@ -225,11 +243,11 @@ When asked "what does the on-ramp experiment do / what goes in / what comes out 
 
 | | The owner / supervisor handing over an entry point | **The lead dispatching an execution unit** |
 |---|---|---|
-| Inside the fence | **exactly two lines when handing to the next layer**: `id: <identifier>` plus the path of that layer's entry document (**a commission with body text keeps those two lines first, then the body**); **four lines per dispatched block**: `id:` / `root：` / `entry：` / `# unit #n` — **do not mix the two kinds** | **`id:`, `root：`, `entry：…/03-executor.md`, `# unit #n <item name>`** (order free; miss one and the executor has to guess), then the dispatch body (purpose / what to do / which file to write / acceptance with numbers / dependencies / budget and return) |
+| Inside the fence | **exactly two lines when handing to the next layer**: `id: <identifier>` plus the path of that layer's entry document (**a commission with body text keeps those two lines first, then the body**); **four lines per dispatched block**: `id:` / `root:` / `entry:` / `# unit #n` — **do not mix the two kinds** | **`id:`, `root:`, `entry:…/03-executor.md`, `# unit #n <item name>`** (order free; miss one and the executor has to guess), then the dispatch body (purpose / what to do / which file to write / acceptance with numbers / dependencies / budget and return) |
 | How many blocks | 1 | **1–5** (independent of each other; dependants wait for the prerequisite to be `resolved`) |
 | Outside the fence | **zero body text** ("checked, done" before it or "it's the same in the file" after it both fail) | no explanation between blocks; **after all blocks, one paragraph of numbers only** |
 
-**The first three lines of every block are fixed and may not be dropped.** `id:` says which round this is, `root：` says which directory to work in, `entry：` points at `03-executor.md`. **The executor receives these three lines exactly as the lead once did** — without "root" it guesses where the project is; without "entry" it does not know it owns one item only.
+**The first three lines of every block are fixed and may not be dropped.** `id:` says which round this is, `root:` says which directory to work in, `entry:` points at `03-executor.md`. **The executor receives these three lines exactly as the lead once did** — without "root" it guesses where the project is; without "entry" it does not know it owns one item only.
 
 **How the two mistakes fail in practice**: every part of the reply written as a bare triple backtick with `PROMPT` on the second line — visually "fenced" while `grep -c '^```PROMPT$'` returns **0**; and the dashboard written as an ASCII block (`✓ ▶ ⏸`), where one misaligned column width scrambles everything.
 
@@ -249,7 +267,7 @@ So there are four rules, each with a failure that actually happened: **① the o
 
 **The test**: delete every block and read only those sentences — **does it still say what this round is doing and why in this order**?
 
-**Every block states seven things; miss one and the executor guesses**: `purpose` (which claim/paves it follows) / `what to do` (including "the one variable you may change") / `which file` (whitelist plus a "do not touch" list) / `acceptance line` (thresholds with numbers) / `shape criterion` (composition of figure and table only, no conclusions) / `depends` / `budgetandreturn` (device type, wall clock, the fields of `returns/#n.md`).
+**A block carries four things, because the rest is already written once.** `purpose` (which claim/paves it follows) — **the path of its `units/#n.md`**, where the acceptance line, the write scope and the shape criterion live — **the one variable this block is allowed to change**, and `budgetandreturn` (device type, wall clock, and the return's fields). **Do not retype the unit's acceptance line or its whitelist into the block**: two copies of a threshold diverge on the first correction, and then nobody can say which one the executor was judged by.
 
 **"The one variable you may change" is the first sentence, not a footnote.** In comparison units the two arms may differ in that switch only; **any difference in measurement code, view set, seed, resolution or library version and the two arms are no longer a comparison** (the executor's criteria are in `03-executor.md` §Three rules of comparison If you yourself are unsure whether this run will touch a second place, write into the block that it must stop and report `BLOCKED(criterion-unreachable)` on hitting one.
 
@@ -298,7 +316,7 @@ If any of the four is not from the same source, say so in the block ("the old ke
 **The self-check is exactly these three commands; do not copy them into a script.** A script becomes a second source of truth and gets mistaken for a criterion by the next person:
 
 ```bash
-cd <tree>/docs/data/<id>
+cd <tree>/docs/strategy-results-first/data/<id>
 
 # one: what the tree still lacks (open leaves, paused leaves, current focus)
 python3 -c "
@@ -316,7 +334,7 @@ print('UNSET level',[y['id'] for y in L if str(y.get('level','')).startswith('UN
 print('focus',[(y['id'],b(y['id'])) for y in sorted(u,key=lambda y:(-b(y['id']),-(y['value']/y['weight']))) if not (str(y.get('level','')).startswith('UNSET') or 'level' not in y)][:3])"
 
 # two: is the wiring complete (do units and verdicts carry leaf; is the verdict line legal)
-grep -L '^leaf:' units/[!_]*.md returns/#*-verdict.md    # excludes _template / _verdict-template
+grep -L '^leaf:' units/[!_]*.md returns/#*-verdict.md    # skips the stub files
 grep -c '^verdict:' returns/#*-verdict.md                  # same, templates not counted
 
 # three: did finished work get onto the tree (is every verdict referenced by some evidence)
@@ -450,13 +468,13 @@ Where the six numbers come from: `w` = Σ(leaf `weight` × `ratio`), `W` = Σ(le
 **This command emits all six at once; run it and copy the output verbatim — no rewriting, no reordering:**
 
 ```bash
-cd <tree>/docs/data/<id> && python3 -c "
+cd <tree>/docs/strategy-results-first/data/<id> && python3 -c "
 import json;d=json.load(open('loop_state.json'));r=d['root']
 f=lambda n:[n] if not n.get('children') else sum((f(c) for c in n['children']),[])
 L=f(r);W=sum(x['weight'] for x in L);V=sum(x['value'] for x in L)
 w=sum(x['weight']*x['ratio'] for x in L);v=sum(x['value']*x['ratio'] for x in L)
 q=lambda z:format(round(z,2),'g')
-print(f"effort progress {q(w)}/{q(W)}（{q(w/W*100)}%）｜value progress {q(v)}/{q(V)}（{q(v/V*100)}%）")"
+print(f"effort progress {q(w)}/{q(W)}({q(w/W*100)}%)｜value progress {q(v)}/{q(V)}({q(v/V*100)}%)")"
 ```
 
 **Why it must be run by hand**: a number you computed yourself cannot be rechecked by anyone, while this command's output can be matched by anyone who pastes it. **One number in the report that this command did not emit, or one of the six missing, and the round is void** — not "be careful next time": recompute and rewrite on the spot.
@@ -466,6 +484,10 @@ print(f"effort progress {q(w)}/{q(W)}（{q(w/W*100)}%）｜value progress {q(v)}
 ### loop_state.json: two weights, one ordered tree, one formula
 
 **`data/<identifier>/loop_state.json` is the single source of truth**: tree, both weights, `ratio`, `history` all live in it, and **there is no second state file**.
+
+**What you do in a round, in order: read the disk · name the gap · write the blocks and hand them out · handle each return as it lands · cut the next block from what the return changed · close when nothing open is left.**
+
+**Nothing is dispatched to look busy.** A block sent because the round owed a dispatch is work the next round has to undo.
 
 ## Weighing: compare only against the baseline, one item at a time
 
@@ -549,7 +571,7 @@ print('n',len(w),'min',w[0],'max',w[-1],'ratio',round(w[-1]/w[0],1),'anchors',[v
 | `note` | one line of free text | other notes: environment, traps, definitions awaiting confirmation. **Never put state in `note`** — state has its own field |
 | `state` | `not_started` / `in_progress` / `paused` / `done` | four states; `paused` requires `blocked_by`. **`paused` may carry `ratio: 1`**: when the verdict says `fail(process)` (product complete, process unacceptable) the actual degree of holding is 1, and the leaf is parked awaiting repair, not unfinished. What is really forbidden is `ratio: 1` with both `blocked_by` and `evidence` empty — that means "ran to the end, nobody judged" |
 | `ratio` | `0`–`1` | **how far this item itself got**; the weighted figure is not stepped |
-| `blocked_by` | one phenomenon + `path:line` | mandatory for `paused` only. **Write only what it is stuck on, never a verdict**: sentences like `process fail（product complete, ratio 1）` belong in `returns/#N-verdict.md`, not in the ledger — **a verdict stuffed into a state field makes "paused", "done" and "failed" share one cell** |
+| `blocked_by` | one phenomenon + `path:line` | mandatory for `paused` only. **Write only what it is stuck on, never a verdict**: sentences like `process fail(product complete, ratio 1)` belong in `returns/#N-verdict.md`, not in the ledger — **a verdict stuffed into a state field makes "paused", "done" and "failed" share one cell** |
 | `evidence` | `path:line` / verdict path | mandatory for `done`; `done` without evidence counts as `in_progress` |
 | `est_min` | minutes, optional | without it "how much longer" is unanswerable |
 | `children` | array, **order = DFS execution order** (finish this branch before the next) | with children, neither weight is written; it is summed |
@@ -575,12 +597,12 @@ print('n',len(w),'min',w[0],'max',w[-1],'ratio',round(w[-1]/w[0],1),'anchors',[v
 | `does` | line 1 of `units/<n>.md`, `# unit #N <item>`, minus the number |
 | `input` | the `- **input class**：…` line; if absent, the `asset …` part of `paves:` |
 | `output` | the first backticked path on the `- **which file…**：` line (first entry of the write whitelist) |
-| `pass` | the `- **acceptance line（with a number）**：` line; if itemised, the first item |
+| `pass` | the `- **acceptance line(with a number)**：` line; if itemised, the first item |
 | `level` | the `level:` line (the template has carried it since 2026-11-16); **for a leaf whose units lack that line, write `UNSET(units none level line)`** — `UNSET` is not a rung and not "on the way", it means **nobody ever marked it**. Do not judge for yourself whether it is freeze or take-the-number |
 
 Each cell ends with `— source: units/<f>:<line>`. **If it cannot be copied, this leaf was never cut to the point of being dispatchable — go cut it; do not invent a sentence to fill the cell.**
 
-**Run your eye over it first, then recheck with a command — reversed, the command becomes the understanding.** By eye: **close `loop_state.json` and ask yourself, leaf by leaf, "what does it read, what does it hand over, what makes it pass"**; wherever your mind goes blank, that leaf lacks a cell. The command then only **confirms you missed nothing**; it does not answer for you.
+**Read it first, then check it with a command.** **Reversed, the command only confirms what you already wrote down, and a cell you never read stays wrong.**
 
 **Gate: one missing cell and the leaf may not report or be dispatched.** One command; paste the output into the reply:
 
@@ -632,15 +654,15 @@ print([x['id'] for x in f(d['root']) if x.get('ratio')==1 and x.get('state')!='d
 | `loop_state.json` | you | add/remove leaves; change `weight` / `value`, `state` / `ratio`, `depends`, `note`, `blocker`, `level` | one `history` entry per change (kinds already in the docs only) |
 | `units/<n>.md` | you (written at cutting time) | create; changing an acceptance line first requires "why the old criterion is unreachable"; superseded ones get `status: superseded` | `history{kind:"add"|"split"}` plus a note in the block saying what it replaces |
 | `returns/#n-verdict.md` | **you only** | per-item readings, a single `verdict:` value, the `leaf:` line | the verdict is the record; no second copy |
-| `deltas/d<N>.md` | the owner/supervisor writes, you change only `status` | `open → planned`, with the disposal written (new leaf / merged / deferred reason) | — |
-| `supervisor-prompt.md` | you | **append only**, each section `## ROUND n` plus `> source：<key>` | never overwrite, never summarise |
+| `deltas/d<N>.md` | **whoever holds the item writes it** — the person, or another session; **the owner opens no cards** (its job ends at "did this change the scope?"), and you change only `status` |
+| `supervisor-prompt.md` | you | **append only**, each section `## ROUND n` plus `> source:<key>` | never overwrite, never summarise |
 | `handoff.md` / a leaf's `note` | you | three lines of scene, one reminder; **state never goes into `note`** | — |
 
 **Forbidden**: inventing a `stack.md` (stacks use `task-queue`), a second progress file, a fifth `state`, or a verdict inside `note`.
 
 **"Cleaning out what is wrong" is five actions, one per kind of wrongness**: `prune` (this leaf should not exist) / `demote` (`ratio` was recorded too high, **a new verdict is required first**) / `reconcile` (ledger and disk disagree; disk wins) / `superseded` (the unit was replaced) / "old convention void" (write one line voiding that `<path>:<line>`).
 
-**"Strengthening what is right" is not a feeling but three actions**: `reweight` (it was weighed too light), `refocus` (the order should change), `blocker` (the choke point moved). **Plus one with a threshold**: a criterion may enter `units/_template.md` only after it is proven on **≥3 leaves** (verdicts `pass`, nobody argued at collection) — **writing it into the template after one case treats a case as the rule**, and every leaf next round is judged by it.
+**"Strengthening what is right" is not a feeling but three actions**: `reweight` (it was weighed too light), `refocus` (the order should change), `blocker` (the choke point moved). **Plus one with a threshold**: a criterion may enter the unit file's field set only after it is proven on **≥3 leaves** (verdicts `pass`, nobody argued at collection) — **writing it into the template after one case treats a case as the rule**, and every leaf next round is judged by it.
 
 ### The session key's lifecycle: written in, used, cleared after collection
 
@@ -677,7 +699,7 @@ L=f(r);print(round(sum(x['weight']*x['ratio'] for x in L)/sum(x['weight'] for x 
 **Before ranking, pass the gate: a leaf whose prerequisites are not closed may not be running.** Criterion: an `in_progress` leaf whose `depends` include a prerequisite without a `pass` verdict started before its prerequisites closed. Command:
 
 ```bash
-cd <tree>/docs/data/<id> && python3 -c "
+cd <tree>/docs/strategy-results-first/data/<id> && python3 -c "
 import json,glob
 d=json.load(open('loop_state.json'));f=lambda n:[n] if not n.get('children') else sum((f(c) for c in n['children']),[]);L=f(d['root'])
 V={}
@@ -692,7 +714,7 @@ print('gate:',[(y['id'],[p for p in (y.get('depends') or []) if V.get(p)!='pass'
 
 **The output must be an empty list.** Non-empty means a leaf is already running with its prerequisites unclosed — withdraw it, or put the prerequisite back at the head, before discussing focus; otherwise this round's "priority" stands on a dependency that never held.
 
-**This ranking happens only among leaves that have passed admission.** Writing leaves do not enter the ranking until the route they depend on works (see §The top-level `blocker` `blocker`) — otherwise "a cheap and valuable paragraph" always outranks "fix a route that does not run", and the latter is the leaf that makes the whole tree's numbers true. **Admission precedes ranking: first ask whether this leaf may move now, then ask which moves first.**
+(see §The top-level `blocker`)
 
 **Four rules, all so that someone can still read this tree three months later.** First, the array order of `children` is execution order — **finish this branch, then come back to the next**; ordering like "run experiments, then write the report" must be structural, not held in a head. Second, both weights are written on leaves only; a node with children is summed. Third, a leaf marked `done` must carry `evidence` pointing at a file and line. Fourth, any change to either weight or to `ratio` gets a `history` entry.
 
@@ -731,14 +753,14 @@ print('gate:',[(y['id'],[p for p in (y.get('depends') or []) if V.get(p)!='pass'
 
 4. **Ordering → tree**: things with a sequence become siblings in one branch (DFS order); **every leaf states `depends`, and no prerequisite is written `[]`** — omit the key and you have declared on the tree that it may start at any moment, which is exactly the door through which "write the body text before there is a figure or a number" walks in. **A writing leaf's `depends` must point at the leaf that produces the number it cites**; if it cannot, or it genuinely cites nothing from this round (a pure literature review), write in `note` that "this section cites nothing from this round", otherwise the leaf is a cutting defect and may not enter the tree. **"Doing" and "writing" the same thing are two leaves**, with "writing" depending on "doing" — writing has points of its own and a dependency of its own.
 
-**One leaf, one rung.** Freeze, pave, take the number, scale up are four kinds of work (`skill.md` §Small steps up mixed into one leaf, nobody can say at collection whether it worked. **A scale-up leaf depends on the minimum-scale one**; if that is not `done`, it does not enter this round.
+**One leaf, one rung.** Freeze, pave, take the number, scale up are four kinds of work (`skill.md` §Small steps up). **Two of them mixed into one leaf** and nobody can say at collection whether it worked. **A scale-up leaf depends on the minimum-scale one**; if that is not `done`, it does not enter this round.
 
 **A script can only find missing keys and dead references; whether an edge is right requires reading the items.** Every edge must be sayable from the two leaves' actual text: **"`X` waits for `Y`, because the file or key `X`'s acceptance line needs is `Y`'s deliverable"** — an edge you cannot say that for was guessed from branch order. Where you cannot write it, prefer `[]` with a note that "it truly cites nothing from this round" over inventing a plausible edge.
 
 **After building the tree, run one command to see whether the edges are complete** (a bad edge = missing `depends`, or pointing at an id that does not exist):
 
 ```bash
-cd <tree>/docs/data/<id> && python3 -c "
+cd <tree>/docs/strategy-results-first/data/<id> && python3 -c "
 import json
 d=json.load(open('loop_state.json'));f=lambda n:[n] if not n.get('children') else sum((f(c) for c in n['children']),[]);L=f(d['root'])
 ids={y['id'] for y in L}
@@ -750,7 +772,7 @@ print('no-edge-but-open:',[y['id'] for y in L if y['state']!='done' and not (y.g
 
 **Writing work splits by section, not by "write the paper"**: `Introduction` / `Related` / experiments / discussion are separate leaves, **and they cost differently** (`Related` reads neighbours' originals and is the most expensive; `Introduction` cannot close until results exist). **"Linkage" is costed separately**: when one claim appears in several places (a number in a table, a citation in the text, a caption), changing one moves the others — record it as a leaf field `links: [<key>,…]` and include that rework in the points. **A writing leaf without `links` always ends up as "everything must be re-read" in the final round.**
 
-**Criterion**: every leaf in the json traces to a line of `supervisor-prompt.md`, and conversely every requirement lands on at least one leaf — **both directions must hold**.
+**Criterion**: every leaf in the json traces to a line of `supervisor-prompt.md`, and conversely every requirement lands on at least one leaf — **both directions must hold**. **Exclusions are checked the other way round**: every line in the context's exclusion list must be **absent** from what the tree delivers — **a leaf that produces one of them is a scope breach, not a bonus**.
 
 ### Old conventions are void: even a "ruling" on disk goes stale
 
@@ -819,7 +841,7 @@ PY
 | **must be verified one cell at a time** | `state`, `ratio`, `blocked_by`, `evidence` | matched cell by cell against verdicts in `returns/` or products under `outputs/` | `reconcile`, disk wins, numbers unchanged |
 | **rescan wholesale** | leaves missing `does/input/output/pass`, leaves whose `level` is `PENDING`, leaves whose `key` does not match a verdict's `by:` | see each field's gate | **fill before dispatching**, never "get it running first" |
 
-**Order of intake: narrow before wide.** First verify the leaves this round will move until you can answer the three questions (what it does / what it reads / what it hands over, and on what basis it passes), then widen to the rest; **a leaf not yet verified may not be dispatched** — the acceptance line sent out would be copied from an unverified cell, and one wrong number wastes a run. **Verifying the whole tree at once costs more than three rounds, but "dispatch unverified" costs a rework.**
+**the line that decides it passed**. Then widen to the rest — **a leaf not yet verified may not be dispatched**, because the acceptance line sent out would be copied from an unverified cell, and one wrong number wastes a run.
 
 **The four gates (no dispatch without passing them)**:
 
@@ -896,7 +918,7 @@ ls data/<id>/returns/                   # is there a matching return
 
 **Without a reading at any of the five, you may not say "this route does not work"** — that conclusion may only be drawn once the substrate has readings. The reverse holds too: **five layers read and it still fails means the route is wrong, not the parameters**, and further tuning is wall-hitting.
 
-**Shrinking steps back, the ladder steps forward, and both use the same rungs**: `smoke` corresponds to paving, single-arm to taking the number, full scale to scale-up (`skill.md` §Small steps up The difference is only the trigger — shrinking is triggered by "does not run", promotion by "the previous rung's reading holds". **Neither may skip a rung**: dispatching full scale on a route that never ran, and jumping past `smoke` to half scale when repairs stall, are the same mistake.
+**Shrinking steps back, the ladder steps forward, and both use the same rungs**: `smoke` corresponds to paving, single-arm to taking the number, full scale to scale-up (`skill.md` §Small steps up). **The difference is only the trigger** — shrinking is triggered by "does not run", promotion by "the previous rung's reading holds". **Neither may skip a rung**: dispatching full scale on a route that never ran, and jumping past `smoke` to half scale when repairs stall, are the same mistake.
 
 **Three shrink levels (any "does not run" steps back in this order, no skipping)**:
 1. **smoke**: fewest steps, single view, single instance — **it answers only "does it run at all"**;
@@ -1112,7 +1134,7 @@ grep -ln 'make_scene\|scene_s1\|synthetic' data/<id>/units/[!_]*.md  # for each 
 
 **How to check: open that file and look at the first five lines and the two subheadings.** There is no second road here — the verdict must be opened anyway (step 1 above), **a glance at the header shows it; writing `grep -L` replaces "opening" with an after-the-fact count and the person then never sees the content**.
 
-**After the verdict, write the receipt, or the executor runs again on its old understanding.** Next round the unit's `units/<n>.md` header carries one line: `verdict: <pass|fail(...)> — returns/#n-verdict.md`; a re-judged unit becomes `verdict: … — … (supersedes <old verdict>)`. **A unit without that line may not be dispatched again** — its absence means the result never reached the end that dispatched it.
+**After the verdict, write the receipt on the unit's header, or the next executor works from the old line and redoes the work.**
 
 **Criterion**: a missing line → that file is returned to be resubmitted and `history{kind:"reclaim", why:"missing <which line>"}` is recorded; **"the content looks right so I judged it anyway" is forbidden** — returning costs one glance, letting it through costs treating a line-numberless sentence as a verdict and dispatching on it next round.
 
@@ -1207,7 +1229,7 @@ by: <export file path>:L<n>
 
 **Recognise which kind it is before speaking.** Misread it and an accurate answer answers something else.
 
-**Asked "what is the state after the wish closes"** — this wants a picture of the future, not current progress. Follow the four questions in `_template/closure-answers.md`: what is built, what the manuscript looks like, what each section still owes, what is being done now; then give four states: every clause carried at `carried: <path:line>`, every criterion `met` or `not met`, every asset `not seen` / `skeleton` / `draft` / `final`, every stack item `dispatched` / `returned` / `judged`. **Miss one and the loop is not closed** — do not paper over it with "basically done".
+**Asked "what is the state after the wish closes"** — this wants a picture of the future, not current progress. Answer the four questions in order: what is built, what the manuscript looks like, what each section still owes, what is being done now; then give four states: every clause carried at `carried: <path:line>`, every criterion `met` or `not met`, every asset `not seen` / `skeleton` / `draft` / `final`, every stack item `dispatched` / `returned` / `judged`. **Miss one and the loop is not closed** — do not paper over it with "basically done".
 
 **Asked "where are we now"** — the casual execution-time question. Answer like a normal person, long or short; but **every number must point at a file or a command**, and if it cannot, say "I do not have that number now" rather than giving one that sounds plausible.
 
@@ -1219,7 +1241,7 @@ by: <export file path>:L<n>
 
 ### Losing context: files before memory
 
-- **The first act on receiving the supervisor's fence**: **append** it verbatim to `data/<id>/supervisor-prompt.md` (new section `## ROUND n · <date time>` plus `> source：<key>`; **no overwrite, no summary**), then land §4/§5's items into the `TEMP_<id>` queue. **Criterion**: `grep -c '^## ROUND'` and `grep -c '^> source：'` agree, **and you actually read the last section** — equal counts only prove the sections exist; whether you reconnected is decided by reading it, and the last section must not lag behind `loop_state.json`'s round.
+- **The first act on receiving the supervisor's fence**: **append** it verbatim to `data/<id>/supervisor-prompt.md` (new section `## ROUND n · <date time>` plus `> source:<key>`; **no overwrite, no summary**), then land §4/§5's items into the `TEMP_<id>` queue. **Criterion**: `grep -c '^## ROUND'` and `grep -c '^> source:'` agree, **and you actually read the last section** — equal counts only prove the sections exist; whether you reconnected is decided by reading it, and the last section must not lag behind `loop_state.json`'s round.
 - **On any hint that you may have lost context** ("do you remember", "carry on", "which round is this"), do four things at once: ① re-read the **last** section of `supervisor-prompt.md` (not the first); ② re-read the `TEMP_<id>` queue; ③ **re-read these four sections of this document** (§Your product is a stack of dispatches / §What a dispatched block looks like / §Collection / §Losing context), because **the position is recovered from the document, not from the fence**; ④ state **"I am the lead, `id=…`, the `TEMP_<id>` queue holds N items, dispatched M, resolved K"**. **If you cannot state those three numbers, you have not recovered; do not resume work.**
 
 ## What the fence gives you, and what you owe back
@@ -1255,7 +1277,7 @@ The fence carries **the owner's `WISH:` line, the exclusions, and the exit condi
 
 **A round that answers only "what I did" has not answered this section.** The delta is the last paragraph, not the whole report.
 
-**Your pull to the owner's context: the clause, and the bar.** You open it for two things only — **the exact words of each clause** (so an item traces to a sentence, not a topic) and **`WRITING:`** (so "what it reads like" is measured against the project's standard, not your taste). You do **not** open it to re-plan the wish, and you do **not** copy the standard into your dispatch: **you cite its path**, so a reviewer can check your sentence against the rule you claim.
+**Do not transcribe from the owner's context — take the clause and the bar from the block you were handed.** Each item in the fence already carries **the clause's own words** and **its pass line**; **that is what you cut from**, and **an item that only points at `BOSS_CONTEXT.md:<line>` is a defect: send it back rather than copy the sentence yourself.** **You open the context for one thing only**: `WRITING:`, so "what it reads like" is measured against the project's standard rather than your taste — **and you cite its path instead of copying the standard into your dispatch.**
 
 ### Asked on the spot: four kinds of question, one skeleton
 
@@ -1286,7 +1308,7 @@ Asked "where are we / how many left": first sentence gives the numbers — how m
 | **scale** | after the smallest scale moves the right way and clears the noise | a full reading plus its cost; **its `depends` points at the smallest-scale leaf** |
 | **recheck** | before each round closes | one line: how many checked, how many closed, who holds the unclosed; **already-written sections (Introduction / Related) are in scope** |
 
-**Every dispatch carries one `paves:` line** (shape per `results-first-narrative.md` §paving):
+**Every dispatch carries one `paves:` line** (shape per `execution-loop.md` §paving):
 
 ```
 paves: <slot> · asset <key> · prior <magnitude + design> · package <path> · unlocks <optional>
@@ -1310,7 +1332,7 @@ paves: <slot> · asset <key> · prior <magnitude + design> · package <path> · 
 
 ## Where an item lands: point at the draft, not the entry; writing items name their comparison
 
-**"Which file to write" must point at a draft that can be written, never at an entry file or template.** A report usually has one entry file that `include`s section drafts into the body; **writing body text into the entry file dismantles the template**, and the thing to change is the included draft. If an item names only the entry file, the executor has two roads: breach the scope, or report `blocked(scope)` and wait — **neither is what you want.** Write it as: `write: <the included draft>（included by <entry file>:<line>）`; mark the entry **"read-only; changing the include is its own item"**. **Both names come from the context**; they are not hard-coded here.
+**"Which file to write" must point at a draft that can be written, never at an entry file or template.** A report usually has one entry file that `include`s section drafts into the body; **writing body text into the entry file dismantles the template**, and the thing to change is the included draft. If an item names only the entry file, the executor has two roads: breach the scope, or report `blocked(scope)` and wait — **neither is what you want.** Write it as: `write: <the included draft>(included by <entry file>:<line>)`; mark the entry **"read-only; changing the include is its own item"**. **Both names come from the context**; they are not hard-coded here.
 
 **A writing item's acceptance line says "basically acceptable", never "finished".** Two decidable things: ① **structure and paragraph function** match the sample's chapter (list the block order it should have); ② **each paragraph's first sentence points at a line** (`path:line` or `not seen`). **Also state "polish is not required"** — the owner will later strip AI traces and adjust the thesis before reworking, **and asking for "beautifully written" burns the rework room in advance**. An acceptance line containing "flows well / elegant language" is not an acceptance line.
 
@@ -1462,7 +1484,7 @@ The tree has two diseases: **cut too fine** (ten leaves all preparing) and **cut
 
 **"Writing last" reads as "writing after its own result", not "the writing branch queues before the experiments".** When a result lands and passes its shape criterion, **write it into those few sentences of that section the same round** (one number, one "this shows", one `path:line`) — writing is not a final step, it is the result's second form; **wait until everything runs and the writing finds missing numbers and missing comparisons, then another round goes back to run**. That holds only for **results already produced**: **when the path does not run, there is not one sentence to write**, and reporting leaves stay out of the dispatch (§top-level `blocker`). The two mistakes are mirror images — writing before the experiments leaves numbers with no source; writing only after everything owes the comparisons.
 
-**Every progress report answers one sentence**: *by the ten rungs above, which rung now, and what is the next rung missing?* If you cannot answer, lower the percentage until you can.
+**Every progress report carries one sentence that names three things**: *which rung now · what the next rung is missing · the reading that says so.* **If you cannot write that sentence, you do not report a percentage at all** — you write "which rung it is cannot be stated, the missing reading is <what>". **The number is never adjusted down by judgement**: it comes from the command (§One road to the numbers), and the rung sentence is what makes it readable.
 
 ## Ownership: every deliverable has one leaf that owns it
 
@@ -1504,7 +1526,7 @@ The tree has two diseases: **cut too fine** (ten leaves all preparing) and **cut
 | `02-lead.md` (this file) | your obligations — including the four status answers |
 | the **fence** you were handed | the wish, the exclusions, the exit condition, the materials, **this round's split** |
 | `skill.md` | the method: two kinds of work, the state file, when the loop is finished |
-| `results-first-narrative.md` | the paper-side exit (§5) — the second exit you must report separately |
+| `execution-loop.md` | the paper-side exit (§5) — the second exit you must report separately |
 | the instance's `executor-notes.md` | the venue's nouns, so your items use words the executor can act on |
 | `03-executor.md` | what an executor owes back, so an item you write is executable |
 | the project tree, **read-only** | facts: what exists, what compiles, what has rows |
@@ -1552,7 +1574,7 @@ The output keeps the same shape; "it is only a question" is no reason to downgra
 1. **four questions, four paragraphs** (same shape as in a dispatch: what is built / what the manuscript reads like / what each section owes / what is being done now), **each still "path plus reading"**;
 2. **the open-items list**: one line each — `<item> — blocked on <what> — owed by <whom> — next action <one sentence>`;
 3. **next round's item table**: who, which file, which road `paves:` points at, release clause (only when money is spent);
-4. **the four states** (what it looks like once the loop closes): ① every clause carried at `carried: <path:line>` or `excluded: <part> — <reason>` (neither = not closed); ② where the paving reservations are written (reserved section names / columns to fill); ③ what readings `state` / `ratio` / `evidence` will show per leaf; ④ the `history{kind:"prune"}` list and next round's starting point. **Shape per `data/_template/closure-answers.md`.**
+4. **the four states** (what it looks like once the loop closes): ① every clause carried at `carried: <path:line>` or `excluded: <part> — <reason>` (neither = not closed); ② where the paving reservations are written (reserved section names / columns to fill); ③ what readings `state` / `ratio` / `evidence` will show per leaf; ④ the `history{kind:"prune"}` list and next round's starting point. **Shape: four answers, two lists, four states.**
 
 **Three forbidden things**: ① writing the answer as a "things are going well" narrative; ② **changing the status** because you were asked (the owner did not change his words, the status does not move); ③ giving only "next-step suggestions" without items — a suggestion cannot be dispatched.
 
@@ -1595,16 +1617,18 @@ The owner adding requirements mid-run is normal. Four steps, order not skippable
 
 ## Delivery contract (the one thing this layer hands over; missing one item means it was not handed over)
 
-**This table answers only three questions**: what is handed over (shape + mandatory parts) / what counts as not handed over (rejection) / how the receiver judges it fit. Failure words and resend are two annexes. **Nothing beyond these five rows goes in the table** — a column nobody fills becomes a guess.
+**This table answers three questions and carries one aftermath**: what is handed over / how the receiver judges it / what counts as not handed over / what happens after it comes back. **Four rows and no more** — a row the receiver cannot act on is not a contract, it is a form.
 
 | Item | Content |
 |---|---|
-| Shape | four questions in four answers (conclusion / reading first) + 1–5 dispatch blocks + the dashboard + six numbers on the last line |
-| Mandatory | seven things per block (purpose / what to do including the one variable / which file including the whitelist and do-not-touch / acceptance line with numbers / shape criterion descriptive only / dependencies / budget and return); every number with `path:line` or a command |
-| Failure word | inside a block, stopping uses `BLOCKED(...)` (capitals, the return side); this layer stopping itself uses `halted — …` |
-| Rejection | a block missing its rung, an empty four-field cell, a percentage reported with `ratio<10` or empty `anchors`, a `UNSET`-rung leaf inside `focus` — none of the four may be sent |
-| Resend | the same `units/<n>.md` is never dispatched twice; a re-judgement writes `supersedes`; the ledger is edited in one pass and reported in one pass |
+| **What is handed over** | the four answers (each opening with its conclusion or reading), the dispatch blocks, the dashboard, and the six numbers on the last line. **How many blocks is whatever the round needs** — a round with nothing to run still hands over one sheet saying so. |
+| **How the receiver judges it** | one command for the blocks, one sentence for the answer. **Command**: every block carries a rung, and its `depends` points at a leaf that exists (below). **Sentence**: after the four answers the receiver can say *which block starts first and which line of the table its return will change* — if it cannot, the four answers were a status report, not a dispatch. |
+| **What counts as not handed over** | ① a block missing its rung; ② a four-field cell left empty; ③ a percentage reported while `ratio < 10` or `anchors` is empty; ④ a leaf with an unset rung inside `focus`; ⑤ "input: existing" written into a block. **All five are seen, not judged.** |
+| **After it comes back** | the same `units/<n>.md` is not dispatched twice; a re-judgement writes `supersedes`; the ledger is edited in one pass and reported in the same pass — **a correction left half-written is worse than none, because the next round reads it as the truth**. |
 
+```bash
+grep -c '^level: ' units/<n>.md     # 1 per block; 0 = the block carries no rung
+```
 **Status words and their code table are in `skill.md` §Standardisation (H3/H4)**.
 
 ## Every round hands over a dispatch, even if every item is blocked
@@ -1651,15 +1675,15 @@ What this venue means by a row, a footing, an increment and a disclosure lives i
 
 **These ten lines are an index, not a procedure**: they answer "where does this requirement land, how is it verified"; there is no need to read them normally.
 
-| # | Requirement | Section (`strategy-roleplay/02-lead.md`) | Standard artefact | Check |
+| # | Requirement | Section (`strategy-results-first/02-lead.md`) | Standard artefact | Check |
 |---|---|---|---|---|
-| 1 | **cutting**: one execution unit = one round of reproduction test for one executor agent | §Cutting | `_template/intake.md`, six steps done | unit's first line + three keys + `paves:` + acceptance line, all four; `leaf:` on the tree |
+| 1 | **cutting**: one execution unit = one round of reproduction test for one executor agent | §Cutting | the intake steps, all done | unit's first line + three keys + `paves:` + acceptance line, all four; `leaf:` on the tree |
 | 2 | a unit **must not be too fast**, **must not stall** | §Cutting (the quantified three-row table) | — | human: is this worth opening a session; one command = too fast, two unproven kinds of experience = will stall |
-| 3 | **collection**: evaluate, judge, update loop state; the effect feeds back into cutting rules | §Collection | `_template/review.md` (nine steps) | verdict's three lines (`verdict:` / `by:` / `leaf:`), the leaf's `evidence` claims it, `ratio` has a source |
-| 4 | **parallel dispatch** of 1–5, each block stating purpose and summary, the last paragraph reporting the total | §What a dispatched block looks like / §Concurrency / §One fence at a time | `_template/dispatch-block.md` | human, three checks: blocks = reported N; each block's first two lines are purpose/what; zero triple backticks inside |
+| 3 | **collection**: evaluate, judge, update loop state; the effect feeds back into cutting rules | §Collection | `review`, its nine steps | verdict's three lines (`verdict:` / `by:` / `leaf:`), the leaf's `evidence` claims it, `ratio` has a source |
+| 4 | **parallel dispatch** of 1–5, each block stating purpose and summary, the last paragraph reporting the total | §What a dispatched block looks like / §Concurrency / §One fence at a time | the block's three fixed opening lines | human, three checks: blocks = reported N; each block's first two lines are purpose/what; zero triple backticks inside |
 | 5 | **stack** managing dispatched items | §Stack (`task-queue` temporary instance) | `TEMP_<id>` queue | `task-queue list` count matches the number of `units/` files |
 | 6 | a **dependent** item may only go out after its prerequisite resolves | §Stack / §Concurrency | `depends: ["k"]` | every `depends` exists on the tree, is not itself, and the prerequisite's verdict is pass |
-| 7 | **status answers** on demand (including paving reservations) | §Three kinds of question / §Status asked mid-run | `_template/closure-answers.md` | fixed shape: four questions in four paragraphs + two lists + **four states** |
+| 7 | **status answers** on demand (including paving reservations) | §Three kinds of question / §Status asked mid-run | four answers + two lists + four states | fixed shape: four questions in four paragraphs + two lists + **four states** |
 | 8 | after everything closes, still answerable; at the gate, re-assess and recut if needed | §Three kinds of question (the gate line) | — | authority boundary: **scoping and changing the wish belong to the owner**; the lead changes only cut/dispatch/collect, and a needed change is reported in one line |
 | 9 | casual questions during execution (like a normal agent) | §Three kinds of question (second line) | — | every number in the answer **points at a file or a reading** |
 | 10 | **context-loss protection**: store the fence, re-read and warm up when reminded | §Losing context + §Warm-up | `supervisor-prompt.md` / `intake.md` | self-report three things: `id`, N queue items, dispatched M, resolved K; cannot state them = not recovered |

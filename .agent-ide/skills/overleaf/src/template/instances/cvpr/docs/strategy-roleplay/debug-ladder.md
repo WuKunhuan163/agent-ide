@@ -143,7 +143,7 @@ An FFT reports only the strongest component. A broadband texture (maze, knit, fl
 
 The rule: **whenever the judgement is about form, the figure and one number must be given together.** A number alone conveys nothing, because the other side cannot decide from it.
 
-The user's words: 「弄这些公式都不能给我提供the read」.
+The user's words (translated): "none of these formulas gives me the read of what it did".
 
 ### 11. Degrees-of-freedom audit: count which parameters are actually moving
 
@@ -168,7 +168,7 @@ There is no sweet spot where "tuning lr grows the folds just right" — what is 
 
 ### 12. When a problem is found, "accept it" may not be a candidate
 
-The user's words: 「不正常就尝试修啊，提什么接受？」
+The user's words (translated): "if it is abnormal, try to fix it — why talk about accepting it?"
 
 - The candidate list holds fixes only. Listing "accept the current state", "work around it" or "do something else first" as candidates hands the work back to the other side.
 - The only moment concession may be discussed: the fixes have been tried and the readings recorded.

@@ -92,7 +92,7 @@ The syntax is a stdlib-only JSONPath subset: `$`, `.name`, `['name']`, `[i]` (ne
 
 **A block exists because the intent named it.** Content that no sentence of the user's intent asks for — a section that seemed useful, a table that fills a gap nobody has — is fabrication wearing a document's clothes, and it costs more than an empty place: the next round reads it as a decision that was made. The test before writing a block: point at the words that asked for it. No words, no block.
 
-**Before pushing this skill anywhere, look inside `src/template/docs/data/`.** It holds `data/<identifier>/` for *one concrete project*; a push copies it into every project that receives the skill, and the next agent there will find someone else's wish sitting in its own tree. **Delete foreign ids before pushing** (keep only the id this project owns) — the receiving project creates its own under the same convention.
+**Before pushing this skill anywhere, look inside `src/template/docs/strategy-results-first/data/`.** It holds `data/<identifier>/` for *one concrete project*; a push copies it into every project that receives the skill, and the next agent there will find someone else's wish sitting in its own tree. **Delete foreign ids before pushing** (keep only the id this project owns) — the receiving project creates its own under the same convention.
 
 ## Templates
 
@@ -102,13 +102,12 @@ The syntax is a stdlib-only JSONPath subset: `$`, `.name`, `['name']`, `[i]` (ne
 |---|---|---|
 | `cvpr` | IEEE/CVF proceedings, two-column, title/authors/abstract from metadata, `teaser` block | `src/template/instances/cvpr/docs/strategy-roleplay/executor-notes.md` |
 | `fri` | Cell Press single-column article, `journal_header` block for the page-1 masthead |
-**Before starting a new project, pass four gates — any miss means stop, do not improvise:**
+**Before starting a new project, pass three gates — any miss means stop, do not improvise:**
 
 | Gate | Check | If missing |
 |---|---|---|
 | 1 instance | the id is in `list-templates` **and** `instances/<id>/docs/strategy-roleplay/executor-notes.md` exists | build it from `docs/templates.md` ＋ `instances/_skeleton/`; **if the venue's own habits cannot be written, mark `instance: cvpr (provisional)` inside BOSS_CONTEXT** — never use cvpr silently |
 | 2 wish | `data/<identifier>/{WISH.md,BOSS_CONTEXT.md}` exists and `WISH_FILE:` points at it | stop and ask the owner for the identifier and the wish; **never invent an id** |
-| 3 skeleton | `workspace/indicator/{_template,units,returns,check.py}` exists | `cp -r <skill>/src/template/indicator-skeleton/* workspace/indicator/` (see its README) |
 | 4 project skills | `docs/writing/skills/` and `docs/development/skills/` exist | delete or fill the `WRITING:` / `DEV:` lines — **a pointer to a missing directory is worse than no pointer** |
  `src/template/instances/fri/docs/strategy-roleplay/executor-notes.md` |
 
@@ -153,15 +152,13 @@ Compiling blocks is the small half of this skill. The large half is turning benc
 
 **Do not** summarise the volume from memory. Every stage names the artefact it needs and the check that closes it; quoting the stage list without running the checks reproduces the failure the volume exists to prevent.
 
-## Strengthening the loop: the audit programme
+## Strengthening the loop: lessons go back into the documents
 
-**The loop strategy is not fixed.** Every practice round leaves lessons — a layer that busked instead of reading, a fence that listed materials but no work, a comparison with no neighbour. Those lessons are only worth what you do with them, and what you do is **audit the documents that produced them and change those documents**, not the agent that tripped.
+**The loop strategy is not fixed.** Every practice round leaves lessons — a layer that busked instead of reading, a fence that listed materials but no work, a comparison with no neighbour. Those lessons are worth only what you do with them, and what you do is **change the document that produced them**, not the agent that tripped.
 
-`docs/audit-deliberation.md` is that programme, and it sits here rather than in a project because **it applies to the whole loop strategy**: the core loop (`results-first-narrative.md`), the method (`strategy-roleplay/skill.md`), every layer's document (`01`/`02`/`03`), and the project's writing standard.
+**A lesson becomes a criterion, or it was not learned.** The rule extracted from a round is written into the document that owed it — the core loop (`execution-loop.md`), the method (`strategy-results-first/skill.md`), or the layer's own document (`00`–`03`) — and stated so that the next round can be judged against it. **A lesson kept anywhere else has taught nobody**: what is not in the criteria is not enforced.
 
-**What it is for**: with accumulated experience, **the user drives this document to strengthen the guidance itself** — the core loop, the skill, and each layer's agent. Each change it produces carries a provenance (`D` from something the user said, `S` from a wish clause plus a real reading of project or tool state), so an enhancement can be traced to evidence rather than taste.
-
-**When to open it** — before editing any of those documents, and when a round's failure has no obvious home; the programme's first section says which inputs must be in hand before any conclusion is allowed.
+**Every change carries its provenance** — `D` when it came from something the user said, `S` when it came from a wish clause plus a real reading of project or tool state — so an enhancement can be traced to evidence rather than taste.
 
 ## Where to look next
 
@@ -171,19 +168,17 @@ Compiling blocks is the small half of this skill. The large half is turning benc
 |---|---|
 | What exactly lives in `project.json` / `block.json`? | `docs/project-format.md` |
 | Which block types exist, and what fields do they take? | `docs/blocks.md` for the contract and field reference; `src/template/instances/<id>/docs/blocks.md` for this instance's catalog |
-| How do I add a new template instance? | `docs/templates.md` |
 | An error code appeared, or the build failed — now what? | `docs/errors-and-validation.md` |
 | What does the intended full workflow look like? | `docs/workflow.md` |
-| How does a project enter the loop, and how is a round commissioned? | entry: `src/template/docs/results-first-narrative.md` §3.1; commissioning: `src/template/docs/strategy-roleplay/01-supervisor.md` and `02-lead.md` |
-| How do I strengthen the loop strategy itself after a practice round? | `docs/audit-deliberation.md` |
-| What is this closed-loop method, and what is each layer expected to do? | `src/template/docs/strategy-roleplay/skill.md` |
-| I am the owner handing out the task — where do I start? | `src/template/docs/strategy-roleplay/01-supervisor.md` |
-| I am the lead: what does my answer owe, and how do I run rounds? | `src/template/docs/strategy-roleplay/01-supervisor.md` |
-| How do I check that this document actually transmits its convention to a fresh reader? | `src/template/docs/strategy-roleplay/01-supervisor.md` §How to run one exam (start, two arms, needle, judging, feed) |
-| In what order is the work done (results → footing → narrative)? | `src/template/docs/results-first-narrative.md` (the loop, shared by every instance) |
-| What does the executor's own document say — order of work, binds, failure forms? | `src/template/docs/strategy-roleplay/03-executor.md` |
+| How does a project enter the loop, and how is a round commissioned? | entry: `src/template/docs/strategy-results-first/execution-loop.md` §3.1; commissioning: `src/template/docs/strategy-results-first/01-supervisor.md` and `02-lead.md` |
+| What is this closed-loop method, and what is each layer expected to do? | `src/template/docs/strategy-results-first/skill.md` |
+| I am the owner handing out the task — where do I start? | `src/template/docs/strategy-results-first/01-supervisor.md` |
+| I am the lead: what does my answer owe, and how do I run rounds? | `src/template/docs/strategy-results-first/01-supervisor.md` |
+| How do I check that this document actually transmits its convention to a fresh reader? | `src/template/docs/strategy-results-first/01-supervisor.md` §How to run one exam (start, two arms, needle, judging, feed) |
+| In what order is the work done (results → footing → narrative)? | `src/template/docs/strategy-results-first/execution-loop.md` (the loop, shared by every instance) |
+| What does the executor's own document say — order of work, binds, failure forms? | `src/template/docs/strategy-results-first/03-executor.md` |
 | What is venue-specific for the executor, and how little is it? | `src/template/instances/<id>/docs/strategy-roleplay/executor-notes.md` |
 | What does that strategy look like for my venue? | `src/template/instances/<id>/docs/strategy-roleplay/executor-notes.md` — `cvpr` for CV papers, `fri` for Cell Press |
 | I need to draw a composite figure and attach it | `docs/figures.md` |
 | How should the prose itself be written | `docs/prose.md` |
-| I have benchmarks, claims and finished work — how do I get a first draft out of them | `src/template/docs/results-first-narrative.md`, then this instance's `docs/results-first-narrative.md` for its vocabulary |
+| I have benchmarks, claims and finished work — how do I get a first draft out of them | `src/template/docs/strategy-results-first/execution-loop.md`, then this instance's `docs/strategy-results-first/execution-loop.md` for its vocabulary |
