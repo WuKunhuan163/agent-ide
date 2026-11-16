@@ -27,7 +27,7 @@ Five capabilities, in the order they get used:
 | Bind one account to one agent | `config --status` / `--switch-user` | The CLI reads one global token file; this skill keeps a token pool and a per-agent binding, so two agents never fight over `~/.kaggle` |
 | Turn a local folder into a run | `notebook push <dir>` | Nine gates before the API call: slug/hash resolution, placeholder expansion, GPU check injection, dataset-source validation **including cross-account readability** (a private dataset belongs to one account; pushing from another creates a kernel that starts a GPU session and dies at mount time), RUNNING-state refusal. The raw `kernels push` is refused outright precisely because it skips them |
 | Watch a run | `status` / `logs` / `stream` | `status` reinterprets Kaggle's misleading states (a stale ERROR over a running log becomes `RUNNING`); `stream` is the only way to read a log while it is still running |
-| Bring results back | `monitor` / Downloads-first acceptance | Artifacts land in a predictable local tree and zips are extracted in place |
+| Bring results back | notebook self-delivers, `monitor` as fallback | `12_package` zips the run and clicks the download; collect it from `~/Downloads`. Chrome keeps only the first of a burst, so one file means a blocked download, not a one-arm run |
 | Run unattended on GPU | `notebook push <dir>` (interlock off, the default) | The push keeps `enable_gpu=true`, Kaggle allocates the accelerator and starts the run by itself: no human accelerator pick, no Run All, and the ledger stays pollable by `monitor` |
 
 Everything below is detail on those five. If a task does not need one of them,
@@ -71,10 +71,12 @@ other's code.
 
 ## Command surface
 
+**The verbs are grouped by what they touch, and a verb belongs to exactly one group**: pick the group first, then the verb.
+
 | Group | Verbs |
 |---|---|
 | `config` | `--status`, `--username <user>`, `--switch-user <user>`, `--token-file <path>`, `--verify`, `--gpu-interlock <on\|off>` (default `off`: background push; `on` means a human starts the run) |
-| `dataset` | `find <query>`, `ls \| files <owner/slug>`, `create <folder> <title>`, `version <folder> -m <msg>` |
+| `dataset` | `find <query> [-m]`, `mine`, `ls \| files <owner/slug>`, `create <folder> <title>`, `version <folder> -m <msg>` |
 | `notebook` | `open`, `pull`, `edit`, `push`, `status`, `logs`, `stream`, `monitor`, `stop`, `interact` |
 | `chrome` | `check` |
 | `runtime` | `path [kind] [name] [--ensure]`, `ensure` |
@@ -125,16 +127,36 @@ session start every call, so poll it on an interval rather than keeping one
 open. Silence between arm boundaries is normal; the closing `[INFO] listened …`
 line is what distinguishes "nothing new" from "stream broken".
 
+**Irreversible actions are announced first.** `push` starts a GPU session and
+burns quota, `kernels delete` removes the kernel together with its versions and
+output, `dataset version` replaces the version other kernels mount. None can be
+undone, and the API has no cancel. Say what will happen and which instruction it
+serves, then wait for the user to agree. A push nobody asked for is not a
+shortcut: the quota is spent either way.
+
+**A push onto a RUNNING notebook kills that session.** Kaggle terminates the
+live run when a new version lands on the same slug, so every "fix one traceback,
+push again" cycle silently discards whatever the user had running. The push
+gate refuses this outright and has no override: `--force-push` still parses (so
+the error can explain itself) but exits with `INPUT_USAGE` instead of pushing.
+If a push is refused because the ledger says RUNNING, wait for the run, or have
+the user stop it — do not look for another way around the check.
+
 **Re-deploy after a config change.** `push` mints a fresh six-character hash and
 therefore a new slug, so the previous run keeps going and burns quota. Either
 delete the old kernel (`kernels delete <user>/<slug> -y`, which also cancels its
 run) or pin the slug with `--no-hash`.
 
-**Collect results.** `monitor` downloads and extracts. On a background push it
-polls the ledger directly; on an interlock ledger it refuses (code 12), because
-a human Run All is what starts the run. When the user says a notebook finished,
-look in `~/Downloads` for `results_*.zip` first — `status` can still read
-`AWAITING_GPU_SELECTION` after the user already ran it.
+**Collect results.** These notebooks deliver themselves: `11_generate` downloads
+one zip per arm as it finishes, `12_package` writes the bundle
+`results_<ts>_<hash>_<experiment>.zip` and clicks it. Collect the newest
+`results_*.zip` from `~/Downloads` — it is the union of every arm, so nothing
+needs fetching.
+
+Chrome allows only the first of a burst of automatic downloads. A six-arm run
+that leaves one file is a blocked download, not a run that produced one arm;
+`interact` is how the user is asked to allow it. `monitor` is the fallback when
+no page is open.
 
 **Upload the weights once.** `dataset create <folder> <title>` then
 `dataset version <folder> -m <msg>`; both keep `isPrivate: true` and refuse the
@@ -178,8 +200,20 @@ is also 20, with the list of candidates.
 
 ## Dataset group
 
+**Paging is the default behaviour, not an option.** `find` and `mine` page until they hit an empty page themselves: the CLI returns 20 items per page, so
+an account with 40+ datasets makes page 1 look like 「everything」 — judging 「has this model been uploaded」 from it gives
+the opposite answer: reading only page 1 turns an existing dataset into a non-existent one.
+
+**Two noise lines are suppressed**: the `outdated kaggle version` notice that appears on every call, and the
+`No datasets found` printed on an empty result. An empty result is now empty output.
+
+**A 403 has two meanings**: Kaggle returns the same 403 for 「does not exist」 and for 「no permission」, so `dataset ls` prints
+both possibilities together — do not investigate only one of them.
+
+
 ```bash
-... dataset find "<query>"            # remote search: datasets list -s
+... dataset find "<query>" [-m]       # search, all pages; -m limits to my own
+... dataset mine                      # every dataset I own, all pages
 ... dataset ls <owner/slug>           # remote file listing; alias: files
 ... dataset create <folder> <title>
 ... dataset version <folder> -m "<message>"
@@ -205,6 +239,34 @@ assume the uploaded slug equals the notebook-style slug.
 verb; `notebook push --local-dataset` calls it and writes the returned
 `owner/slug` into `dataset_sources`.
 
+## Mount latency on repeat runs
+
+Re-pushing or re-running the same notebook on the same account can leave
+`/kaggle/input` looking empty for tens of seconds to several minutes. The
+datasets are there; the mount is lazy and the earlier run's cache does not help
+the new session.
+
+Consequences that matter:
+
+- An empty `ls /kaggle/input` at cell start is **not** evidence that a dataset is
+  missing. Reporting "this account has no rasterizer dataset" off a single early
+  listing is a known false alarm — it cost a session once.
+- A notebook that resolves its model or dataset paths in the first cell may pick
+  the wrong root or fail outright, then succeed on a re-run with nothing changed.
+- Repeat runs of the same kernel are the worst case, not the best: the cache
+  invalidation and the mount seem to interact.
+
+What to do instead:
+
+- Wait for a specific file, not for a directory to be non-empty: poll
+  `glob.glob('/kaggle/input/**/<expected-name>', recursive=True)` with a timeout
+  and print what was found.
+- Distinguish the two failures in the log: "mount not ready after N s" versus
+  "mounted, expected file absent". They need different fixes, and a single
+  "not found" message conflates them.
+- When a run behaves differently from the previous one with identical code,
+  check the mount before touching the code.
+
 ## Notebook group
 
 Verbs: `open`, `pull`, `edit`, `push`, `status`, `logs`, `stream`, `monitor`.
@@ -216,6 +278,8 @@ first"), and through the bound account for the other verbs.
 
 ### open
 
+**`open` is how a notebook becomes visible; it changes nothing on the server**, so it is safe to run before you have decided anything.
+
 ```bash
 ... notebook open <slug>
 ```
@@ -225,9 +289,11 @@ at `https://www.kaggle.com/code/<user>/<slug>/edit`.
 
 ### push
 
+**`push` is the one verb that overwrites what is on Kaggle**, and its block shows the flags that decide what gets overwritten.
+
 ```bash
 ... notebook push <dir> [--local-dataset <path>]... [--remote-dataset <owner/slug>]... \
-    [--auto-download [dir]] [--no-open] [--force-push] [--no-hash]
+    [--auto-download [dir]] [--no-open] [--no-hash]
 ```
 
 Push is the single deploy path; a first deploy and a hotfix go through the same
@@ -249,10 +315,12 @@ pipeline, in this order:
    `AWAITING_GPU_SELECTION` later instead of a real failure. Injection is
    best-effort and only warns on failure.
 4. Print the preflight checklist. Then, if the notebook reads `/kaggle/input`
-   but `dataset_sources` is empty, refuse unless `--force-push`.
-5. Refuse a push while the recorded state of that notebook is `RUNNING`, unless
-   `--force-push`. If the ledger entry belongs to a different account, that is
-   warned about but not blocked.
+   but `dataset_sources` is empty, refuse — the fix is to add the dataset, not
+   to override the check.
+5. Refuse a push while the recorded state of that notebook is `RUNNING`, with no
+   override: a new version on the same slug makes Kaggle terminate the live
+   session. If the ledger entry belongs to a different account, that is warned
+   about but not blocked.
 6. Push. The authoring metadata keeps `enable_gpu=true`, and what reaches the
    API depends on the **GPU interlock** (`config --gpu-interlock <on|off>`,
    default `off`). Off — the preferred mode: the API layer is pushed with
@@ -263,7 +331,7 @@ pipeline, in this order:
    injected GPU CHECK marks the CPU session `AWAITING_GPU_SELECTION`, and the
    human picks T4 x2 then Run All. Kaggle no longer assigns P100, so the guard
    has nothing left to defend against; a raw `kernels push` probe with
-   `enable_gpu=true` (2026-10-17) landed on 2 x Tesla T4. The authoring metadata
+   `enable_gpu=true` landed on 2 x Tesla T4. The authoring metadata
    is restored afterwards either way.
 7. Pull the pushed metadata back and warn if any `dataset_source` did not land.
 8. Print the post-push guidance (slug, the `notebook open` command, the
@@ -278,6 +346,8 @@ A failed push returns 32, an owner mismatch 31. Both still print the guidance.
 
 ### pull / edit
 
+**`pull` and `edit` are the same round trip seen from two ends**: pull brings the current version down, edit changes what the next push will send.
+
 ```bash
 ... notebook pull <slug> [-d <dir>]
 ... notebook edit <slug> <patch.json> [--enable-gpu] [--append-cell <code>]
@@ -290,13 +360,17 @@ overwrites an earlier snapshot.
 `edit` is a pull, a patch and a push in one step: it applies a JSON array of
 `[old, new]` string pairs (first match replaced; a pair that does not match only
 warns), optionally appends a cell, prints a unified diff, then pushes back to
-the *same slug* (`assign_id=False`, `no_hash=True`, `force_push=True`). It
-handles both `kernel_type` values: an `.ipynb` gets a new trailing code cell, a
-`.py` script gets the code appended under a comment marker. `--enable-gpu`
-rewrites the authoring metadata's `enable_gpu` to true, which is how a GPU
-notebook gets declared without a full re-deploy.
+the *same slug* (`assign_id=False`, `no_hash=True`). It handles both
+`kernel_type` values: an `.ipynb` gets a new trailing code cell, a `.py` script
+gets the code appended under a comment marker. `--enable-gpu` rewrites the
+authoring metadata's `enable_gpu` to true, which is how a GPU notebook gets
+declared without a full re-deploy. Because it pushes to the same slug, `edit`
+obeys the same RUNNING gate as `push`: editing a notebook that is running would
+end that session.
 
 ### status / logs / stream / monitor
+
+**Four verbs answer "what is happening" at four different grains** — a status, a log tail, a live stream, and a monitor that keeps watching.
 
 ```bash
 ... notebook status <slug>
@@ -313,11 +387,15 @@ that hit its own CPU-only guard is reported as `AWAITING_GPU_SELECTION` with a
 banner telling the human to pick T4 x2 and Run All; and a kernel pushed seconds
 ago, still queued or still pulling its dataset, also answers `ERROR` because no
 session exists yet. That last one is why a fresh push must not be judged by its
-`status` or its log - give it the time to mount, then look. The
-`AWAITING_GPU_SELECTION` case only exists on an interlock-on ledger; a background
-push starts on the accelerator Kaggle picked and never lands there. A real
-`ERROR` returns code 35; everything else, including `AWAITING_GPU_SELECTION`,
-returns 0. A 404 is read as `QUEUED`; 401/500 fall back to reading the log.
+`status` or its log - give it the time to mount, then look.
+
+`AWAITING_GPU_SELECTION` is reachable only for a run whose ledger says
+`push_mode=manual`. That is a fact about the version, frozen at push time, not
+about the interlock setting in force when you look: a background push starts on
+the accelerator Kaggle picked and keeps `ERROR` meaning failure even if the
+interlock is switched on later. A real `ERROR` returns code 35; everything else,
+including `AWAITING_GPU_SELECTION`, returns 0. A 404 is read as `QUEUED`;
+401/500 fall back to reading the log.
 
 `status` also prints when the run started and how long it has been going:
 
@@ -361,13 +439,21 @@ alongside it.
 `monitor` polls the status (5s while running, 10s before it starts) while
 streaming `logs -f` (unless `--no-logs`), and once the run reaches `COMPLETE`
 downloads the artifacts through the whitelisted `kernels output` path into
-`runtime/output/<slug>` (or `-d`) and extracts any zips in place. On a
-background push it is the normal way to collect: the ledger is a real
-API-started session, so nothing blocks it. It refuses an interlock-on GPU ledger
-outright (code 12), because there a human Run All is what starts the run and
-polling would wait forever.
+`runtime/output/<slug>` (or `-d`) and extracts any zips in place.
+
+It follows the ledger's `push_mode`, written at push time:
+
+| ledger | monitor |
+|---|---|
+| `background` | polls to completion, then pulls |
+| `manual` | skips polling (that session is the CPU-only one, already ERROR), pulls once |
+
+A `manual` run is collectable because `kernels output` reads the latest version
+of the kernel, not the session this process started.
 
 ### stop
+
+**`stop` ends the kernel, not the notebook**: the version stays, the session does not, and the next run starts cold.
 
 ```bash
 ... notebook stop <slug> [--no-open]
@@ -396,6 +482,8 @@ Exit code is 0 in every case: a stop that needs a human is not a failure, and
 code 35 is reserved for a run that actually errored.
 
 ### interact
+
+**`interact` sends input to a run that is already going**, which is the only way to answer a prompt without restarting it.
 
 ```bash
 ... notebook interact <slug> --text "<one sentence>" [--url <url>] [--button <label>] [--no-open]
@@ -427,19 +515,27 @@ Use it the moment the need is known — before concluding "no artifact was
 produced". The failure mode it prevents is the agent reporting an empty result
 because a download was waiting on a permission prompt nobody saw.
 
-### The Downloads acceptance flow
+### Collecting a finished run
 
-When the user says a notebook has finished, the agent's first move is *not* to
-query the API — `status` lies in the `AWAITING_GPU_SELECTION` case after the
-user already ran it. The flow is: look in `~/Downloads` for the `results_*.zip`
-/ `logs_*.zip` the browser produced, unzip and parse those, and only fall back
-to the API (`kernels files`, then the reserved `kernels output`) when
-Downloads is empty. Artifacts land under
-`data/agents/<agent_id>/runtime/output/`. Never ask the user to download an
-artifact by hand unless a download genuinely failed after retries; in that case
-report the failure and the exact command so the user *may* run it.
+Two cells build the artifact. `11_generate` calls `trigger_download` once per arm
+with a self-contained zip (final image, frames, denoise.csv, arm.json);
+`12_package` walks `OUT`, writes the bundle, and clicks a hidden `<a download>`
+one second later. The bundle is the union of those slices, so it is the one to
+keep.
+
+`monitor` is the API fallback: unattended runs, no page open, or a download that
+was blocked and cannot be retried. It calls `kernels output` — "gets the data
+output from the latest run of a kernel", `-p` for the destination,
+`--file-pattern` / `--page-token` for paged output — into
+`data/agents/<agent_id>/runtime/output/`.
+
+Do not hand-roll the URL: `/api/v1/kernels/output/<owner>/<slug>` answers 404
+with an HTML page. `monitor` and `kernels output --allow-output` are the two
+sanctioned entries.
 
 ## chrome group
+
+**The chrome group drives a real browser profile, one per agent id**, and every verb in it assumes that profile is isolated from the others.
 
 ```bash
 ... chrome check
@@ -460,6 +556,8 @@ fallback to the system browser: a missing Chrome or a spawn conflict is a hard
 `open`/`xdg-open`.
 
 ## runtime group and the data layout
+
+**The runtime group and the `data/` layout answer different questions**: what the kernel is running, and where the bytes actually sit.
 
 ```bash
 ... runtime path [root|deploy|output|logs] [name] [--ensure]
@@ -484,6 +582,8 @@ Replicas of the pre-per-agent `global_state.json` / `event_log.json` are
 migrated into the agent dir on first read.
 
 ## quota group
+
+**Quota is counted per account per period, and the verbs here only read it** — there is no way to raise it from the command line.
 
 ```bash
 ... quota set <kaggle_user> --gpu <remaining> [--tpu <time>]

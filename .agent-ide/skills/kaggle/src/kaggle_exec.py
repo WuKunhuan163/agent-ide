@@ -62,17 +62,37 @@ def run_kaggle(
         ) from None
 
 
+# 两行噪音，每次都出现，且都不携带结果：
+#   - 版本提示：本机装的是 2.2.2，上游是 2.2.5。升级与否不由一次调用决定，
+#     但每一条命令都先糊这一行，读输出时要先跳过去。
+#   - `No datasets found`：空结果本身就是答案，bash 风格下应该是空输出。
+_NOISE_MARKERS = (
+    "Looks like you're using an outdated `kaggle` version",
+    "No datasets found",
+)
+
+
+def _strip_noise(text: str) -> str:
+    if not text:
+        return ""
+    keep = [ln for ln in text.splitlines(keepends=True)
+            if not any(m in ln for m in _NOISE_MARKERS)]
+    return "".join(keep)
+
+
 def forward_output(proc: subprocess.CompletedProcess) -> None:
-    """Relay the child's stdout/stderr verbatim, adding no newline of our own.
+    """Relay the child's stdout/stderr, minus the two known-noise lines.
 
     Every command that shells out and then prints what the CLI said uses this,
     so the child's layout survives and the three copies of the same two-line
     print block collapse into one call.
     """
-    if proc.stdout:
-        print(proc.stdout, end="")
-    if proc.stderr:
-        print(proc.stderr, end="", file=sys.stderr)
+    out = _strip_noise(proc.stdout)
+    err = _strip_noise(proc.stderr)
+    if out:
+        print(out, end="")
+    if err:
+        print(err, end="", file=sys.stderr)
 
 
 def failure_output(proc: subprocess.CompletedProcess) -> str:

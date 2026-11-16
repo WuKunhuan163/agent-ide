@@ -107,6 +107,7 @@ def update_notebook_state(
     start_time_str: str | None = None,
     *,
     requires_user_gpu: bool | None = None,
+    push_mode: str | None = None,
 ) -> dict:
     """Upsert ``state["notebooks"][notebook]`` and return that entry."""
     state = load_state()
@@ -119,20 +120,43 @@ def update_notebook_state(
         entry["start_time"] = start_time_str
     if requires_user_gpu is not None:
         entry["requires_user_gpu"] = bool(requires_user_gpu)
+    if push_mode is not None:
+        entry["push_mode"] = push_mode
     save_state(state)
     return entry
 
 
-def notebook_requires_user_gpu(notebook: str) -> bool:
-    """True when the ledger marks a GPU run *and* the current mode still waits on a human.
+def notebook_push_mode(notebook: str) -> str | None:
+    """The mode this version was *pushed with*, or ``None`` for a pre-field entry.
 
-    A background push keeps ``enable_gpu=true`` for the API, so Kaggle starts the
-    run itself and nobody is owed anything; the ledger flag stays as a record of
-    how the push was authored, but no human step follows from it.
+    Recorded at push time on purpose: a kernel pushed in manual mode keeps its
+    human Run All contract even after the global interlock is switched off, and a
+    background kernel does not acquire one when it is switched on. Reading the
+    live config here instead is what used to make status depend on a setting that
+    has nothing to do with the run being observed.
     """
-    from src.notebook.mode import current
-
-    if not current().requires_run_all:
-        return False
     entry = (load_state().get("notebooks") or {}).get(notebook, {})
-    return bool(entry.get("requires_user_gpu"))
+    mode = entry.get("push_mode")
+    return mode if mode in ("background", "manual") else None
+
+
+def notebook_requires_user_gpu(notebook: str) -> bool:
+    """True when this run is waiting on a human pressing Run All.
+
+    Decided by the mode recorded in the ledger at push time, never by the mode
+    the config happens to select now. A background push keeps ``enable_gpu=true``
+    for the API, so Kaggle starts the run itself and nobody is owed anything.
+
+    Entries written before ``push_mode`` existed have only the boolean; for those
+    the live config is the sole available hint, and that fallback is confined to
+    this branch so it cannot leak into new entries.
+    """
+    entry = (load_state().get("notebooks") or {}).get(notebook, {})
+    if not entry.get("requires_user_gpu"):
+        return False
+    mode = notebook_push_mode(notebook)
+    if mode is None:
+        from src.notebook.mode import current
+
+        return current().requires_run_all
+    return mode == "manual"

@@ -16,7 +16,10 @@ def print_post_push_guidance(meta: dict, username: str, exit_code: int, mode) ->
         print("[INFO] KAGGLE NOTEBOOK PUSH COMPLETED")
     else:
         print("[INFO] KAGGLE NOTEBOOK PUSH FINISHED (non-zero exit — may be GPU guard on a CPU session)")
-        print("  This is often AWAITING_GPU_SELECTION, not a deploy failure. Still run notebook open.")
+        if mode.requires_run_all:
+            print("  This is often AWAITING_GPU_SELECTION, not a deploy failure. Still run notebook open.")
+        else:
+            print("  A background push starts itself; this is a real API refusal, not a Run All handoff.")
     print(f"  Mode:                      {mode.name}")
     print(f"  Account:                   {username}")
     print(f"  Pushed slug:               {short_id}")

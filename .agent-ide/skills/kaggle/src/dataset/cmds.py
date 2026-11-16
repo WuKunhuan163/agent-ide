@@ -21,15 +21,18 @@ from src.dataset.meta import (
     slugify,
 )
 from src.dataset.size import check_dataset_size
-from src.exit_codes import INPUT_USAGE, OK, PUSH_OWNER_MISMATCH
+from src.exit_codes import EXEC_FAILED, INPUT_USAGE, OK, PUSH_OWNER_MISMATCH
 
 
 def register_dataset(groups) -> None:
     dataset = groups.add_parser("dataset", help="search, inspect and publish datasets")
     verbs = dataset.add_subparsers(dest="dataset_cmd", metavar="<cmd>")
 
-    find = verbs.add_parser("find", help="search Kaggle datasets")
+    find = verbs.add_parser("find", help="search Kaggle datasets (all pages)")
     find.add_argument("query", metavar="<query>", help="Kaggle search query")
+    find.add_argument("-m", "--mine", action="store_true", help="只用自己名下的结果")
+
+    verbs.add_parser("mine", help="list every dataset I own (all pages)")
 
     ls = verbs.add_parser("ls", aliases=["files"], help="list the files of a dataset")
     ls.add_argument("dataset", metavar="<owner/slug>", help="dataset ref, e.g. user/name")
@@ -49,6 +52,8 @@ def cmd_dataset(args: argparse.Namespace) -> int:
     verb = getattr(args, "dataset_cmd", None)
     if verb == "find":
         return cmd_dataset_find(args)
+    if verb == "mine":
+        return cmd_dataset_mine(args)
     if verb in ("ls", "files"):
         return cmd_dataset_ls(args)
     if verb == "create":
@@ -66,14 +71,73 @@ def _require_folder(folder: str) -> str:
     return folder
 
 
+def _list_all(base_args: list[str], page_limit: int = 60) -> str:
+    """翻页拉全量，输出只保留一份表头。
+
+    CLI 每页 20 条，而 ``datasets list -m`` 在账号有 40+ 个数据集时，
+    第 1 页看起来就像「全部」——查一个已上传的模型会得出「没有」。
+    这里逐页取到空页为止，不靠调用者记得加 ``-p``。
+    """
+    header: list[str] = []
+    body: list[str] = []
+    for page in range(1, page_limit + 1):
+        proc = kaggle_exec.run_kaggle_checked([*base_args, "-p", str(page)])
+        text = kaggle_exec._strip_noise(proc.stdout or "")
+        lines = [ln for ln in text.splitlines() if ln.strip()]
+        if not lines:
+            break
+        for ln in lines:
+            stripped = ln.replace("-", "").strip()
+            # 纯横线分隔行：每页都有，丢掉。
+            if stripped == "":
+                continue
+            # 表头行（以 ref 开头）：只保留第一份，连同它下面那行分隔线。
+            if ln.lstrip().startswith("ref") and "title" in ln:
+                if not header:
+                    header.append(ln)
+                    header.append("-" * len(ln))
+                continue
+            body.append(ln)
+    if not body:
+        return ""
+    return "\n".join(header + body)
+
+
 def cmd_dataset_find(args: argparse.Namespace) -> int:
-    proc = kaggle_exec.run_kaggle_checked(["datasets", "list", "-s", args.query])
-    kaggle_exec.forward_output(proc)
+    base = ["datasets", "list", "-s", args.query]
+    if getattr(args, "mine", False):
+        base.append("-m")
+    text = _list_all(base)
+    if text:
+        print(text)
+    return OK
+
+
+def cmd_dataset_mine(args: argparse.Namespace) -> int:
+    """列自己名下的全部数据集（自动翻页）。
+
+    存在的理由：``datasets list -m`` 是 passthrough，默认只打 20 行，
+    用它判断「某个数据集在不在」会漏。这个动词一次给全。
+    """
+    text = _list_all(["datasets", "list", "-m"])
+    if text:
+        print(text)
     return OK
 
 
 def cmd_dataset_ls(args: argparse.Namespace) -> int:
-    proc = kaggle_exec.run_kaggle_checked(["datasets", "files", args.dataset])
+    # Kaggle 对「数据集不存在」和「无权访问」都回 403，原样抛出去只会看到
+    # 一句 `kaggle datasets files ... failed with exit 1: 403`，分不清是名字打错
+    # 还是 token 权限不够。这里把两种可能一起说出来。
+    proc = kaggle_exec.run_kaggle_checked(
+        ["datasets", "files", args.dataset], tolerate=(403,)
+    )
+    if proc.returncode != 0:
+        if "403" in (proc.stderr or "") + (proc.stdout or ""):
+            print(f"{args.dataset}: not found, or this account cannot read it "
+                  f"(Kaggle answers 403 for both)", file=sys.stderr)
+            return EXEC_FAILED
+        kaggle_exec.classify_failure(["datasets", "files", args.dataset], proc, "")
     kaggle_exec.forward_output(proc)
     return OK
 

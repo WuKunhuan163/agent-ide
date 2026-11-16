@@ -154,7 +154,6 @@ def cmd_notebook_edit(args: argparse.Namespace) -> int:
         assign_id=False,
         apply_placeholders=False,
         no_hash=True,
-        force_push=True,
     )
 
 

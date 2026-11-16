@@ -6,12 +6,21 @@ failures to the API while the training is actually fine. Only this layer knows
 those shapes; the exec layer stays generic and merely retries/tolerates HTTP
 statuses on request.
 
-The GPU case is decided by the *push ledger*, never by the log text. ``kernels
-push`` always sends ``enable_gpu=false`` (otherwise Kaggle auto-assigns the
-legacy P100), so Kaggle immediately starts a CPU run that cannot succeed; the
-operative session belongs to the human, who picks the accelerator and presses
-Run All. ``requires_user_gpu=true`` in the ledger records exactly that contract,
-so an API ERROR for such a notebook is expected by construction.
+The GPU case is decided by the *push ledger*, never by the log text, and the
+ledger records the mode the version was pushed with rather than whatever the
+interlock selects now. Two shapes follow from that, and they are not
+interchangeable:
+
+background
+    ``enable_gpu=true`` reaches the API and Kaggle starts the run itself. An
+    ERROR here is a real failure; nothing is owed to a human, so it must not be
+    softened into a waiting state.
+
+manual
+    the API layer is pushed CPU-only, so the session Kaggle starts cannot
+    succeed and the operative one belongs to the human, who picks the
+    accelerator and presses Run All. An API ERROR is expected by construction
+    and ``requires_user_gpu=true`` records exactly that contract.
 """
 from __future__ import annotations
 
@@ -28,7 +37,7 @@ import sys
 import time
 
 from src import identity, kaggle_exec
-from src.exit_codes import BLOCKED_BY_CONTRACT, KERNEL_FAILED, OK
+from src.exit_codes import KERNEL_FAILED, OK
 from src.kaggle_exec import failure_output
 from src.notebook import passthrough
 from src.notebook.refs import resolve_notebook_args
@@ -273,10 +282,12 @@ def cmd_notebook_status(args: argparse.Namespace) -> int:
 
 
 _GPU_MONITOR_MSG = """\
-[ERROR] notebook monitor is not supported for this GPU notebook ({notebook}).
+[INFO] {notebook} was pushed in manual mode (a human starts the run with Run All).
 
-The push ledger marks requires_user_gpu=true (a human must Run All in the browser).
-Agent: stop monitoring; align status with the user through contact-user.
+The API status cannot be polled for this kind of run: the session Kaggle started
+from the CPU-only push is a different one from the human's, and it is already
+ERROR. Artifacts are still readable, so this call fetches them once instead of
+polling. If the human has not pressed Run All yet, there is nothing to fetch.
 """
 
 
@@ -298,13 +309,29 @@ def _extract_downloaded_zips(download_dir: str) -> None:
 def cmd_notebook_monitor(args: argparse.Namespace) -> int:
     """Poll status (5s running / 10s idle) while streaming ``logs -f``; pull artifacts after COMPLETE."""
     username, slug, notebook = resolve_notebook_args(args.notebook)
-    if notebook_requires_user_gpu(notebook):
-        print(_GPU_MONITOR_MSG.format(notebook=notebook), file=sys.stderr)
-        return BLOCKED_BY_CONTRACT
-
     download_dir = getattr(args, "download_dir", None) or runtime_path(
         "output", slug.replace("/", "_")
     )
+
+    if notebook_requires_user_gpu(notebook):
+        # manual push: no session of ours to poll, but the artifacts belong to the
+        # kernel and `kernels output` reads the latest version whoever ran it.
+        # Fetching here is also the only complete path: a browser asked to save
+        # several files saves the first one and silently drops the rest.
+        print(_GPU_MONITOR_MSG.format(notebook=notebook), file=sys.stderr)
+        code = passthrough.run_kernels_output_whitelist(
+            notebook, download_dir, username=username
+        )
+        if code != 0:
+            print(
+                "[INFO] No artifacts to fetch. If the human has pressed Run All and the "
+                "run finished, retry; otherwise wait for the run before fetching.",
+                file=sys.stderr,
+            )
+            return OK
+        _extract_downloaded_zips(download_dir)
+        return OK
+
     print(f"Monitoring execution for {notebook} as {username}...")
 
     token = identity.read_token(username)

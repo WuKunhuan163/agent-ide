@@ -130,32 +130,36 @@ def _prepare(
     }
 
 
-def _gate(prepared: dict, username: str, *, push_dir: str, force_push: bool, mode) -> None:
-    """Refuse a push that cannot work, or one that would duplicate a live run."""
+def _gate(prepared: dict, username: str, *, push_dir: str, mode) -> None:
+    """Refuse a push that cannot work, or one that would kill a live run.
+
+    There is deliberately no bypass. A push onto a notebook that is already
+    RUNNING makes Kaggle terminate that session, so the only correct response to
+    the gate firing is to wait for the run to end (or stop it on purpose) — not
+    to override the check. The CLI no longer offers a flag that could.
+    """
     authoring_meta = prepared["authoring"]
     preflight.print_push_preflight(authoring_meta, push_dir, mode, username)
 
     needs_input = meta_mod._notebook_needs_input_dataset(push_dir, authoring_meta)
-    if needs_input and not authoring_meta.get("dataset_sources") and not force_push:
+    if needs_input and not authoring_meta.get("dataset_sources"):
         raise identity.IdentityError(
             INPUT_USAGE,
             "Notebook references /kaggle/input but dataset_sources is empty. "
-            "Add datasets / --remote-dataset, or override with --force-push.",
+            "Add datasets with --local-dataset / --remote-dataset.",
         )
-    if needs_input and not authoring_meta.get("dataset_sources"):
-        print("[PREFLIGHT] dataset_sources empty but --force-push given; continuing.", file=sys.stderr)
 
     # a private dataset belongs to one account; pushing from another one creates a
     # kernel that starts a GPU session and then fails at mount time
-    preflight.reject_unreadable_datasets(
-        authoring_meta.get("dataset_sources") or [], username, force=force_push
-    )
+    preflight.reject_unreadable_datasets(authoring_meta.get("dataset_sources") or [], username)
 
-    if not preflight.check_and_reject_push(username, prepared["meta_path"], force=force_push):
+    if not preflight.check_and_reject_push(username, prepared["meta_path"]):
         raise identity.IdentityError(
             PUSH_FAILED,
-            f"{prepared['meta'].get('id')} is already RUNNING in the state ledger; "
-            "pass --force-push.",
+            f"{prepared['meta'].get('id')} is already RUNNING; pushing a new version "
+            "would terminate that session. Refresh the ledger with "
+            f"`notebook status {prepared['meta'].get('id')}` if it has ended, "
+            "otherwise wait — there is no override.",
         )
 
 
@@ -167,11 +171,15 @@ def _record(prepared: dict, username: str, exit_code: int, mode) -> tuple[str, s
     owner, short_id = report.print_post_push_guidance(
         prepared["authoring"], username, exit_code, mode
     )
+    # the ledger records *this push's* mode, so observation never has to ask the
+    # config what happened here: a manual kernel keeps its Run All contract after
+    # the interlock is switched off, and a background one never acquires it
     update_notebook_state(
         username,
         notebook_id,
         "RUNNING" if exit_code == 0 else f"PUSH_EXIT_{exit_code}",
-        requires_user_gpu=prepared["gpu_authoring"],
+        requires_user_gpu=bool(mode.requires_run_all and prepared["gpu_authoring"]),
+        push_mode=mode.name,
     )
     log_event(username, "PUSH_NOTEBOOK", notebook_id)
     return owner, short_id
@@ -232,7 +240,6 @@ def run_deploy_push(
     no_hash: bool = False,
     local_dataset: list[str] | None = None,
     remote_dataset: list[str] | None = None,
-    force_push: bool = False,
     auto_download: str | None = None,
     open_after: bool = True,
 ) -> int:
@@ -248,7 +255,7 @@ def run_deploy_push(
         remote_dataset=remote_dataset,
     )
 
-    _gate(prepared, username, push_dir=prepared["dir"], force_push=force_push, mode=mode)
+    _gate(prepared, username, push_dir=prepared["dir"], mode=mode)
 
     print(f"[INFO] Pushing and executing notebook from {prepared['dir']}...")
     exit_code = push_with_gpu_protocol(

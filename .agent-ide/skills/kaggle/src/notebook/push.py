@@ -15,6 +15,17 @@ from src.notebook.deploy import run_deploy_push
 from src.paths import resolve_arg
 
 
+class _RejectForcePush(argparse.Action):
+    """Refuse the flag outright instead of letting it bypass the RUNNING gate."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        parser.error(
+            "--force-push is disabled: pushing a new version onto a notebook that is "
+            "already RUNNING terminates the live session. Wait for that run to finish, "
+            "or stop it explicitly first."
+        )
+
+
 def register_push(verbs) -> None:
     push = verbs.add_parser("push", help="upload and execute a notebook from a folder")
     push.add_argument("dir", metavar="<dir>", help="folder with the notebook and kernel-metadata.json")
@@ -42,10 +53,18 @@ def register_push(verbs) -> None:
         action="store_true",
         help="force no browser tab (background mode opens none anyway; manual mode opens the editor)",
     )
+    # --force-push 被刻意禁用，而不是删掉：删掉会让旧调用得到 argparse 的
+    # "unrecognized arguments"，看起来像笔误；保留并直接报错，才能把原因说清。
+    #
+    # 它原本干两件事：跳过 dataset_sources 的空检查，以及跳过「账本里这条已经
+    # RUNNING 就不许推」的门。第二件事是致命的——Kaggle 对同名 kernel 推新版本
+    # 会终止它正在运行的 session，于是 agent 每修一个报错再推一次，就把用户刚
+    # 跑起来的 session 杀一次，而 gate 因为 force=True 一路放行。
     push.add_argument(
         "--force-push",
-        action="store_true",
-        help="push even when the notebook uses /kaggle/input but dataset_sources is empty",
+        action=_RejectForcePush,
+        nargs=0,
+        help="DISABLED — pushing over a RUNNING notebook kills its session",
     )
     push.add_argument(
         "--no-hash",
@@ -65,7 +84,6 @@ def cmd_notebook_push(args: argparse.Namespace) -> int:
         no_hash=getattr(args, "no_hash", False),
         local_dataset=getattr(args, "local_dataset", None),
         remote_dataset=getattr(args, "remote_dataset", None),
-        force_push=getattr(args, "force_push", False),
         auto_download=getattr(args, "auto_download", None),
         open_after=not getattr(args, "no_open", False),
     )

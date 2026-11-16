@@ -13,9 +13,13 @@ Manual
     presses Run All. This mode opens the editor, because the editor is where that
     happens.
 
-Both modes run the same gates, mint the same slug, and write the same ledger.
-The differences are the fields below, so no call site re-reads the interlock
-flag and no branch checks it twice.
+Both modes run the same gates and mint the same slug, but they do not write the
+same ledger: ``push_mode`` and ``requires_user_gpu`` are derived from the mode in
+force at push time, and every later observation reads those fields instead of
+the live config. That is what makes a background run stay background when the
+interlock is switched on afterwards, and a manual run stay manual when it is
+switched off. The differences are the fields below, so no call site re-reads the
+interlock flag and no branch checks it twice.
 """
 
 from __future__ import annotations

@@ -50,18 +50,16 @@ def dataset_readable(source: str, username: str) -> bool:
     return readable
 
 
-def reject_unreadable_datasets(sources: list[str], username: str, *, force: bool = False) -> None:
+def reject_unreadable_datasets(sources: list[str], username: str) -> None:
     """Refuse a push whose dataset_sources this account cannot mount."""
     blocked = [source for source in sources if not dataset_readable(source, username)]
-    if not blocked or force:
-        if blocked:
-            print(f"[PREFLIGHT] --force-push: pushing with unreadable datasets {blocked}")
+    if not blocked:
         return
     raise identity.IdentityError(
         INPUT_USAGE,
         "dataset_sources not readable by "
-        f"{username}: {blocked}. A private dataset belongs to one account, so either "
-        f"`config --switch-user <owner>` and push from there, or override with --force-push.",
+        f"{username}: {blocked}. A private dataset belongs to one account, so "
+        f"`config --switch-user <owner>` and push from there.",
     )
 
 
@@ -72,8 +70,8 @@ def require_push_target(value: str, what: str) -> str:
         raise identity.IdentityError(INPUT_USAGE, f"Invalid {what}: {value!r}")
     return text
 
-def check_and_reject_push(username: str, meta_path: str, *, force: bool = False) -> bool:
-    """Preflight before push; returns False to abort (duplicate RUNNING, no --force)."""
+def check_and_reject_push(username: str, meta_path: str) -> bool:
+    """Preflight before push; returns False to abort (a live run would be killed)."""
     try:
         with open(meta_path, encoding="utf-8") as f:
             meta = json.load(f)
@@ -88,10 +86,12 @@ def check_and_reject_push(username: str, meta_path: str, *, force: bool = False)
             print("\n" + "=" * 72)
             print(f"[PREFLIGHT WARN] Ledger owner {ledger_user} != push account {username} for {nb_id}")
             print("=" * 72 + "\n")
-        if entry.get("status") == "RUNNING" and not force:
+        if entry.get("status") == "RUNNING":
             print("\n" + "=" * 72)
             print(f"[PREFLIGHT ERROR] Notebook {nb_id} already RUNNING in state ledger.")
-            print("  Use --force-push if you intend a version bump on the same slug.")
+            print("  A new version would terminate that session. There is no override.")
+            print(f"  If it has already ended, refresh the ledger first:")
+            print(f"    notebook status {nb_id}")
             print("=" * 72 + "\n")
             return False
 
