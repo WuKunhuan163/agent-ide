@@ -8,38 +8,40 @@ description: >-
 
 # task-queue
 
-一个 id 一条 FIFO。顺序只存在 `data/<id>/queue.json` 里，条目是 `data/<id>/tasks/<key>.yaml`。
+One FIFO per id. The order lives only in `data/<id>/queue.json`; items live in `data/<id>/tasks/<key>.yaml`.
 
-## 何时用
+## When to use it
 
-- 有一串要按顺序做完的事，顺序不该只活在对话里
-- 做完一条要留下 `pass / fail / marginal` 的结论，并写进 `task-tree` 的对应节点
-- 交接：下一位只需 `next`，不必读上一段对话
+- A series of things must be done in an order that should not live only in the conversation.
+- Each finished item leaves a `pass / fail / marginal` verdict that is written into the matching `task-tree` node.
+- Hand-off: the next person runs `next` and does not have to read the previous conversation.
 
-## 命令
+## Commands
+
+**Four verbs, one queue, one head**: everything the tool does is a push, a pop, a resolve or a list, and only the head can be resolved.
 
 ```bash
-task-queue push note.md --id <queue>          # 入队尾；--front 插队
-task-queue next --id <queue> [--body]         # 看队头（--body 打全文）
-task-queue list --id <queue>                  # 一行一条，带状态与序号
-task-queue pop --id <queue>                   # 取走队头，归档为 popped
+task-queue push note.md --id <queue>          # enqueue at the tail; --front inserts at the head
+task-queue next --id <queue> [--body]         # show the head (--body prints the full text)
+task-queue list --id <queue>                  # one line per item, with status and position
+task-queue pop --id <queue>                   # remove the head, archived as popped
 task-queue resolve pass --id <queue> [--tree-id <tree>]
-task-queue check --id <queue> [--fix]         # 索引 vs 磁盘对账
+task-queue check --id <queue> [--fix]         # reconcile index against disk
 ```
 
-`--id` 可在子命令前后，缺省 `default`。
+`--id` may come before or after the subcommand; it defaults to `default`.
 
-## 条目
+## Items
 
-`push` 接受任意文本文件：
+`push` accepts any text file:
 
-- `.md`：全文进 `body`，标题取首个非空行并剥掉行首 `# `；没有标题行时取该行前 80 字
-- `.yaml`：读 `title` / `status` / `body`
+- `.md`: the whole text goes into `body`; the title is the first non-empty line with a leading `# ` stripped, or the first 80 characters of that line when there is no heading.
+- `.yaml`: reads `title` / `status` / `body`.
 
-源文件入队后移走（队列即归属），`<key>` 为 `时间戳_标题`。
+The source file is moved after enqueueing (the queue owns it), and `<key>` is `timestamp_title`.
 
 ```yaml
-id: <时间戳>_<slug>
+id: <timestamp>_<slug>
 title: Write the queue tests
 status: pending
 created: <ISO 8601>
@@ -47,39 +49,45 @@ body: |
   Cover push/next/resolve/check…
 ```
 
-`resolve` 取队头，写 `status`（passed/failed/marginal）与 `verdict`，复制到 `data/<id>/_archived/`，再从索引移除。
+`resolve` takes the head, writes `status` (passed/failed/marginal) and `verdict`, copies it to `data/<id>/_archived/`, then removes it from the index.
 
-## 与 task-tree 的分工
+## Division of labour with task-tree
 
-- 队列管顺序：下一个是谁
-- 树管结构：这条挂在哪个假设下、整棵树长什么样
+- The queue owns order: who is next.
+- The tree owns structure: which hypothesis an item hangs under, and what the whole tree looks like.
 
-`resolve --tree-id <tree>` 实际调用 `task-tree --id <tree> resolve <key> <pass|fail|marginal> --evidence "…"`（裁决是位置参数，不存在 `--verdict`）。树不存在时队列只打一行提示、退出码不受影响；镜像过去时 `--evidence` 会整体覆盖节点原有 evidence。
+`resolve --tree-id <tree>` actually calls `task-tree --id <tree> resolve <key> <pass|fail|marginal> --evidence "…"` (the verdict is positional; there is no `--verdict`). When the tree does not exist the queue prints one line and leaves the exit code untouched; when mirroring, `--evidence` overwrites the node's existing evidence wholesale.
 
-## 数据与恢复
+## Data and recovery
 
-| 路径 | 内容 |
+**The queue survives a crash because it is a file, and the table says which file does what**: recovery is copying it back, not replaying commands.
+
+| Path | Contents |
 |---|---|
-| `data/<id>/queue.json` | 顺序，唯一权威 |
-| `data/<id>/tasks/<key>.yaml` | 条目 |
-| `data/<id>/_archived/` | 已 pop / 已 resolve 的历史 |
+| `data/<id>/queue.json` | the order, the only authority |
+| `data/<id>/tasks/<key>.yaml` | items |
+| `data/<id>/_archived/` | history of popped and resolved items |
 
-`check` 找两类不一致：索引条目指向的文件不存在、磁盘上有未登记的文件。`--fix` 删悬空条目、按 key 追加未登记文件。换机器时 `queue.json` 与 `tasks/` 必须一起走。
+`check` looks for two kinds of mismatch: an index entry whose file is missing, and a file on disk that the index does not record. `--fix` drops dangling entries and appends unrecorded files by key. Moving machines: `queue.json` and `tasks/` must travel together.
 
-`data/` 不进 git。
+`data/` is not committed to git.
 
-## 安装
+## Install
+
+**One copy and one id; there is no daemon and no state outside that directory.**
 
 ```bash
-agent-ide install task-queue        # 写 .agent-tools/task-queue
+agent-ide install task-queue        # writes .agent-tools/task-queue
 ```
 
-依赖 `pyyaml`，由 `install` 装进技能的 runtime。
+Depends on `pyyaml`, installed into the skill's runtime by `install`.
 
-## 退出码
+## Exit codes
 
-| 码 | 含义 |
+**Exit codes tell you whether the head moved**, which is the only thing a scheduler needs to branch on.
+
+| Code | Meaning |
 |---|---|
-| 0 | 正常 |
-| 2 | 用法或数据错误（文件缺失、YAML 非法、索引损坏、索引有条目但文件缺失并提示 `check --fix`） |
-| 3 | 队列为空却要求取队头 |
+| 0 | normal |
+| 2 | usage or data error (missing file, invalid YAML, corrupt index, index entry with no file — the message suggests `check --fix`) |
+| 3 | the queue is empty but a head was requested |
