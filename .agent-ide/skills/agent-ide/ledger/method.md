@@ -153,6 +153,8 @@ The trade-off is explicit: a live case cannot be re-run unchanged for a clean co
 
 ## 4 Locate: probe → key
 
+**Locate is two steps in a fixed order — probe for the key, then use it**: the block below is both, and the key is worthless without the second.
+
 ```bash
 .agent-tools/agent-ide context --ide codebuddy --probe tmp/probe
 ```
@@ -171,6 +173,8 @@ Output is `key<TAB>hits`. When hits exceed one, identify by elimination: known o
 **Verify a needle without reading it**: `grep -F -rl -f tmp/probe <history_root>` (`-f` takes the pattern from the file, so nothing appears on the command line); read the hit count from `--probe`; narrow with `--limit`. Any urge to "take a quick look" means you should be using `-f`.
 
 ## 5 Evidence: export, then read only the record
+
+**Evidence is an export followed by a read of just the relevant lines**: the block below produces the file the line numbers in a verdict must cite.
 
 ```bash
 .agent-tools/agent-ide context --key <key> --out /tmp/s<short>.md
@@ -202,6 +206,8 @@ Three outcomes: `pass` (no criterion violated), `fail` (any criterion violated, 
 
 ## 7 Record: the ledger is the only counter
 
+**Recording is what makes a judgement countable, and the ledger is the only counter**: the block below appends one row.
+
 ```bash
 agent-ide violations --log <code> --result pass|fail --test <case> --note "<one verifiable fact>"
 ```
@@ -214,7 +220,7 @@ On `fail`, two things in the same turn: write the `--note`, and change the one d
 
 | Type | Where |
 |---|---|
-| Behavioural floor (reading sources, inventing terms, creating files) | the always-on behaviour rules on the operator's machine（本机镜像；技能正文不引用它） |
+| Behavioural floor (reading sources, inventing terms, creating files) | the always-on behaviour rules on the operator's machine (a machine-local mirror; the skill body does not cite it) |
 | Process and detail (intent, search, criteria, delivery check) | project memory `TEMP_write_protocol.md` |
 | Advisory / collaboration style | the matching volume in `.agent-ide/skills/collaboration/skills/` |
 | Missing tool capability (unreadable store, ambiguous time, no ledger) | the `agent-ide` code + `SKILL.md` |

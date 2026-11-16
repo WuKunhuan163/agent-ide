@@ -6,9 +6,18 @@ local -> global -> GitHub:
 * always `SKILL.md` and `skill.json`;
 * `<name>.py` when `install.kind` is `python` (the launcher's entry);
 * every path in `files`;
-* every whole directory in `directories`.
+* every directory in `directories`, minus every path in `exclude`.
+
+`directories` names a whole tree because a package is mostly code and docs;
+it does not follow that everything grown under that tree is package content.
+A skill that keeps per-project material inside its own tree — one project's
+drafts, one project's ledger, a real identifier next to a template — declares
+that tree in `exclude`, or the tree ships to every project that pulls the
+package. A whitelist that can only say yes to a directory is not a whitelist
+for anything that lives inside one.
 """
 from __future__ import annotations
+import fnmatch
 import json
 from pathlib import Path
 
@@ -55,15 +64,66 @@ def directories(manifest: dict) -> list[str]:
     return _listed(manifest, "directories")
 
 
+def excludes(manifest: dict) -> list[str]:
+    """The `exclude` patterns: what a declared directory does *not* carry."""
+    return _listed(manifest, "exclude")
+
+
+def excluded(rel: str, patterns: list[str]) -> bool:
+    """Whether `rel` stays out of a transfer, under the manifest's `exclude`.
+
+    A pattern is matched against the path and against each parent directory,
+    in list order; the **last** pattern that matches decides, and a leading
+    `!` puts the path back in. That shape is what a package with per-project
+    material needs: one line drops the whole `data/` tree, the next few name
+    the directories inside it that are templates rather than somebody's work.
+    Matching is `fnmatch`, so `*` crosses `/` — write the whole path, not just
+    the leaf name.
+    """
+    rel = rel.replace("\\", "/").strip("/")
+    if not rel:
+        return False
+    parts = rel.split("/")
+    chain = ["/".join(parts[:n]) for n in range(1, len(parts) + 1)]
+    state = False
+    for raw in patterns:
+        pattern = raw.replace("\\", "/").strip()
+        negate = pattern.startswith("!")
+        if negate:
+            pattern = pattern[1:].strip()
+        pattern = pattern.strip("/")
+        if not pattern:
+            continue
+        if any(fnmatch.fnmatchcase(path, pattern) for path in chain):
+            state = not negate
+    return state
+
+
 def validate(pkg_dir: Path, manifest: dict | None = None) -> dict:
-    """Every declared path must exist: a whitelist that lies hides broken pushes."""
+    """Every declared path must exist, and no declared path may be excluded.
+
+    A whitelist that lies hides broken pushes: an `exclude` that swallows an
+    entry is the same lie written the other way round, and it would ship
+    nothing where the manifest says something travels.
+    """
     manifest = manifest if manifest is not None else load(pkg_dir)
+    patterns = excludes(manifest)
     for rel in files(pkg_dir, manifest):
         if not (pkg_dir / rel).is_file():
             raise fail(Exit.Package.FAILED, f"{pkg_dir.name}: declared file missing: {rel}")
+        if excluded(rel, patterns):
+            raise fail(
+                Exit.Package.FAILED,
+                f"{pkg_dir.name}: {rel} is listed in `files` and matched by `exclude`",
+            )
     for rel in directories(manifest):
         if not (pkg_dir / rel).is_dir():
             raise fail(Exit.Package.FAILED, f"{pkg_dir.name}: declared directory missing: {rel}")
+        if excluded(rel, patterns):
+            raise fail(
+                Exit.Package.FAILED,
+                f"{pkg_dir.name}: {rel} is listed in `directories` and matched by `exclude`",
+            )
     return manifest
 
 

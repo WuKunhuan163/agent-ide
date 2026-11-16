@@ -27,9 +27,9 @@ id: <identifier>
 ```
 
 - **Inside: exactly two lines** when an identifier exists (`id:` first, path second); **exactly one line (the path)** when the layer has no identifier. Nothing else — no brief, no checklist, no summary.
-- **Outside: nothing.** A sentence before the fence ("语境已核并改完…") and a paragraph after it ("`room/give.md` 与上述围栏逐字相同") are **both** the same failure: the receiver reads prose and treats the fence as an appendix.
+- **Outside: nothing.** A sentence before the fence ("the context is checked and fixed…") and a paragraph after it ("`room/give.md` is word-for-word identical to the fence above") are **both** the same failure: the receiver reads prose and treats the fence as an appendix.
 - **Info string exactly `PROMPT`** — not empty, not `text`, not `code`. Never nest it inside another code block.
-- **A turn may carry several fences — each is one complete delivery, and the count must be declared.** One fence is the default; a layer that dispatches independent units may ship 1–5 in one turn. Then: every fence opens with `# 目的` / `# 做什么`, dependencies say `依赖:#k` and may not be dispatched before that unit resolves, and the **last paragraph states the total** ("本轮共 N 个下发: …"). **The count is mechanical, not courteous: the user copies by number, and a missing one is a unit nobody runs.**
+- **A turn may carry several fences — each is one complete delivery, and the count must be declared.** One fence is the default; a layer that dispatches independent units may ship 1–5 in one turn. Then: every fence opens with `# purpose` / `# what to do`, dependencies say `depends:#k` and may not be dispatched before that unit resolves, and the **last paragraph states the total** ("this round dispatches N items: …"). **The count is mechanical, not courteous: the user copies by number, and a missing one is a unit nobody runs.**
 - **The two ``` are still required — “no ``` inside” does not license dropping them.** A `> PROMPT` blockquote is **not a fence**: `6e562175` shipped one with zero ``` and its own self-check said “exactly one PROMPT fence ✓”. **Criterion: exactly two ``` in the reply, one before the body and one after.**
 - **No ``` inside the fence body — the opening and closing ones are the only two.** Need to show a snippet? Use an inline `` `x` `` or indent four spaces. **A third ``` splits the block**: the hand-off reads as two fences, a probe needle taken from it lands outside the fence, and a judge counts one delivery as two. **Criterion: the body contains zero ```.**
 
@@ -40,7 +40,7 @@ id: <identifier>
 
 **Before answering, one question: is this turn a hand-off?** If yes, the last thing in the reply is the fence, and there is nothing after it. If the answer is a file path instead of a fence, the hand-off did not happen.
 
-**Shipping a case is a hand-off too.** The reply that delivers a case carries one fence whose only content is the path to that case's `prompt.md`（有 identifier 才加 `id:` 行）; the case text stays in the file. **Pasting the case text into chat is a second copy of the same object** — and the person forwarding it has to re-select it, which is exactly how lines get lost.
+**Shipping a case is a hand-off too.** The reply that delivers a case carries one fence whose only content is the path to that case's `prompt.md` (add the `id:` line only when an identifier exists); the case text stays in the file. **Pasting the case text into chat is a second copy of the same object** — and the person forwarding it has to re-select it, which is exactly how lines get lost.
 
 **The launcher is a path, not a command on `PATH`.** Every example below is written `agent-ide …`; in a project the thing to run is `./.agent-tools/agent-ide`, and a bare `command -v agent-ide` returning nothing is the normal case, not the tool being absent. Resolve the launcher once — the project root's `.agent-tools/` first, then `<global>/.agent-tools/` — and use the resolved path for the rest of the turn. Concluding "the tool is missing" from an empty `command -v` is a finding about the shell, not about the skill.
 
@@ -82,12 +82,14 @@ Joining the ecosystem is not a separate procedure: name the global project with
 
 ## What a package is
 
+**A package is a directory with a declared whitelist, and nothing outside that list travels**: the block below is the shape a reader will see after a push.
+
 ```
 .agent-ide/skills/<name>/
 ├── SKILL.md          always transferred
 ├── skill.json        always transferred — the whitelist
 ├── <name>.py         transferred when install.kind is `python`
-├── …                 only paths listed in files / directories
+├── …                 only paths listed in files / directories, minus `exclude`
 └── data/             local state from real use; never declared, never listed
 ```
 
@@ -97,7 +99,9 @@ Joining the ecosystem is not a separate procedure: name the global project with
 {"install": {"kind": "python"},
  "python": {"runtime": {"version": "3.11.9"}, "requirements": [], "stdlib": ["tkinter"]},
  "files": ["install.command"],
- "directories": ["src"]}
+ "directories": ["src"],
+ "exclude": ["src/<tree holding per-project work>/*",
+             "!src/<tree holding per-project work>/_template"]}
 ```
 
 `replicas` — the disaster-recovery copy of `data/`, declared by the skill that owns the data:
@@ -120,10 +124,11 @@ Replicator.for_skill(pkg_dir).sync_quietly()   # one line, never raises
 
 `sync_quietly` prints one stderr line and returns None on failure, so a broken copy cannot undo the work that triggered it. `Replicator.for_skill(pkg).status()` reports the gap without writing; the CLI is a thin wrapper over the same class.
 
-Two rules that cause most failures:
+Three rules that cause most failures:
 
 - **A declared path must exist.** `files`/`directories` are checked before every transfer, so a stale entry fails the command instead of shipping a broken package. An empty directory cannot be declared: git does not carry it, so `publish` then `--from-github` would fail on the far side.
 - **`data/` is local state, so it cannot be whitelisted.** It is what a skill accumulates while being used — archives, caches, credentials — and it differs per machine and per run, so it can never be enumerated in advance. The whitelist lists what a package *is*; `data/` is what it *has done*. Writers create their own directories when they first write; a read-only command creates nothing.
+- **A `directories` entry carries every file under it, so per-project material living inside the package is kept home by `exclude`, not by the directory entry.** A real identifier beside a template, one project's drafts, one project's run output — a whole-directory entry ships all of it to every project that pulls the package, and no later command can tell it from content. Patterns are matched against the path and each parent directory, in list order, last match winning, `!` putting a path back: the shape is "drop the tree, then name the templates inside it". Three things are enforced rather than promised — `validate` refuses a manifest whose `exclude` swallows something it also declares, the copy leaves excluded paths out of the destination even when an older push put them there, and the read-back digests the same set on both ends, so a correct push is not reported as `missing`.
 
 #
 # Violation ledger
@@ -143,21 +148,68 @@ file reader, never through a subcommand. When the user names a violation, stop t
 the matching entry's `check` as pass or fail, write the evidence into `--note`, and change the document the
 `fix` names — then say which document and which rule changed.
 
-**读判据只认导出面板，不认产物文件。** 形态类（几个围栏、围栏内几行、围栏外有无散文、交付在回复还是在文件里）与行为类（有没有 `execute_command` / `write_to_file` 那一行）**只能从导出取，并且每条都要给 `L<行号>`**；文件只用来核内容真假（数字与 `ls` 是否一致、引用是否存在）。**判据不带行号即记 `unjudged`，`unjudged` 不算 pass**——一份 verdict 里出现 `unjudged`，说明这轮没判完。**判读只要按四步走、每条 verdict 给 `L<行号>` 就成立**——不设判官门槛，不考察判读方是谁。本文件即完整条款；**技能不向本机规则借内容**。
+**The judging criterion reads the export panel, never the product file.** Shape items (how many fences, how many lines inside the fence, whether prose sits outside it, whether the delivery is in the reply or in a file) and behaviour items (is there a `execute_command` / `write_to_file` line) **can only come from the export, and each must carry `L<line>`**; the file only verifies whether the content is true (does the number agree with `ls`, does the citation exist). **A criterion with no line number is recorded `unjudged`, and `unjudged` is not a pass** — a verdict containing `unjudged` means the round was not judged to the end. **Judging is valid as long as the four steps are walked and every verdict carries `L<line>`** — there is no judge qualification, and who the judge is does not matter. This file is the complete clause; **the skill borrows no content from machine-local rules**.
 
-**题面只写身份、材料、要判什么、落哪个文件；方法与格式一律不写。** 把“交 `coverage.md`／已读 <90% 即 fail／单列 `seen-not-judged`”这类内容写进题面，等于把测试变成抄清单——测到的是“会不会读清单”，不是“会不会自己找到规范”。**判据：拿题面给一个没读过技能的人，他能开工，但做不对。**
+**The prompt states only identity, material, what is being judged, and which file to land in; method and format are never written.** Putting things like "hand over `coverage.md` / below 90% read counts as fail / list `seen-not-judged` separately" into the prompt turns the test into copying a list — what it measures is "can it read a list", not "can it find the spec itself". **Criterion: give the prompt to someone who has never read the skill, and they can start but cannot get it right.**
 
-**And then there is no case directory at all**: the题面 is three lines inside the fence (`id:` / the layer's entry doc / “you are this layer”), because a real hand-off has nothing else. `/tmp/<case>-xxxx/prompt.md` is **a sandbox wearing a different name** — it tells the agent there is a case, and it gives the judge somewhere to stash a copy. Answer keys live in `~/.agent-ide/k/<prefix>/`, which is a key, not a sandbox.
+**Before you hand a case over: run this on the block you are about to print.** The rules above are already written five times in this file (§the three lines, §no case directory, §the real tree, §the owner runs it, ledger #22/#23) — writing them a sixth time changes nothing. What changes behaviour is a check that fails:
 
-**When there is no time to isolate, the real project is the sandbox.** From this point on, a case runs **on the live tree**: the agent plays the role and does the role's real work, artefacts land where they really belong, `identifier` is the real `data/<id>/`, and **nothing is copied or seeded**. 写域仍按角色文档——**测试不授予额外写权**；判读仍只认面板与 `L<行号>`。**代价是错的产物真的会落盘**，所以写域纪律更硬，不是更松。
+```bash
+# paste the exact block you are about to hand over into /tmp/case.txt
+wc -l < /tmp/case.txt                                   # must be 3 (+ the two fences)
+grep -nE 'probe|--key|needle|criteria|acceptance|line number|which file|criterion|acceptance line|line number|落哪个文件' /tmp/case.txt   # must be empty
+grep -c '^PROMPT$' /tmp/case.txt                        # must be 1
+```
+
+**Any hit is a leak, and the leak is always the same one: I answer the question I am asking.** A case prompt that names the method measures obedience, not the document. If the three checks pass, hand it over; if they fail, delete the line — do not "reword it".
+
+**And then there is no case directory at all**: the prompt is three lines inside the fence (`id:` / the layer's entry doc / “you are this layer”), because a real hand-off has nothing else. `/tmp/<case>-xxxx/prompt.md` is **a sandbox wearing a different name** — it tells the agent there is a case, and it gives the judge somewhere to stash a copy. Answer keys live in `~/.agent-ide/k/<prefix>/`, which is a key, not a sandbox.
+
+**When there is no time to isolate, the real project is the sandbox.** From this point on, a case runs **on the live tree**: the agent plays the role and does the role's real work, artefacts land where they really belong, `identifier` is the real `data/<id>/`, and **nothing is copied or seeded**. The write scope still follows the role documents — **a test grants no extra write permission** — and judging still reads the panel and `L<line>` only. **The price is that a wrong product really does land on disk**, which makes the write-scope discipline harder, not looser.
+
+## Four invariants that outrank every format rule
+
+**Before the shape checks, these four decide whether the case is worth running.** They are the same in every project; only the objects change.
+
+1. **It is real work, not a rehearsal.** Unless the owner says "sandbox", the tested agent changes real files and its product is judged by the same bar as a delivery. **A copy cannot reproduce stale readings, window temptation, or a parallel session editing the same file** — so there is no case directory.
+2. **The author does not pre-solve it.** Not just "does not run it": for a diagnostic case, **do not grep its config, read its source, or run the command to find the cause first**. If I already know the answer, the criteria quietly become "did it guess my answer", and a better explanation scores as a fail. **My hypothesis goes into `a_pred.md`, never into `criteria.md`.**
+3. **Sensory criteria are the body; shape criteria are the fallback.** Write one sentence first — *what must the owner see happen* — and build the criteria around it (was the dispatched work the priority, did the report wait for the run). Checklists, counts, `path:line`, command output are **fallback only**, and never fail a case on their own unless the case is explicitly about procedure compliance.
+4. **A case is registered before it runs.** `tmp/reproduce-test/<id>.json`: `id` verbatim, `purpose` (`do_work` / `judge_behavior`), `intent`, `write_domain`, `session_key` empty. **The key found by probing is written back in the same breath** — the next probe reuses it instead of sweeping again.
+
+**Two cases whose `write_domain` overlap may not run in parallel.** They will overwrite each other and neither verdict can be attributed.
+
+## A case without a prediction is not a case
+
+**Every case carries five files, and the fifth is the one that makes me better:**
+
+| file | what it is |
+|---|---|
+| the `PROMPT` block | three lines, nothing else |
+| `cl.md` | the criteria |
+| `a_pos.md` / `a_neg.md` | one pass, one fail |
+| **`a_pred.md`** | **my prediction, written before the run** |
+
+**A verdict tells me what it did. A prediction tells me whether I knew.** Write three to five falsifiable lines — "it will not open `01-supervisor.md`", "it will `ls -lt` the export directory instead of probing", "it will miss the self-report line at the end of the fence". Then run, then mark each hit or missed.
+
+**The misses are the only material that changes me.** A case where I predicted nothing teaches nothing: it produces "it violated rule N" → another rule → I violate that too. **That loop is why a year of cases has left me unable to predict a single layer's behaviour.**
+
+**Rule:** no `a_pred.md`, no hand-over; and it is written **before** the block is handed over — a prediction written afterwards is a summary.
+
+## A reproduction case is run by the owner, in a new session — never by me
+
+**The cycle is fixed, and no step may be reordered.** I write the case (a copyable `PROMPT`, its criteria, a positive and a negative sample); **the owner copies that prompt into a new session and runs it**; when the owner says it has come back, I take that session's export (`--probe` / `--key`) and judge it.
+
+**I must never ask to take the run.** "Let me be the executor", "I'll run it once to check", "want me to open a session and try" — each of these silently **replaces the agent under test with myself**: a case I run is a case I wrote it to pass, and the only thing it measures is whether I can follow my own instructions. **A delivered case has not been run**; offering to run it is a defect, not diligence.
+
+**I don't nag either.** After the case is delivered, stop and wait for the owner.
 
 ## Delivering a reproduction case
 
 **Three things the case must carry before anything else is written:**
 
-1. **A root that the entry path alone determines.** The subject resolves “which tree am I in” from the path it was handed; if the case lives in `/tmp/x/m` while the session sits in the real project, **it will do the right work on the wrong tree** — the output looks fine and answers a different question. Put cases inside the working directory, or make the root explicit and add a criterion for it. **判读时先验根：根不是案树，整案无效。**
+1. **A root that the entry path alone determines.** The subject resolves “which tree am I in” from the path it was handed; if the case lives in `/tmp/x/m` while the session sits in the real project, **it will do the right work on the wrong tree** — the output looks fine and answers a different question. Put cases inside the working directory, or make the root explicit and add a criterion for it. **Check the root before judging: if the root is not the case's tree, the whole case is void.**
 2. **`id:` as the first line of the hand-over.** Every layer's hand-off starts with `id: <identifier>` and only then the path; the case must ship `data/<id>/{WISH.md, BOSS_CONTEXT.md}`. A hand-over with a path and no `id` makes the receiver guess which wish it is.
-3. **Criteria that can be read off the panel.** Before writing one, ask: *which line of the export would support it?* If none, the criterion is unjudgeable and must be deleted. **形态类判据一律带“数量＋位置”**（几个围栏、围栏内几行、在围栏内还是围栏外），不要写“是否理解”“是否认真读”。
+3. **Criteria that can be read off the panel.** Before writing one, ask: *which line of the export would support it?* If none, the criterion is unjudgeable and must be deleted. **Every shape criterion carries a count and a position** (how many fences, how many lines inside the fence, inside or outside the fence) — never "whether it understood" or "whether it read carefully".
 
 ### The prompt contract — every clause, or the case is not handed over
 
@@ -204,7 +256,7 @@ A request such as "give me a probe case proving X" has **four deliverables**, an
 
 Number 2 has a format, not just a content requirement: **the prompt goes inside one fenced code block, and nothing else goes in that block.** The fence is what makes the case runnable by hand — the reader copies the block, pastes it into a fresh session, and knows that what they pasted is exactly what was tested. A prompt delivered as a paragraph, a blockquote, or a numbered list inside an explanation has to be reassembled by the reader, and every reassembly is a different case. Criteria stay outside every fence.
 
-**The prompt names the job, never the shelf it sits on.** `Read these first: materials/profiles/narrative_skill.md` is a defect in the case, not a convenience. A human briefing a colleague says what has to be written and where it goes; finding the spec is the colleague's job, and that job is half of what is being tested. If the tested agent cannot locate `narrative_skill.md` from a cold start, the project lacks an entry document — and that is a defect in the project, not a licence to create one. `AGENTS.md`, `CLAUDE.md` and `.cursorrules` are **tool conventions**, shared across clients and not this project's content: never create or rewrite them to make a case run. Put a **project map** in the project's own rules file instead (one entry per document, with what each is for), then re-run — 这张图是**项目自己的**，不放进技能的全局目录。 Fixing the project is the fix; adding the path to the prompt hides the defect and voids the case.
+**The prompt names the job, never the shelf it sits on.** `Read these first: materials/profiles/narrative_skill.md` is a defect in the case, not a convenience. A human briefing a colleague says what has to be written and where it goes; finding the spec is the colleague's job, and that job is half of what is being tested. If the tested agent cannot locate `narrative_skill.md` from a cold start, the project lacks an entry document — and that is a defect in the project, not a licence to create one. `AGENTS.md`, `CLAUDE.md` and `.cursorrules` are **tool conventions**, shared across clients and not this project's content: never create or rewrite them to make a case run. Put a **project map** in the project's own rules file instead (one entry per document, with what each is for), then re-run — That map is **the project's own** and does not go into the skill's global directory. Fixing the project is the fix; adding the path to the prompt hides the defect and voids the case.
 
 **A case must run on the artifact, not a copy of it.** A defect planted in a throwaway copy produces a fix that lands in the throwaway copy — nothing comes back. Before writing the brief, answer one question: when the tested agent finishes, *which file changes in the real project?* If the answer is "a file under /tmp", the case can only pay out in rules, tools or documentation; it cannot pay out in content. Say so when you hand it over, otherwise the run looks successful and leaves the project exactly where it was.
 
@@ -227,12 +279,12 @@ The second shape is not weaker, but its payoff is easy to miss: it has to be har
 
 **Feed on the probe's return, in the same turn.** The moment a probe hands you a transcript and a judged answer, the findings are still cheap to act on: the failing sentences are in front of you and the document that should have prevented them is open. A turn that reads the transcript and stops — deferring the feeding to "before the next case" — has begun the decay: by the next case the finding has become a summary, and summaries do not tell you which paragraph to change. So the sequence inside one turn is: probe → read → judge → **feed** → say what was fed. Building the next case is a separate turn.
 
-**题目不可达时，正确行为是拒绝＋说明缺口——判据必须把它记作 pass。** 出题先逐条问：**这一项能不能只靠材料答出来？** 不能，就有两种修法：补材料，或把“拒绝并说出缺什么”写进清单。**逼人编一个值的清单，测的是服从编造**，而编造正是这套案子要防的东西。读数里这类项记 `N/T`（问不到），不记 `fail`。**判读类案子自带两样东西**：①**被核对的工件**（答案引用的那个文件必须在材料里，否则只能判形式）；②**合格线的定义**（`spec.md` 只写“怎么写判读”不够，要写“什么样算合格”）。缺任一样，读数只能落在 `N/T`，不能记成被测方 fail。**占位文件不算材料**：一个只有 `todo:` 一行的文件，既没有可归纳的正文，也没有可改的表格——把它当题目，测出来的只会是“会不会编”。出题前把每个产物文件**先写出它该有的内容**（表格、段落、数字），再让题面去改它。
+**When a question is unanswerable, the correct behaviour is to refuse and state the gap — and the criterion must record that as pass.** Before writing a case, ask of each item: **can this be answered from the material alone?** If not, there are two fixes: supply the material, or write "refuse and say what is missing" into the list. **A list that forces a value to be invented measures obedience at inventing**, and inventing is exactly what these cases exist to prevent. Such an item is recorded `N/T` (not answerable), never `fail`. **A judging case ships two things**: ① **the artefact under check** (the file the answer cites must exist in the material, or only form can be judged); ② **the definition of the acceptance line** (`spec.md` saying "how to write a judgement" is not enough; it must say what counts as passing). Missing either, the reading can only be `N/T` and may not be recorded as the subject's fail. **A placeholder file is not material**: a file holding one `todo:` line has no prose to generalise from and no table to edit — use it as the task and you measure only "can it invent". Before writing a case, **write out what each product file should contain** (table, paragraphs, numbers), and only then let the prompt change it.
 **When one criterion keeps failing while every other passes, suspect the question before the answer.** A criterion can be perfectly written and still out of the question's reach: ask "what would this look like told to a person", and no answer will describe how a table's caption is written, because the question was about telling, not writing. Three rounds of the same failure is not evidence about the agent — it is evidence that the prompt never asked. The repair is to widen the prompt's nouns (one more question, phrased in the user's terms), never to write the missing answer into the document a fourth time.
 
 **A criterion only the document can supply — and that is settled before the case ships, not after it runs.** Prove it three ways, all at authoring time: the materials carry no method (a header that says "read by timestamp" has taught the behaviour, so the case is void); the criterion names the line it rests on, `rule: <path>:<line>`; and the product must contain a sentence only a reader of that line would write. A criterion that cannot name its line is measuring common sense. Before crediting the treatment arm with a behaviour, check the control: if the control shows it too, the behaviour is baseline and the criterion attached to it must be dropped or re-scoped — otherwise the next case re-measures a property that was never the document's.
 
-**The prompt travels in a fence labelled `PROMPT` — and that fence is never nested inside another code block.** 套一层 ```` 会把围栏变成引用文本里的文本：读它的一层按 `PROMPT` 找不到委托，测试还没开始就已经构造错了。贴给用户看时直接贴围栏本身。
+**The prompt travels in a fence labelled `PROMPT` — and that fence is never nested inside another code block.** One extra ```` layer turns the fence into text inside a quoted block: the layer reading it looks for `PROMPT` and finds no commission, so the test is malformed before it starts. To show it to the user, paste the fence itself.
 
 **The prompt travels in a fence labelled `PROMPT`.** One fence per arm, info string `PROMPT` (control: `PROMPT-CONTROL`), the agent-visible text and nothing else inside it; one line outside naming the arm. An unlabelled fence reads as an ordinary quote and is not findable later; the label is what makes the block scannable and copyable in one action. Nothing of yours — no reading of it, no criterion, no note — goes inside the fence, or what gets copied is no longer the case.
 
@@ -272,7 +324,7 @@ The second shape is not weaker, but its payoff is easy to miss: it has to be har
 
 **And the criteria must not be restated in your own turn either.** The agent under test can export this project's conversation (`context --id`), and the hand-over turn is part of that conversation: a bullet list of the checks, a "the answer should point at X", even the case's design rationale, is the answer key in plain text. Keep the checks in the grader file and let the hand-over name the path — never the contents. If the criteria had to be explained in the reply, the case was not ready to hand over.
 
-**有清单，没有判据器。** 判据是一份**你能逐条读的清单**，verdict 是**你的读**，不是脚本的 exit code（§5 已写：“scripts may help you count paragraphs or pointers; the verdict is your reading”）。**不许写一个统一脚本去判一个案子，更不许写一个脚本同时判几个案子**：那会把“读答案”换成“跑程序”，把四个不同的行为压成一套正则，把 `PASS` 冒充判读。脚本唯一允许的用法是**辅助计数**（多少条、多少行、几个指针），且它**不输出结论**。**一个案子一个清单文件，逐条一行：查什么、什么算过、答案里哪句话settle它。**
+**A list, not a criterion engine.** The criterion is **a list you read item by item**; the verdict is **your reading**, not a script's exit code (§5 already says: "scripts may help you count paragraphs or pointers; the verdict is your reading"). **You may not write one script to judge a case, and certainly not one script to judge several**: that replaces "reading the answer" with "running a program", crushes four different behaviours into one regular expression, and passes `PASS` off as a judgement. The only permitted use of a script is **assisting a count** (how many items, how many lines, how many pointers), and it **outputs no conclusion**. **One list file per case, one line per item: what to check, what counts as passing, and which sentence of the answer settles it.**
 **A verdict is `pass`, `fail`, or `pass/fail` over the items — never a whole-case `N/A`.** If not one item can be judged, the case is broken: write *apparatus failed, re-run*, and repair it in the same turn. A verdict you cannot express item by item is a statement about your case, not about the agent.
 
 **Judge item by item; reserve `N/A` for a run where nothing happened at all.** A case usually asks several questions at once — did it look before adding, did it add a duplicate, did it invent content, was the self-report true. An apparatus defect (a wrong path, one missing file, a criterion that misfires) makes *that item* `N/T` (not touched); the others are still judged, the verdict is stated over the items that were judged, and the untested ones are named. Whole-case `N/A` is for a run with no judgeable item.
@@ -364,11 +416,11 @@ Cases open against a stack of unclosed findings — the ones in `ledger/violatio
 
 ## When a run comes back
 
-**A verdict is read off the export, one round at a time.** ①**先框轮次**（`# rN` 或时间戳区间）——跨轮混读会让后一轮的“推送并提交”把前一轮的交接物挤出屏幕，于是判读的其实是另一件事；②形态类判据（**几个围栏、围栏内几行、围栏外有没有散文、交付在回复还是文件里**）只从这段回复正文取；③`* execute_command` / `* write_to_file` / `* read_file` 是**行为**，**没有那一行就是没做**，不许由产物反推；④文件只判**内容真假**（数字与 `ls` 是否一致、引用是否存在）。
+**A verdict is read off the export, one round at a time.** ① **Frame the round first** (`# rN` or a timestamp interval) — reading across rounds lets the next round's "push and commit" scroll the previous round's hand-over off the screen, so what gets judged is a different thing; ② shape criteria (**how many fences, how many lines inside the fence, whether prose sits outside it, whether the delivery is in the reply or in a file**) come only from that reply body; ③ `* execute_command` / `* write_to_file` / `* read_file` are **behaviour** — **no such line means it was not done**, and the product may not be used to infer it; ④ the file only judges **whether the content is true** (does the number agree with `ls`, does the citation exist).
 
-**每条判据写成 `<判据> — pass|fail — L<行号>`；无行号记 `unjudged`，`unjudged` 不算 pass。** **判读要逐步走完那一轮**：交 `coverage.md`（面板里每个 `* ` 调用一行＋已读行区间＋未读区间及理由）；**已读 <90% 且无理由＝判读本身 fail**。**`grep` 出的动作行号是索引，不是行为**——参数与结果不在视野里，等于没判它改了什么。**“看到了却没判”（`seen-not-judged`）比漏读更该记。** 行号**引用前先打印那一行**：指向空行或无关段落＝没给证据。**形态判据要成对**——数了“围栏内几行”，必须同时数“围栏前／后还剩几行”（规范说“回复就是围栏”时，两侧都必须为 0）；只判围栏里，等于让整段围栏外的散文免检。 三种懒判一律禁止：拿交付文件（`give.md`）代替“回复里有没有围栏”、拿自述报告（`context-diff.md`）代替“它写了哪些文件”、拿 `grep` 结果代替“它跑过那条命令”。**它们的共同点是把产物当行为，于是永远判出“干净”。**
+**Every criterion is written `<criterion> — pass|fail — L<line>`; with no line number it is `unjudged`, and `unjudged` is not a pass.** **The judging must walk that round step by step**: hand over `coverage.md` (one line per `* ` call in the panel, the line ranges read, the ranges unread with reasons); **under 90% read with no reason = the judgement itself fails**. **A line number found by `grep` is an index, not behaviour** — with the arguments and the result out of view, you have not judged what it changed. **"Seen but not judged" (`seen-not-judged`) counts worse than not reading.** **Print the line before citing it**: pointing at a blank line or an unrelated paragraph = no evidence given. **Shape criteria come in pairs** — having counted "how many lines inside the fence", you must also count "how many lines remain before and after it" (when the rule says "the reply is the fence", both sides must be 0); judging only inside the fence exempts all the prose outside it. Three lazy judgements are forbidden: using the delivery file (`give.md`) in place of "is there a fence in the reply", using the self-report (`context-diff.md`) in place of "which files it wrote", using a `grep` result in place of "it ran that command". **Their common move is treating a product as behaviour, so they always judge clean.**
 
-**读判据只认导出面板，不认产物文件。** 形态类与行为类都只能从导出取并给 `L<行号>`；文件只用来核内容真假。本文件即完整条款；**技能不向本机规则借内容**。
+**The criterion reads the export panel, never the product file.** Shape and behaviour items both come from the export and carry `L<line>`; the file only verifies whether the content is true. This file is the complete clause; **the skill borrows no content from machine-local rules**.
 
 Decoding the probe and reporting the score is the first step, not the whole job. A result is **handled** when every finding it produced has a line: `fixed: <where>` / `fed: <path>` / `false positive: <because of my material, not its error>` / `open: <why not>`. **A finding with no line is unhandled**, and proposing the next round before the list is complete is the hurry this step exists to prevent — it is also how a run that contained twelve findings gets reported as one score.
 
@@ -412,7 +464,7 @@ A white-box review is not reading documents and saying they look fine. It is **r
 
 A finished turn reads "materials at `<path>`, prompt in the fenced block, criteria kept out with `rule:` lines, needle needed". **The fence is part of the deliverable**: a prompt described in prose, summarised, or written only into `prompt.md` without being fenced in the turn has not been handed over — the user cannot copy it, and the only copy is one the agent under test may read.
 
-**A delivered case has not been run, and this tool cannot run it.** There is no `run` subcommand; `agent-ide` installs, pushes, publishes, replicates, resolves bindings, renders a transcript, logs a judgement, injects a skill. Delivering a case means: the files exist, the self-test is green, the prompt is fenced, the control arm is named, the needle is asked for. **Executing it is the user's act, in a fresh session, one run per arm per the count you stated.** Language that treats delivery as execution — "I will run it", "跑一下这个案子", "let me start it", "once it finishes I will judge" — is a claim about an action nobody in this turn can take.
+**A delivered case has not been run, and this tool cannot run it.** There is no `run` subcommand; `agent-ide` installs, pushes, publishes, replicates, resolves bindings, renders a transcript, logs a judgement, injects a skill. Delivering a case means: the files exist, the self-test is green, the prompt is fenced, the control arm is named, the needle is asked for. **Executing it is the user's act, in a fresh session, one run per arm per the count you stated.** Language that treats delivery as execution — "I will run it", "let me run this case", "let me start it", "once it finishes I will judge" — is a claim about an action nobody in this turn can take.
 
 **What the turn may then do is judge an export.** After the user has run an arm, the transcript exists; reading it is `context --bindings` → `--id`, and judging is the checker over that transcript. Judging is not running.
 
@@ -477,10 +529,10 @@ agent-ide context --ide <ide> --key <key> [--last N] [--since T] [--until T] [--
 - **When asked "what did I require", the answer starts with the quote.** Locating comes before explaining: quote the sentences with `path:line`, then, if it helps, one line of mechanism. A mechanism offered before the quote is a story that replaces the answer.
 - **Before writing a case, write one line of motive — and keep it out of the prompt.** `discriminates: <behaviour> · pass=<what passing looks like> · fail=<what failing looks like> · ctrl=<the check the control arm must fail>`. This line is yours; the prompt states the situation and the product path and nothing else. **A case whose prompt contains the criteria, the template or the expected report lines measures copying, not behaviour** — and the tell is that a control arm with none of the documents passes too.
 - **Before writing a rule, run the three greps and print one `placement:` line.** Grep the project's `memory/MEMORY.md` (does this trigger already have a note), grep `ledger/violations.json` (is there already an entry with this meaning), grep the **owning document** for this layer. Then say which move you made: `placement: index→<file|none> · ledger→#<code|none> · owner→<path>:<anchor> · move=strengthen|add|delete`. A rule added without that line is #27; a second paragraph where one existed is #28; a rule kept in a TEMP_ note when a skill document owns it is #27 again.
-- **Ownership, so the grep has a target.** Behaviour toward the owner and the evidence → the always-on conduct rules（本机）＋ `ledger/violations.json`. Tool procedure (context, probe, needles, receipts) → this file. Loop method (position, two kinds of work, rounds, receipts) → `overleaf/.../template/docs/results-first-narrative.md`. Per-layer expectation → `.../strategy-roleplay/skill.md`. Layer interface → `01-supervisor.md` / `02-lead.md`. Venue nouns → `03-executor.md`. Machine facts (paths, needles, keys) → `memory/TEMP_*.md`, never a skill document.
-- **The conduct list is not in this file and not in your memory: it is `ledger/violations.json`.** The norms live in the operator's always-on conduct rules（本机，技能不引用）; the entries with `sign / check / fix` live in that JSON; the project's `memory/MEMORY.md` indexes the triggers. **Before writing a rule, grep all three** — an entry that already exists is strengthened (`sign`, `check`), never duplicated, because two entries for one behaviour means neither gets enforced.
+- **Ownership, so the grep has a target.** Behaviour toward the owner and the evidence → the always-on conduct rules (machine-local) + `ledger/violations.json`. Tool procedure (context, probe, needles, receipts) → this file. Loop method (position, two kinds of work, rounds, receipts) → `overleaf/.../template/docs/results-first-narrative.md`. Per-layer expectation → `.../strategy-roleplay/skill.md`. Layer interface → `01-supervisor.md` / `02-lead.md`. Venue nouns → `03-executor.md`. Machine facts (paths, needles, keys) → `memory/TEMP_*.md`, never a skill document.
+- **The conduct list is not in this file and not in your memory: it is `ledger/violations.json`.** The norms live in the operator's always-on conduct rules (machine-local; the skill does not cite them); the entries with `sign / check / fix` live in that JSON; the project's `memory/MEMORY.md` indexes the triggers. **Before writing a rule, grep all three** — an entry that already exists is strengthened (`sign`, `check`), never duplicated, because two entries for one behaviour means neither gets enforced.
 - **Locating your own conversation: say something only you could have said, then probe it.** In an IDE (codebuddy included), the cheapest key is a **nonce**: print one distinctive string in your reply — `needle-K7Q2-2f9c` — write that exact string to a file, and run `--probe <that file>`. The nonce matches only the conversation that contains your sentence, so the answer is your own key with no guessing. **Never probe a file whose contents you did not write** (`./probe`, someone else's fragment, a template): you cannot know which conversation it lands on, and a probe whose needle you did not author is a shot in the dark that reads like a measurement.
-- **The owner's sentence carries an access strategy; obey it before choosing a window.** "在我发火之前", "上一次整顿之后", "昨天到现在", "只看最后三十分钟" — these are **bounds on the read**, not colour. Turn one into an anchor: find the boundary event in the export by timestamp, then read the side the owner asked for. Reading across the boundary is how a question about "before the explosion" gets answered with the explosion.
+- **The owner's sentence carries an access strategy; obey it before choosing a window.** "before I lost my temper", "since the last cleanup", "from yesterday until now", "just the last thirty minutes" — these are **bounds on the read**, not colour. Turn one into an anchor: find the boundary event in the export by timestamp, then read the side the owner asked for. Reading across the boundary is how a question about "before the explosion" gets answered with the explosion.
 
 **Before reporting a state "at time T", prove the segment covers T.** Line ranges are not time: a block at `:2298262` can be ten minutes before or ten after the blow-up, and the answer changes. Print the boundary — `# rN 2026-11-14T17:0…` — and the span you actually read, then say whether T falls inside it. A quotation without its timestamp is not evidence about *when*.
 
@@ -547,7 +599,7 @@ The failure this catches is specific. The edit goes well, `push` prints three su
 ls <your rules directory>/ | grep -i <topic>
 ```
 
-（这条检查只在**写镜像的那台机器**上做，**不进技能正文**：技能读者没有那个目录。）
+(This check runs only **on the machine that writes the mirror** and **does not enter the skill's body**: the skill's reader has no such directory.)
 
 ## Edit, then push — in the same turn
 
@@ -564,7 +616,7 @@ ls <your rules directory>/ | grep -i <topic>
 
 1. **Grep the target document** for three or four synonyms and quote the existing same-meaning passages **with line numbers**. If one exists, the new rule is not a new section.
 2. **Name the site**: `path:line-line`, the two blocks the insertion falls between. Both must still be whole afterwards — **a heading that loses its table is a structural loss even when every line survives** (entry 53).
-3. **Declare the operation**: 改 (correct a wrong sentence) / 强化 (add a clause inside the block that already says it) / 追加 (append, only when nothing covers it) / **refactor** (change no claim, only the arrangement: merge duplicate blocks, gather scattered same-meaning clauses into one, split a block that carries two subjects, delete what is superseded). Say why not the other three. **Refactor is the only one of the four that may net-delete lines** — and the easiest to reach for when what you actually need is 强化: if the sentence you want to add is already said, strengthen that block, do not restructure around it.
+3. **Declare the operation**: correct (fix a wrong sentence) / strengthen (add a clause inside the block that already says it) / append (only when nothing covers it) / **refactor** (change no claim, only the arrangement: merge duplicate blocks, gather scattered same-meaning clauses into one, split a block carrying two subjects, delete what is superseded). Say why not the other three. **Refactor is the only one of the four that may net-delete lines** — and the easiest to reach for when what you actually need is strengthening: if the sentence you want to add is already said, strengthen that block, do not restructure around it.
 
 **Two readings after the edit**: `grep -c` of the synonymous keyword is **1, not 2**; and each block adjacent to the insertion point still has its heading and its body.
 
@@ -586,15 +638,15 @@ Read four things before explaining: `page_range`, `state`, `err_msg`, `elapsed`.
 
 | Not this | This |
 |---|---|
-| “规则不在我会读到的地方” | “我没有在回答前看草稿的最后一块（`SKILL.md` 的 §A 就在同一份文件里）” |
-| “题面让我写进文件” | “我出的题面写了‘写进 `give.md`’，把交接案变成了写作案；题面由我写” |
-| “时间太紧” | “我在收口时跳过了 `grep -c` 复核，所以替换静默失败没有被发现” |
+| "the rule is not where I would read it" | "I did not look at the last block of the draft before answering (`SKILL.md` §A sits in the same file)" |
+| "the prompt told me to write to a file" | "my prompt said 'write into `give.md`' and turned a hand-over case into a writing case; the prompt was mine" |
+| "there was no time" | "I skipped the `grep -c` recheck when closing, so the silent replacement failure went unnoticed" |
 
 **Why the situation-form is worse than the miss**: it converts a missing check into a missing condition, so **nothing gets added where the failure happened** — the next run has the same hole and the same explanation. **An explanation whose subject is not me is a refusal to fix.**
 
-**三个可判的禁句**（出现即违约，见 `ledger/violations.json` 的 `#65`）：①“规则不在这／不在我能读到的地方”②“题面／文档没要求所以……”③“时间／环境不允许”。**替换格式固定三句**：①我漏了什么 ②哪一行证明（`path:line` 或命令输出）③现在哪道闸接住它。
+**Three checkable forbidden sentences** (any occurrence is a breach; see `#65` in `ledger/violations.json`): ① "the rule is not here / not where I can read it" ② "the prompt or document did not require it, so …" ③ "time or the environment did not allow it". **The replacement format is fixed at three sentences**: ① what I missed ② which line proves it (`path:line` or command output) ③ which gate catches it now.
 
-**If the rule genuinely was absent, prove it** — 给出 `grep` 的全零输出或文件的 `path:line`，**并且仍然先说我漏了什么**。“不存在”是**证据**，不是**开场白**。
+**If the rule genuinely was absent, prove it** — give the all-zero `grep` output or the file's `path:line`, **and still say first what you missed**. "It does not exist" is **evidence**, not an **opening line**.
 
 ## The fence gate: look at your own draft's last block, before the final answer
 
@@ -665,7 +717,7 @@ The 2000 is a literal, written once. A fresh session is a few dozen messages; a 
 
 | Not carried | Where it lives | How to check it |
 |---|---|---|
-| the behaviour rules | the operator's always-on rules directory（本机；技能正文不引用它） | read the file you edited there — it is in no registry |
+| the behaviour rules | the operator's always-on rules directory (machine-local; the skill body does not cite it) | read the file you edited there — it is in no registry |
 | the project's memory | the per-project memory directory on this machine | per project, never shared, invisible to the next project |
 | the project's data | `<skill>/data/` | local state; the diff gate is expected to show it and must not be "fixed" |
 
@@ -757,6 +809,8 @@ The full cold-start order (bootstrap branch, global project pointer, agent id, c
 
 ## Exit codes
 
+**Exit codes are the only branch a script may take**: the printed text is for humans and may change.
+
 | Code | Meaning |
 |---|---|
 | 2 | argparse: unknown command / missing argument, or an option used without its direction |
@@ -807,25 +861,25 @@ cannot disagree. Two checks, both runnable:
 ```bash
 # 1) who am I, if this session is bound
 ./.agent-tools/agent-ide context --ide codebuddy --bindings
-#   -> <agent id>	<key>       (config: transcripts.bindings)
+# -> <agent id>	<key> (config: transcripts.bindings)
 
 # 2) otherwise probe a sentence you actually wrote, with the cap off
 printf '%s' '<a sentence from the reply you are looking for>' > /tmp/needle.txt
 ./.agent-tools/agent-ide context --ide codebuddy --probe /tmp/needle.txt --max-files 0
-#   -> key	hits	msgs	bytes      (best hit = most hits, then most msgs)
+# -> key	hits	msgs	bytes (best hit = most hits, then most msgs)
 ```
 
 **Why the cap exists and why it must be lifted here.** The default `PROBE_MAX_CONVERSATION_FILES = 2000` drops whole conversations before reading them, on the assumption that a needle names a *fresh* session. A main session breaks that assumption by growing: measured on this machine, **73,836 message files** (1.09 GB) — silently dropped, so every fragment taken from it returned `0 hits`.
 
 **Cost.** With the cap off the store is ~201k files; the scan runs in a process pool (more than 20k files) and takes **~38–40 s**. That is the price of finding yourself; pay it, do not report a miss you did not actually test.
 
-**Progress prints at seven marks only** — first file, 1%, 2%, 5%, 10%, 20%, 50%, 100% — because a 200k-file scan at 500-file ticks erases itself. Before the result line a one-line separator (`# 下面是结果：key<TAB>hits<TAB>msgs<TAB>bytes`) says what follows; stdout itself stays the clean table.
+**Progress prints at seven marks only** — first file, 1%, 2%, 5%, 10%, 20%, 50%, 100% — because a 200k-file scan at 500-file ticks erases itself. Before the result line a one-line separator (`# below is the result: key<TAB>hits<TAB>msgs<TAB>bytes`) says what follows; stdout itself stays the clean table.
 
 ### Named id vs this conversation — two different lookups
 
-**When the owner names an id (`id=毕设`, "毕设 的全量语境", "look at 毛不易"), the binding is authoritative: `--bindings` → that id's key → `--key`. No probing, no best-hit guessing.** The binding is the owner telling you *which* conversation they mean.
+**When the owner names an id (an identifier, "that project's full context", "look at that person"), the binding is authoritative: `--bindings` → that id's key → `--key`. No probing, no best-hit guessing.** The binding is the owner telling you *which* conversation they mean.
 
-**When the owner means the conversation you are in ("你这一场", "上面你写的", "这一段"), bindings are useless and can be actively wrong**: the bound key may be a *different* session — measured once, `bindings 毕设 = ba9f3f5d…` while the session being asked about was `95619df4…`, and the bound key's only matches were quotes of that other session's own text. For *this* conversation: probe a sentence you wrote, `--max-files 0`, then take **most hits, then most msgs**.
+**When the owner means the conversation you are in ("this session", "what you wrote above", "this stretch"), bindings are useless and can be actively wrong**: the bound key may be a *different* session.
 
 **The tell.** A binding hit whose matches are `PROMPT` fences or quoted material is the case-authoring session, not the one you are in. Check what the hits *are*, not only how many.
 
@@ -836,6 +890,12 @@ The cap exists because a **main** session grows past 2000 files. A **case** sess
 - **needle from a case / another agent → default probe.** No `--max-files`. If it misses, the needle is wrong, not the cap.
 - **needle from the session you are sitting in, or the bound main session → `--max-files 0`.** That is the only reason to lift it.
 - **Decide before you run**: whose sentence is this, and how big can that conversation be? **Reaching for `0` out of habit is a 6× slowdown on every lookup that did not need it — and it hides a wrong needle behind a long scan.**
+
+**The result table has five columns: `key`, `hits`, `msgs`, `bytes`, `last`.** `last` is the newest stored message's UTC time. **Rows sort by `hits`, then by `last`** — so when one needle hits several conversations, the newest one is the first tie you can break, and you can tell "the run I just finished" from "an older session that quotes the same words" without opening either.
+
+**Pick by key, not by needle.** A needle drifts: the same sentence gets quoted into later sessions, and a needle that hit one conversation yesterday can hit another today. **The key is the identity; the needle is only how you found it.** After the first probe, keep the key — re-read that conversation with `--key <key> --stamps`, and never re-probe a needle to answer "look at it again".
+
+**If you have no key, say so.** No key means that conversation was never probed: write it down as missing context and ask the owner which one they mean (which unit, which round, roughly when). **Guessing a key costs more than asking for one.**
 
 **Reading the result.** `probe: 160/163 conversations kept (> 2000 files dropped: 3)` means three sessions are invisible. **Check that line before saying "the needle is invalid".** A hit on the session you are in is the only proof that you located yourself; quote `key`, `msgs`, `bytes` as the receipt.
 
@@ -850,9 +910,9 @@ The cap exists because a **main** session grows past 2000 files. A **case** sess
 
 | shape | what the transcript shows | what it is called |
 |---|---|---|
-| **乱搜** | `find` / `grep -r` across the whole tree, several guesses, no source named | native search that happened to end somewhere |
-| **乱配** | the answer follows *one* of two files without saying which or why; or follows both | convention chosen by convenience |
-| **乱猜** | a plausible format with no source at all — and, worse, an admission like "范围是我加的" | fabrication wearing the project's name |
+| **wild search** | `find` / `grep -r` across the whole tree, several guesses, no source named | native search that happened to end somewhere |
+| **wild fit** | the answer follows *one* of two files without saying which or why; or follows both | convention chosen by convenience |
+| **wild guess** | a plausible format with no source at all — and, worse, an admission like "I added that scope myself" | fabrication wearing the project's name |
 
 ### Walk the trace, or the reading is about the product
 
@@ -867,7 +927,7 @@ The cap exists because a **main** session grows past 2000 files. A **case** sess
 
 **The decisive question is ordering: did the `locate` step happen before the `guess-write` step?** A trace of `list_dir → read <entry doc> → read <context> → write` is guidance. A trace of `find … | grep … → write → read <doc> → quote it` is guessing that found the answer, and it is a `fail` however good the product looks.
 
-**Report the trace, not just the verdict**: `动作 1 list_dir m/ (orient) → 动作 2 read 01-supervisor.md (locate, before write) → 动作 3 write give.txt → 动作 4 cat -A (verify)`. No trace in the reading = the criterion was never evaluated.
+**Report the trace, not just the verdict**: `action 1 list_dir m/ (orient) → action 2 read 01-supervisor.md (locate, before write) → action 3 write give.txt → action 4 cat -A (verify)`. No trace in the reading = the criterion was never evaluated.
 **Write the expectation first, then the criterion.** Each item reads: `expected: <path>:<line> says <rule>` → `action: <what the agent must do>` → `fail shape: <which of the three>` . If an item has no `expected:` line, it is measuring taste, not guidance — delete it.
 
 **A pass must be *reproducible by the document*.** Ask: if this agent were dropped into another project with the same docs and a different convention, would it still pass? If the answer is no, the case measured luck.

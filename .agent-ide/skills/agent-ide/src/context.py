@@ -132,6 +132,7 @@ class ProbeHit(NamedTuple):
     msgs: int
     bytes: int
     files: int
+    last: float = 0.0
 
 
 
@@ -193,12 +194,15 @@ def probe_keys(store, fragment_file: Path, limit: int | None = None,
     needles = [ln.strip() for ln in fragment_file.read_text(
         encoding="utf-8", errors="replace").splitlines() if ln.strip()]
     if not needles:
-        raise ValueError(f"{fragment_file}: no non-empty line to match")
+        raise ValueError(
+            f"{fragment_file}: 针是空的（0 行非空文本）。把被找的那句话原文写进这个文件，"
+            f"例如：printf '%s' '<一句原文>' > {fragment_file}；"
+            f"不要 cat 它，也不要往里写多条候选。")
     needles_raw = list(needles)
     needles = [_normalise(n) for n in needles]
     if not any(needles):
         raise ValueError(
-            f"{fragment_file}: every line is empty after normalisation — the fragment "
+            f"{fragment_file}: 针里只有不可见字符（U+FFFD／零宽／空格），归一化后为空 — the fragment "
             f"holds only characters that carry no text (U+FFFD, zero-width, spaces). "
             f"Copy a longer stretch of the reply, or pick a line with words in it.")
 
@@ -270,10 +274,11 @@ def probe_keys(store, fragment_file: Path, limit: int | None = None,
             msgs=count[name],
             bytes=sum(f.stat().st_size for f in files_of[name] if f.is_file()),
             files=count[name],
+            last=max((p.stat().st_mtime for p in files_of[name] if p.is_file()), default=0.0),
         )
         for name, n in hits.items()
     }
-    out = sorted(sized.values(), key=lambda h: (h.hits, h.msgs), reverse=True)
+    out = sorted(sized.values(), key=lambda h: (h.hits, h.last, h.msgs), reverse=True)
     return out[:limit] if limit else out
 
 

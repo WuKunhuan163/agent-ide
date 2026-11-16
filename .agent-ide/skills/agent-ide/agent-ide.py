@@ -236,8 +236,11 @@ def cmd_context(args: argparse.Namespace) -> None:
     store = _store(args)
 
     if args.probe:
-        hits = context.probe_keys(store, _needle_file(args.probe), args.top,
-                                  max_files=args.max_files)
+        try:
+            hits = context.probe_keys(store, _needle_file(args.probe), args.top,
+                                      max_files=args.max_files)
+        except ValueError as exc:
+            raise AgentIdeError(2, str(exc)) from None
         if not hits:
             raise AgentIdeError(
                 2,
@@ -247,10 +250,12 @@ def cmd_context(args: argparse.Namespace) -> None:
                 "or read --bindings and go straight to --key. "
                 "Otherwise the fragment is not in this store: see "
                 "~/.codebuddy/rules/guide-probe-miss.md. Exit 2.")
-        print("# 下面是结果：key<TAB>hits<TAB>msgs<TAB>bytes", file=sys.stderr, flush=True)
+        print("# 下面是结果：key<TAB>hits<TAB>msgs<TAB>bytes<TAB>last(UTC)", file=sys.stderr, flush=True)
         for hit in hits:
             # stdout stays a clean table: key, hits, messages, bytes.
-            print(f"{hit.key}\t{hit.hits}\t{hit.msgs}\t{hit.bytes}")
+            import datetime as _dt
+            _last = _dt.datetime.fromtimestamp(hit.last, _dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") if hit.last else "-"
+            print(f"{hit.key}\t{hit.hits}\t{hit.msgs}\t{hit.bytes}\t{_last}")
             if hit.files >= context.PROBE_MAX_CONVERSATION_FILES * 0.7:
                 print(
                     f"probe: {hit.key} holds {hit.files} message files "

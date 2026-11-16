@@ -2,6 +2,9 @@
 
 Only the manifest's files and directories move. `data/` — archives, caches,
 credentials — is never declared, so it never leaves the machine it lives on.
+A declared directory is further cut by `exclude`: per-project material that a
+package keeps inside its own tree (one project's drafts, a real identifier
+next to a template) would otherwise ride along on a whole-directory entry.
 Directories are replaced wholesale, so a deleted source file disappears at the
 destination too; files are copied, never pruned, because a package's `data/`
 must survive a push.
@@ -39,20 +42,51 @@ def _ignored(path: Path) -> bool:
 
 
 def _digest(root: Path, spec: dict) -> dict[str, str]:
-    """sha256 per declared path, keyed by relative path, ignoring what IGNORE drops."""
+    """sha256 per declared path, ignoring what IGNORE or `exclude` drops.
+
+    The check has to drop exactly what the copy drops: an excluded path
+    counted here would report a missing file the copy was told never to
+    write, and the push would fail on a package that is behaving.
+    """
     out: dict[str, str] = {}
+    patterns = manif.excludes(spec)
     for rel in manif.files(root, spec):
         path = root / rel
-        if path.is_file():
+        if path.is_file() and not manif.excluded(rel, patterns):
             out[rel] = hashlib.sha256(path.read_bytes()).hexdigest()
     for rel in manif.directories(spec):
         base = root / rel
         if not base.is_dir():
             continue
         for path in sorted(base.rglob("*")):
-            if path.is_file() and not _ignored(path):
-                out[str(path.relative_to(root))] = hashlib.sha256(path.read_bytes()).hexdigest()
+            rel_path = path.relative_to(root).as_posix()
+            if path.is_file() and not _ignored(path) and not manif.excluded(rel_path, patterns):
+                out[rel_path] = hashlib.sha256(path.read_bytes()).hexdigest()
     return out
+
+
+def _ignore(src: Path, spec: dict):
+    """`IGNORE` plus the manifest's `exclude`, for `copytree`.
+
+    `ignore` is asked once per directory, so backtracking the relative path
+    here is how a whole subtree is refused without walking it first.
+    """
+    patterns = manif.excludes(spec)
+
+    def ignore(directory: str, names: list[str]):
+        out = set(IGNORE(directory, names))
+        if not patterns:
+            return out
+        here = Path(directory)
+        for name in names:
+            if name in out:
+                continue
+            rel = (here / name).relative_to(src).as_posix()
+            if manif.excluded(rel, patterns):
+                out.add(name)
+        return out
+
+    return ignore
 
 
 def _verify(name: str, src: Path, dest: Path, spec: dict) -> int:
@@ -83,6 +117,7 @@ def package(name: str, src_root: Path, dest_root: Path, *, validate: bool = True
     if validate:
         manif.validate(src, spec)
 
+    patterns = manif.excludes(spec)
     try:
         dest.mkdir(parents=True, exist_ok=True)
         for rel in manif.files(src, spec):
@@ -90,6 +125,8 @@ def package(name: str, src_root: Path, dest_root: Path, *, validate: bool = True
             if not source.is_file():
                 if validate:
                     raise fail(Exit.Package.FAILED, f"{name}: declared file missing: {rel}")
+                continue
+            if manif.excluded(rel, patterns):
                 continue
             target = dest / rel
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -104,7 +141,7 @@ def package(name: str, src_root: Path, dest_root: Path, *, validate: bool = True
             target = dest / rel
             if target.exists():
                 shutil.rmtree(target)
-            shutil.copytree(source, target, symlinks=True, ignore=IGNORE)
+            shutil.copytree(source, target, symlinks=True, ignore=_ignore(src, spec))
     except OSError as exc:
         # A read-only or full destination is a normal failure, not a crash:
         # the caller gets one line and the exit code the CLI promises.
