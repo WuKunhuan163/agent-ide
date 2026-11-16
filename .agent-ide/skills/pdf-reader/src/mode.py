@@ -31,6 +31,7 @@ class Caps:
     mode: Mode
     page_limit: int
     max_file_mb: int
+    span_mb: int
     link_batch_size: int
     single_file_only: bool
     submit_returns: str          # "batch_id" | "task_id"
@@ -54,6 +55,7 @@ def caps_for(mode: Mode, cfg: Config) -> Caps:
             mode=mode,
             page_limit=ns.split_page_limit,
             max_file_mb=ns.max_file_mb,
+            span_mb=ns.max_file_mb,
             link_batch_size=ns.link_batch_size,
             single_file_only=False,
             submit_returns="batch_id",
@@ -68,6 +70,7 @@ def caps_for(mode: Mode, cfg: Config) -> Caps:
         mode=mode,
         page_limit=ns.split_page_limit,
         max_file_mb=ns.max_file_mb,
+        span_mb=getattr(ns, "span_mb", ns.max_file_mb),
         link_batch_size=1,
         single_file_only=True,
         submit_returns="task_id",

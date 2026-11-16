@@ -5,6 +5,8 @@ and the places where adding something touches more than one file.
 
 ## Three stages, one direction
 
+**Three stages, one direction — parse, then structure, then render — and nothing downstream may re-read the source**: the block below shows what each stage hands on.
+
 ```
 util → config → endpoint → plan → run → deliver → cli
 ```
@@ -44,8 +46,7 @@ delivery cannot retry work. Two consequences that are easy to get wrong:
    download nothing.
 4. **The upload request carries no content type.** The signed URL does not cover that
    header, and sending one produces a signature error that looks exactly like a broken
-   channel. This rule is asserted in `tests/test_units.py` and explained in
-   `protocol-notes.md`.
+   channel. The rule is explained in `protocol-notes.md`.
 
 ## Capabilities, not `if mode`
 
@@ -65,22 +66,23 @@ section below lists the exact places.
 ## The client is an interface, and that is not decoration
 
 The scheduler takes an endpoint object satisfying a small protocol. That seam is the only
-reason the adaptive budget, the retry policy and the window ladder can be tested without a
-network or an allowance: `tests/test_units.py` runs a fake endpoint that refuses windows past
-the end of a document and asserts that the ladder walks one window at a time and reports the
-run as delivered. Any change that makes the scheduler import a concrete HTTP client would
-remove that ability.
+reason the adaptive budget, the retry policy and the window ladder can be exercised without a
+network or an allowance: a fake endpoint that refuses windows past the end of a document is
+enough to watch the ladder walk one window at a time. Any change that makes the scheduler
+import a concrete HTTP client would remove that seam.
 
 ## Changing things
+
+**Changing one thing costs the row it sits in**: the table maps a change to the files it touches, so a one-line edit does not silently break the next stage.
 
 | change | touch |
 |---|---|
 | a new parameter | the definition area (`src/config/schema.py`) — bounds, source, and which module reads it; `docs/config.md` regenerates itself, so never edit it by hand |
-| a new error code | the verdict table in `src/endpoint/errors.py`, plus the wording tests if the service reports it as text |
+| a new error code | the verdict table in `src/endpoint/errors.py`, plus the wording branch that matches the service's own text |
 | a new product from the endpoint | `src/deliver/` — and a line in `docs/outputs.md` if it changes what a run leaves behind |
 | a new capability on an existing channel | `src/mode.py`, then whichever layer reads the new capability |
 | another channel entirely | `src/mode.py` + one configuration namespace + the endpoint methods it needs; nothing in `plan`, `run` or `deliver` should need an edit |
-| a new verb | `src/cli.py` only — the layers below it do not know verbs exist |
+| a new verb | `pdf-reader.py` only — the layers below it do not know verbs exist |
 
 ## What differs from the archived tool
 

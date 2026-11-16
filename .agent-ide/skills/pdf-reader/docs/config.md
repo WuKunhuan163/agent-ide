@@ -16,6 +16,8 @@ the archived tool, `[?]` no published value exists.
 
 ## common
 
+**These keys apply to every backend; the per-backend sections below override nothing here**, they only add.
+
 | key | default | bounds | env | what it does | source |
 |---|---|---|---|---|---|
 | `common.request_timeout_s` | `60` | 5..300 | `PDF_READER_COMMON_REQUEST_TIMEOUT_S` | per-HTTP-request timeout for link requests and state probes | [?] no official value; measured 0.16s (link request) / 0.75s (state probe) |
@@ -34,6 +36,8 @@ the archived tool, `[?]` no published value exists.
 
 ## precision
 
+**The precision channel is the accurate one and the slow one**: its keys change what it will accept, not how fast it answers.
+
 | key | default | bounds | env | what it does | source |
 |---|---|---|---|---|---|
 | `precision.split_page_limit` | `200` | 1..200 | `PDF_READER_PRECISION_SPLIT_PAGE_LIMIT` | a source larger than this is split by page range, never physically | [D1] 'file pages must not exceed 200'; also the -60006 trigger |
@@ -42,6 +46,8 @@ the archived tool, `[?]` no published value exists.
 | `precision.daily_page_quota` | `1000` | 1..100000 | `PDF_READER_PRECISION_DAILY_PAGE_QUOTA` | basis of the local page ledger; exceeding it warns, it does not refuse | [D1] 'each account gets 1000 pages/day at top priority'; beyond that priority drops |
 
 ## flash
+
+**The flash channel trades accuracy for latency, and its own limits are tighter in every dimension.**
 
 | key | default | bounds | env | what it does | source |
 |---|---|---|---|---|---|

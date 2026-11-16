@@ -15,6 +15,8 @@ re-derive them.
 
 ## The two channels
 
+**The two channels differ in what they will accept and what they charge for**: read the column you are on before sending anything.
+
 | | precision (a token) | flash (no token) |
 |---|---|---|
 | how it is addressed | its own versioned API, authenticated with a bearer token | a separate lightweight API, no credentials |
@@ -50,6 +52,8 @@ concurrency is "several documents at once", not "one document in several pieces"
 
 ## How long things take (measured here)
 
+**These are measured here, not quoted from a pricing page**: a run planned on the vendor's numbers will time out.
+
 | quantity | value |
 |---|---|
 | asking for upload links | a fraction of a second [T] |
@@ -68,6 +72,8 @@ tool cut files into five-page pieces, which multiplied the number of requests fo
 at all.
 
 ## Time limits and validity
+
+**A result expires, and the clock starts when the job finishes, not when you submit it**: plan the read that follows, not just the parse.
 
 | item | value | source |
 |---|---|---|

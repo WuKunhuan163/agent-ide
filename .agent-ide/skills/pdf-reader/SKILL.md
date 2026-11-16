@@ -6,7 +6,8 @@ description: >-
   endpoint. Read this skill whenever a paper, report or slide deck has to become text,
   when a URL should be parsed without being downloaded first, when a document is larger
   than the endpoint's page limit, or when an earlier read stopped early and has to be
-  finished.
+  finished, **and whenever a draft is about to cite a paper (\cite, a Related Work paragraph, "X shows that…")**. This is the only sanctioned way to turn a PDF into text here — not pdftotext, not PyMuPDF, not a `fitz` heredoc.** If you are about to run one of those, you are bypassing this
+  skill, and the text you get cannot be re-derived later.
 ---
 
 # pdf-reader
@@ -19,6 +20,29 @@ from, and write the products somewhere predictable.
 
 Neighbouring skills: `arxiv` fetches papers, `lit_research` reads and files them. This
 skill is the conversion step in between.
+
+## Never turn a PDF into text with anything else
+
+The tempting alternative is one line — `pdftotext -layout`, `python -c "import fitz…"`, a quick `PyMuPDF` heredoc. It works, which is why it gets used. It is still wrong here, for three reasons that all showed up on 2026-11-13, when three papers were dumped by an inline `fitz` script and twelve sentences were quoted out of those dumps:
+
+1. **The command disappears.** A heredoc leaves no record, no resume point, no parameters. Next week nobody can say which pages were read, or re-derive the text if a claim is challenged. This skill writes `run.json` and the products, so a read is an artifact rather than a memory.
+2. **Page anchors get lost or invented.** This skill splits against the endpoint's real limits and the output keeps page structure; a flat dump plus a hand-written `===== PAGE n =====` header is a claim about pagination that nothing verifies.
+3. **Token accounting is invisible.** The flash channel is free and says so; a local extractor silently spends nothing, so it also has no ceiling and no notice when it truncates — the failure that produces "the paper does not mention X" when it does.
+
+**This file is the rule; there is no other copy to consult.** The skill gets copied onto someone else's machine, **where no global directory can be pointed at** — so everything this rule needs is written here.
+
+So: a PDF becomes text through this skill, full stop. If a file defeats the flash limits (10 MB / 20 pages), that is a fact to report and handle here (`fetch`, `--pages`, the token channel) — not a licence to swap tools. A note may say "flash limit exceeded, read pages 1-20"; it may never say "extracted with fitz".
+
+## `waiting-file` is an uplink problem, not a size ceiling
+
+A job that ends with `state=waiting-file` (or blows `upload_timeout_s`) never reached the endpoint: the bytes were not accepted, so nothing was parsed. **It is not the file being too large** — a window is materialised first, in memory, as its own PDF (`src/run/submit.py: put_job`), and the job name carries the range (`paper_p1-2.pdf`). A 28 MB / 28-page file asked for `--pages 1-2` uploads about 2 MB.
+
+So read the failure as transport and act on transport:
+
+- retry with `fetch --run <run_id>` rather than resubmitting from scratch;
+- move the window later (`--pages 10 12`) if the first pages are image-heavy;
+- raise `common.upload_timeout_s` (default 300 s; one measured 8 MB window took 302 s on a ~27 KB/s uplink);
+- do not conclude "both channels reject this file", and never fall back to a local extractor because of it.
 
 ## Before anything else: `--id`
 
@@ -105,6 +129,8 @@ Exit codes:
 
 ## How a run proceeds
 
+**One run is one document through one pipeline, and the block below is its literal order**: a stage skipped here does not fail loudly, it returns half a parse.
+
 ```
 read → resolve parameters → plan the jobs → warn about quota → schedule
                           ┌─ submit: ask for upload links, then upload the bytes
@@ -157,6 +183,8 @@ Results do not live forever — the endpoint expires finished tasks — so produ
 collected promptly rather than re-fetched days later.
 
 ## Documentation map
+
+**Four documents, four different questions; find your question in the right column** rather than reading the code.
 
 | document | answers |
 |---|---|

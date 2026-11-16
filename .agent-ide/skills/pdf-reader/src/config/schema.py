@@ -139,6 +139,12 @@ PARAMS: tuple[Param, ...] = (
        source="[D1] flash size limit is 10MB (-30001)",
        effect="admission check",
        readers=("plan.planner", "mode")),
+    _p("flash.span_mb", "int", 3, (1, 10),
+       source="[M] a 8MB window took 302s on a ~27KB/s uplink and blew upload_timeout_s=300; "
+              "the endpoint's 10MB ceiling is not a transport budget",
+       effect="byte cap used when cutting a source into windows, independent of the "
+              "endpoint's max_file_mb; smaller spans survive a slow uplink",
+       readers=("plan.planner", "mode")),
     _p("flash.daily_file_quota", "int_or_null", None, (1, 100000),
        source="[?] user reports 5000 files/day on the web UI; absent from every public doc",
        effect="optional local file ledger for flash; null disables the ledger",

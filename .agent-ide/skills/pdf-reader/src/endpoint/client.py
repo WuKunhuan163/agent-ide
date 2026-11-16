@@ -102,7 +102,16 @@ class HttpEndpoint:
     def _open(self, url: str, data: bytes | None, headers: dict[str, str], timeout: int,
               method: str) -> tuple[int, bytes]:
         if method == "PUT" and data is not None:
-            return self._put_raw(url, data, timeout)
+            # The PUT branch used to sit outside the try below, so a stalled upload raised
+            # a bare ``TimeoutError`` that no caller could classify: it escaped
+            # ``future.result()``, was not an ``ApiError``, and killed the whole run
+            # instead of being requeued.  Classify it like every other network failure.
+            try:
+                return self._put_raw(url, data, timeout)
+            except ApiError:
+                raise
+            except Exception as exc:  # timeout, reset, ssl error mid-body
+                raise errors.network_error(exc, f"PUT {url.split('?')[0]}") from None
         request = urllib.request.Request(url, data=data, headers=headers, method=method)
         try:
             with urllib.request.urlopen(request, timeout=timeout, context=ssl_context()) as response:
@@ -129,8 +138,20 @@ class HttpEndpoint:
         else:
             connection = http.client.HTTPConnection(parts.netloc, timeout=timeout)
         try:
-            connection.request("PUT", path, body=data,
-                               headers={"Content-Length": str(len(data))})
+            # A single ``connection.request(body=...)`` hands the whole body to one
+            # ``sendall``; on a slow uplink that call exceeds the socket timeout and
+            # raises ``TimeoutError: write operation timed out`` mid-upload, which used
+            # to kill the entire run.  Send in chunks instead and reset the socket
+            # timeout per chunk, so the budget applies to a 1MiB slice rather than to
+            # the whole span.
+            connection.putrequest("PUT", path)
+            connection.putheader("Content-Length", str(len(data)))
+            connection.endheaders()
+            sock = connection.sock
+            view = memoryview(data)
+            while view:
+                sock.settimeout(timeout)
+                view = view[sock.send(view):]
             response = connection.getresponse()
             return response.status, response.read()
         finally:
@@ -233,6 +254,8 @@ class HttpEndpoint:
     def upload_bytes(self, url: str, data: bytes) -> int:
         """PUT bytes that are already in hand -- a page window, never a file on disk."""
         body = data
+        # one attempt here: retries belong to the scheduler, which knows the retry budget
+        # and requeues the span; a second loop here would multiply the wait
         status, raw = self._open(url, body, {}, self.upload_timeout, "PUT")
         if status >= 300:
             text = raw[:300].decode("utf-8", "replace")

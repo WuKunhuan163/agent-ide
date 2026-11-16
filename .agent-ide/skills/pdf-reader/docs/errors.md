@@ -18,6 +18,8 @@ before anything decides what to do next.
 
 ## The verdict table
 
+**Read the verdict, then the condition that produced it**: the table exists so a failure is named rather than described.
+
 | verdict | codes / conditions | what the run does, and what the caller is told |
 |---|---|---|
 | retry and back off | a full submission queue; HTTP 429; an internal failure | wait along the backoff, **lower the in-flight budget**, requeue while attempts remain — "the server is busy or throttling" |

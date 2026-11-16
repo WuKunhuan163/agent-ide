@@ -169,9 +169,12 @@ def action_from_message(message: str) -> Action:
     Batch results carry only ``{file_name, state, err_msg, full_zip_url}`` -- there is
     no error *code* per file, so the code has to be recovered from the message when the
     service happens to include one, and otherwise from the wording.  Order matters
-    here: a page-limit message that also happens to say "上限" must stay a split, and
-    a quota refusal must be recognised as fatal even though it says nothing about
-    "quota" -- its published wording is a count of tasks, not of pages.
+    here: a page-limit message that also carries the word for "cap" must stay a
+    split, and a quota refusal must be recognised as fatal even though it says
+    nothing about "quota" -- its published wording is a count of tasks, not of pages.
+
+    The service answers in Chinese, so the literals below are Chinese on purpose:
+    they are the bytes being matched, not prose. Do not translate them.
     """
     if not message:
         return Action.UNKNOWN

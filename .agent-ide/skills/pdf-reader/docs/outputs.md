@@ -42,6 +42,8 @@ failed window can be retried without touching the others.
 
 ## What is deliberately not written
 
+**What is missing from the output is a decision, not an omission**: the table says why each absent piece is absent, so its absence can be relied on.
+
 | not written | why |
 |---|---|
 | the endpoint's result archive | it is an intermediate form; the products are extracted from it and the archive is dropped |

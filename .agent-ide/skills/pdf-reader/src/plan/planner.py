@@ -135,7 +135,8 @@ def windows_by_pages(limit: int, first: int, last: int) -> list[tuple[int, int]]
 
 
 def windows_by_bytes(page_limit: int, byte_limit: int, page_bytes: list[int],
-                     first: int = 1, last: int | None = None) -> list[tuple[int, int]]:
+                     first: int = 1, last: int | None = None,
+                     hard_limit: int | None = None) -> list[tuple[int, int]]:
     """Greedy page windows: as many pages as fit under *both* ceilings.
 
     The two ceilings are independent -- flash refuses at 20 pages **or** 10MB, precision
@@ -144,17 +145,17 @@ def windows_by_bytes(page_limit: int, byte_limit: int, page_bytes: list[int],
     (see ``probe.page_sizes``), which is why the sum over a window over-estimates it:
     the estimate errs towards a smaller window, the safe direction.
 
-    A page that is over the byte ceiling **on its own** is left out instead of being
-    sent as a window of one: measured, the endpoint refuses on the bytes it is handed, so
-    such a page could only come back refused -- a request spent for nothing.  The pages
-    around it still travel, which is the difference between losing one page and losing
-    the document.
+    ``hard_limit`` separates the two ceilings: a page above the *transport* budget
+    (``byte_limit``) still travels as a window of one, because that budget is ours and
+    only means "slower"; a page above the *endpoint* ceiling (``hard_limit``, default
+    same as ``byte_limit``) is left out, because the endpoint would refuse it and the
+    request would be spent for nothing.
     """
     total = len(page_bytes) if last is None else min(last, len(page_bytes))
     out: list[tuple[int, int]] = []
     start = first
     while start <= total and len(out) < MAX_WINDOWS:
-        if page_bytes[start - 1] > byte_limit:
+        if page_bytes[start - 1] > (hard_limit or byte_limit):
             start += 1
             continue
         end = start - 1
@@ -165,6 +166,10 @@ def windows_by_bytes(page_limit: int, byte_limit: int, page_bytes: list[int],
                 break
             used += size
             end += 1
+        if end < start:
+            # one page over the transport budget but under the endpoint ceiling: send it
+            # alone rather than silently dropping it (a window must never be empty)
+            end = start
         out.append((start, end))
         start = end + 1
     return out
@@ -219,7 +224,9 @@ def plan(sources: list[str], caps: Caps, pages: str | None = None) -> Plan:
     """Admission-check every input, then cut it into windows no larger than the caps."""
     result = Plan()
     taken: set[str] = set()
-    byte_limit = caps.max_file_mb * 1024 * 1024
+    # the endpoint's ceiling is not a transport budget: a span at the ceiling can
+    # outlast upload_timeout_s on a slow uplink, so cut to the smaller of the two
+    byte_limit = min(caps.max_file_mb, caps.span_mb) * 1024 * 1024
     for value in sources:
         try:
             source = probe.probe(value)
@@ -284,7 +291,8 @@ def _cut(source: Source, caps: Caps, byte_limit: int,
         if sizes is None:
             out.extend(windows_by_pages(caps.page_limit, start, end))
         else:
-            out.extend(windows_by_bytes(caps.page_limit, byte_limit, sizes, start, end))
+            out.extend(windows_by_bytes(caps.page_limit, byte_limit, sizes, start, end,
+                                        hard_limit=caps.max_file_mb * 1024 * 1024))
     _warn_left_out(source, spans, out, byte_limit)
     return out
 
