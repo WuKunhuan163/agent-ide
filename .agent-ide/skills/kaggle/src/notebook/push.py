@@ -53,13 +53,15 @@ def register_push(verbs) -> None:
         action="store_true",
         help="force no browser tab (background mode opens none anyway; manual mode opens the editor)",
     )
-    # --force-push 被刻意禁用，而不是删掉：删掉会让旧调用得到 argparse 的
-    # "unrecognized arguments"，看起来像笔误；保留并直接报错，才能把原因说清。
+    # --force-push is deliberately disabled rather than removed: removing it gives old
+    # callers argparse's "unrecognized arguments" and looks like a typo; keeping it and
+    # failing outright is what lets the reason be stated.
     #
-    # 它原本干两件事：跳过 dataset_sources 的空检查，以及跳过「账本里这条已经
-    # RUNNING 就不许推」的门。第二件事是致命的——Kaggle 对同名 kernel 推新版本
-    # 会终止它正在运行的 session，于是 agent 每修一个报错再推一次，就把用户刚
-    # 跑起来的 session 杀一次，而 gate 因为 force=True 一路放行。
+    # It used to do two things: skip the empty check on dataset_sources, and skip the gate
+    # "this entry is already RUNNING, so do not push". The second is fatal — pushing a new
+    # version of a same-named kernel terminates the session that is running, so every time
+    # an agent fixed an error and pushed again it killed the session the user had just
+    # started, while the gate let everything through on force=True.
     push.add_argument(
         "--force-push",
         action=_RejectForcePush,

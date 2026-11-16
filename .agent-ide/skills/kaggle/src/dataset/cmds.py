@@ -30,7 +30,7 @@ def register_dataset(groups) -> None:
 
     find = verbs.add_parser("find", help="search Kaggle datasets (all pages)")
     find.add_argument("query", metavar="<query>", help="Kaggle search query")
-    find.add_argument("-m", "--mine", action="store_true", help="只用自己名下的结果")
+    find.add_argument("-m", "--mine", action="store_true", help="list only your own datasets")
 
     verbs.add_parser("mine", help="list every dataset I own (all pages)")
 
@@ -72,11 +72,11 @@ def _require_folder(folder: str) -> str:
 
 
 def _list_all(base_args: list[str], page_limit: int = 60) -> str:
-    """翻页拉全量，输出只保留一份表头。
+    """Page through to the full set, keeping exactly one header row in the output.
 
-    CLI 每页 20 条，而 ``datasets list -m`` 在账号有 40+ 个数据集时，
-    第 1 页看起来就像「全部」——查一个已上传的模型会得出「没有」。
-    这里逐页取到空页为止，不靠调用者记得加 ``-p``。
+    The CLI pages 20 at a time, and with 40+ datasets on the account ``datasets list -m``
+    makes page 1 look like "everything" — checking for one uploaded model concludes "absent".
+    This walks pages until an empty one, so the caller need not remember ``-p``.
     """
     header: list[str] = []
     body: list[str] = []
@@ -88,10 +88,10 @@ def _list_all(base_args: list[str], page_limit: int = 60) -> str:
             break
         for ln in lines:
             stripped = ln.replace("-", "").strip()
-            # 纯横线分隔行：每页都有，丢掉。
+            # the separator row of pure dashes: present on every page, dropped.
             if stripped == "":
                 continue
-            # 表头行（以 ref 开头）：只保留第一份，连同它下面那行分隔线。
+            # the header row (starting with ref): keep the first only, with the separator under it.
             if ln.lstrip().startswith("ref") and "title" in ln:
                 if not header:
                     header.append(ln)
@@ -114,10 +114,10 @@ def cmd_dataset_find(args: argparse.Namespace) -> int:
 
 
 def cmd_dataset_mine(args: argparse.Namespace) -> int:
-    """列自己名下的全部数据集（自动翻页）。
+    """List every dataset you own, paging automatically.
 
-    存在的理由：``datasets list -m`` 是 passthrough，默认只打 20 行，
-    用它判断「某个数据集在不在」会漏。这个动词一次给全。
+    Why it exists: ``datasets list -m`` is a passthrough printing 20 rows by default, so
+    using it to decide "is this dataset there" misses. This verb gives the whole set once.
     """
     text = _list_all(["datasets", "list", "-m"])
     if text:
@@ -126,9 +126,9 @@ def cmd_dataset_mine(args: argparse.Namespace) -> int:
 
 
 def cmd_dataset_ls(args: argparse.Namespace) -> int:
-    # Kaggle 对「数据集不存在」和「无权访问」都回 403，原样抛出去只会看到
-    # 一句 `kaggle datasets files ... failed with exit 1: 403`，分不清是名字打错
-    # 还是 token 权限不够。这里把两种可能一起说出来。
+    # Kaggle answers 403 both for "no such dataset" and for "no access"; thrown raw it is
+    # one line `kaggle datasets files ... failed with exit 1: 403`, which cannot tell a
+    # mistyped name from a token without permission. This states both possibilities.
     proc = kaggle_exec.run_kaggle_checked(
         ["datasets", "files", args.dataset], tolerate=(403,)
     )

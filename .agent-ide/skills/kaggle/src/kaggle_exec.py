@@ -62,10 +62,12 @@ def run_kaggle(
         ) from None
 
 
-# 两行噪音，每次都出现，且都不携带结果：
-#   - 版本提示：本机装的是 2.2.2，上游是 2.2.5。升级与否不由一次调用决定，
-#     但每一条命令都先糊这一行，读输出时要先跳过去。
-#   - `No datasets found`：空结果本身就是答案，bash 风格下应该是空输出。
+# Two lines of noise, present every time and carrying no result:
+#   - the version notice: this machine has 2.2.2, upstream is 2.2.5. Whether to upgrade is
+#     not decided by one call, but every command pastes this line first, so skip it when
+#     reading output.
+#   - `No datasets found`: the empty result is itself the answer; in bash style it should
+#     be empty output.
 _NOISE_MARKERS = (
     "Looks like you're using an outdated `kaggle` version",
     "No datasets found",
