@@ -9,85 +9,95 @@ description: >-
 
 # task-tree
 
-一棵树就是一个文件：`data/<tree>/tree.json`。节点是假设、检查项或目标；叶子被 `resolve` 裁决，父节点由子节点聚合，`focus` 指向下一个要验证的叶子。
+One tree is one file: `data/<tree>/tree.json`. Nodes are hypotheses, checks or goals; leaves are settled by `resolve`, parents aggregate their children, and `focus` points at the next leaf to verify.
 
-## 何时用
+## When to use it
 
-- 同一个问题有多条互斥路线（`one_of`：一条通过即父节点通过）
-- 有前置依赖（`--requires`：依赖未通过时节点 `blocked`，通过后自动 `open`）
-- 要把「走过哪些路、排除了什么」留给下一位 agent
+- One question has several mutually exclusive routes (`one_of`: any one passing settles the parent).
+- There are prerequisites (`--requires`: a node is `blocked` while a dependency is unpassed, and becomes `open` automatically once it passes).
+- What was tried, and what was ruled out, has to survive for the next agent.
 
-线性任务用 `task-queue`；树管分叉与证据。
+Linear work belongs in `task-queue`; the tree owns branching and evidence.
 
-## 命令
+## Commands
+
+**The verbs below are the whole interface; anything not listed here is done by editing files, which the tool will not detect as progress.**
 
 ```bash
-task-tree init --root <node> --title "<goal>"          # 建树（一个根节点）
+task-tree init --root <node> --title "<goal>"          # create the tree (one root)
 task-tree add <node> --parent <node> --title "..." [--type hypothesis|check|goal] [--body-file FILE]
-task-tree add <node> --parent <node> --requires a b     # 依赖未满足则 blocked
-task-tree mode <node> all|one_of                       # 该节点如何聚合子节点
-task-tree next [--body]                                # 焦点叶子，--body 带正文
-task-tree body <node> --file FILE                      # 写入或替换节点正文
+task-tree add <node> --parent <node> --requires a b     # blocked until the dependencies pass
+task-tree mode <node> all|one_of                       # how the node aggregates its children
+task-tree next [--body]                                # the focused leaf, --body includes the text
+task-tree body <node> --file FILE                      # write or replace a node's body
 task-tree resolve <node> pass|fail|marginal --evidence "..." [--force]
-task-tree focus [<node>]                               # 查看或手动改焦点
-task-tree show                                         # 整棵树，* 标焦点
-task-tree rm <node> --force                            # 删子树
-task-tree check [--fix]                                # 悬空 parent/child/requires 对账
-task-tree export [--out FILE]                           # 自包含 HTML，可折叠
+task-tree focus [<node>]                               # show or move the focus
+task-tree show                                         # the whole tree, * marks the focus
+task-tree rm <node> --force                            # delete a subtree
+task-tree check [--fix]                                # reconcile dangling parent/child/requires
+task-tree export [--out FILE]                           # self-contained collapsible HTML
 ```
 
-`--id` 可放在子命令前后，缺省 `default`。裁决是**位置参数**，不存在 `--verdict`。
+`--id` may come before or after the subcommand and defaults to `default`. The verdict is **positional**; there is no `--verdict`.
 
-## 状态与推进
+## States and progression
 
-| 状态 | 含义 |
+**States are ordered, and moving backwards is a separate verb, not a state change you type by hand**: read the progression column before setting one.
+
+| State | Meaning |
 |---|---|
-| `open` | 待验证（只有叶子会进入焦点） |
-| `passed` / `failed` / `marginal` | 已裁决；`marginal` 表示部分成立，提示这条假设需要拆细 |
-| `blocked` | `requires` 里还有未通过的节点 |
+| `open` | awaiting verification (only leaves can take the focus) |
+| `passed` / `failed` / `marginal` | settled; `marginal` means partly holds and signals the hypothesis needs splitting |
+| `blocked` | something in `requires` has not passed |
 
-`resolve` 依次做四件事：
+`resolve` does four things in order:
 
-1. 写状态、`verdict`、`evidence`，追加 `history`
-2. 向上聚合父节点（`all`：子全过才过，有失败时父保持 open——失败的是被排除的分支，不是目标；`one_of`：任一通过即通过，全失败才失败）
-3. `pass` 时解锁依赖它的 `blocked` 节点
-4. 重算焦点：从当前节点出发取 DFS 顺序里下一个 `open` 叶子；该节点下已无 open 时回绕全树 DFS 找，找不到报 `no open node left`
+1. Write the state, `verdict` and `evidence`, and append to `history`.
+2. Aggregate upwards to the parent (`all`: passes only when every child passes — with a failed child the parent stays open, because it was a branch that failed, not the goal; `one_of`: passes when any child passes, fails only when all fail).
+3. On `pass`, unblock the nodes that depend on it.
+4. Recompute the focus: the next `open` leaf in DFS order from the current node; when that subtree has none, wrap around the whole tree in DFS; if nothing is left, report `no open node left`.
 
-`marginal` 同样触发第 4 步，焦点会前移；要在这条假设下继续拆子节点，用 `add --parent <node>` 显式把焦点拉回。
+`marginal` also triggers step 4, so the focus moves on. To keep splitting under the same hypothesis, pull the focus back explicitly with `add --parent <node>`.
 
-## 与 task-queue 的分工
+## Division of labour with task-queue
 
-- 队列管顺序：一条线，下一件是什么
-- 树管结构：分叉、依赖、每条分支的证据
+- The queue owns order: one line, what is next.
+- The tree owns structure: branches, dependencies, and the evidence for each branch.
 
-队列条目可带 `node: <node-id>`，`task-queue resolve ... --tree-id <tree>` 会把同一个裁决写进这棵树；不带 `node` 时用队列自己的 key 当节点 id。镜像时队列的 `--evidence` 会覆盖节点原有 evidence。
+A queue item may carry `node: <node-id>`; `task-queue resolve ... --tree-id <tree>` writes the same verdict into this tree, using the queue's own key as the node id when `node` is absent. When mirroring, the queue's `--evidence` overwrites the node's existing evidence.
 
-## 导出
+## Export
 
-`export` 写自包含 HTML（内联样式、原生 `<details>` 折叠），不启动服务、不依赖网络。默认落在 `data/<tree>/tree.html`。
+`export` writes self-contained HTML (inline styles, native `<details>` folding) — no server, no network. The default path is `data/<tree>/tree.html`.
 
-## 数据与恢复
+## Data and recovery
 
-| 路径 | 内容 |
+**Everything the tool persists is under one directory, and recovery means copying it back**: the table shows what each path holds.
+
+| Path | Contents |
 |---|---|
-| `data/<tree>/tree.json` | 节点（含正文）、焦点、历史，唯一权威 |
-| `data/<tree>/tree.html` | 最近一次导出 |
+| `data/<tree>/tree.json` | nodes (with bodies), focus, history — the only authority |
+| `data/<tree>/tree.html` | the most recent export |
 
-`tree.json` 是可读 JSON，可直接看、直接 diff。节点正文在 `body`，`show` 不打印，`next --body` 与导出 HTML 才展开。`check` 找四类问题：非根的 `parent` 为空、`parent` 不存在、子节点未在父节点 `children` 里、`requires` 指向已删除节点；`--fix` 丢掉这些悬空引用并把焦点移到合法位置。
+`tree.json` is readable JSON, meant to be opened and diffed directly. Node bodies live in `body`; `show` does not print them, `next --body` and the exported HTML do. `check` looks for four problems: a non-root node with an empty `parent`, a `parent` that does not exist, a child missing from its parent's `children`, and a `requires` pointing at a deleted node. `--fix` drops those dangling references and moves the focus to a legal position.
 
-`data/` 不进 git。
+`data/` is not committed to git.
 
-## 安装
+## Install
+
+**Install is one copy and one binding; there is nothing to build**, and running it twice is safe.
 
 ```bash
 agent-ide install task-tree
 ```
 
-纯标准库，无第三方依赖。
+Standard library only, no third-party dependencies.
 
-## 退出码
+## Exit codes
 
-| 码 | 含义 |
+**Exit codes are the only machine-readable answer the tool gives**, so a script must branch on these and never on the printed text.
+
+| Code | Meaning |
 |---|---|
-| 0 | 正常 |
-| 2 | 用法或数据错误（树不存在、节点不存在、重复 id、拒绝删根） |
+| 0 | normal |
+| 2 | usage or data error (tree missing, node missing, duplicate id, refusal to delete the root) |
