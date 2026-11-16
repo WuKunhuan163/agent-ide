@@ -11,29 +11,29 @@ description: Compshare (UCloud) GPU instance CLI: stock, price, power, create, w
 
 There is exactly one way to run it: the project launcher. The interpreter path is baked in; it depends on neither PATH nor the system python.
 
-```bash
-.agent-tools/compshare zones
+```bash.agent-tools/compshare zones
 ```
 
 If the launcher is missing, install it first (one line, idempotent):
 
-```bash
-.agent-tools/agent-ide install compshare
+```bash.agent-tools/agent-ide install compshare
 ```
 
 **Do not run `compshare.py` with the system `python3`.** The local `python3` is 3.14 (Homebrew) without CA certificates, and every endpoint fails with `SSL: CERTIFICATE_VERIFY_FAILED`. To use an interpreter explicitly:
 
 ```bash
 PKG=$(python3 -c 'import pathlib;print(pathlib.Path(".codebuddy/skills/compshare/SKILL.md").resolve().parent)')
-/Users/wukunhuan/agent_ide_global_project/.agent-ide/runtime/standalone/python/darwin-arm64/python3.11/bin/python3.11 \
-  "$PKG/compshare.py" zones
+RUNTIME_PY=$(ls "$HOME"/agent_ide_global_project/.agent-ide/runtime/standalone/python/*/bin/python3.1* 2>/dev/null | head -1 || true)
+: "${RUNTIME_PY:=python3.11}"
+"$RUNTIME_PY" \
+ "$PKG/compshare.py" zones
 ```
 
 When the project has no package at all, pull it from the global project:
 
 ```bash
 <global>/.agent-tools/agent-ide push --from-global --project <this project> compshare
-<global>/.agent-tools/agent-ide install        --project <this project> compshare
+<global>/.agent-tools/agent-ide install --project <this project> compshare
 ```
 
 `<global>` defaults to `~/agent_ide_global_project`. `data/` is per-machine state and **does not travel with the package**; after moving to another project you still place `credentials.json` yourself.
@@ -56,42 +56,66 @@ Precedence: `--public-key/--private-key` > environment `COMPSHARE_PUBLIC_KEY` / 
 
 With no key, any subcommand **opens the key page** and exits 20; `--no-open` or `COMPSHARE_NO_OPEN=1` disables that (the panel and `watch` must disable it, or they steal focus every minute).
 
+## Before any experiment runs
+
+Three things, each already argued below: `bootcheck` decides usability, not a `start` that happened to succeed (§Physical); stock is read before anything is scheduled (§Stock); one card carries one job, and a failure is not a reason to switch machines silently (§No automatic machine switching).
+
+## Long tasks
+
+A task is killed when it stopped advancing, not when it is slow — the timestamp rule is in §Downloads, and it holds for transfers and training runs too.
+
+## When the budget is days, not weeks: smoke → budget → poll every 5 minutes → stop
+
+**The time is the constraint, not the hardware.** With a few days and enough cards, the failure mode is not "we ran out of GPU" but "we spent two days on runs that a 50-step smoke would have killed in ten minutes". Four rules, in this order:
+
+1. **Smoke first, always.** One instance, a few dozen steps, one tiny scene. A run that cannot pass smoke is **not** promoted to full scale — scale multiplies cost by the factor it multiplies steps by.
+2. **Write the budget into the run, not into your head.** Steps × seconds-per-step, an upper bound on wall time, and **the number of cards**; a run without these three is a run that will silently eat the day.
+3. **Poll at least every 5 minutes.** `sleep` longer than 300 s is forbidden; a task that died at minute two should not be discovered at minute forty. Write the polling command next to the run, so the interval is a command, not a promise.
+4. **Independent work runs in parallel, and one poller watches all of it.** Parallel only what shares no state (different cards, different output dirs, no shared write path). The poller checks every run on the same 5-minute tick and reports one line per run — **a run nobody polls is a run that is already lost**.
+
+5. **Cap the parallelism, and cap the retries.** Parallel at most as many runs as you have cards (one instance per run, one card each); **a smoke that fails twice is not retried a third time** — it is reported as failed with the two outputs. Unbounded retries and unbounded fan-out are how a three-day budget becomes one day.
+6. **Over budget is a stop, not an extension.** When the wall-clock or step budget is hit, `stop`, collect what exists, and report `over budget at <step>`; **do not silently raise the budget and keep running** — an extension decided at minute 40 is a decision made by the least informed person in the room.
+
+**And the last act is always the same**: `stop` → `start --cardless` to collect → one command proving nothing is still billing. **A finished experiment that is still running is the most expensive state in this skill.**
+
 ## Commands
 
+**Every command below is run as `compshare <verb>`; the ones that cost money say so in their own line**, and none of them is a synonym for another.
+
 ```bash
-compshare zones                                    # regions
-compshare images [--grep cu128] [--raw]            # platform images; --raw prints one record to inspect fields
-compshare types --gpu <card> [--zone cn-wlcb-01]     # legal CPU/memory combinations
+compshare zones # regions
+compshare images [--grep cu128] [--raw] # platform images; --raw prints one record to inspect fields
+compshare types --gpu <card> [--zone cn-wlcb-01] # legal CPU/memory combinations
 compshare stock --gpu <card> [--cards 1] [--image <id>] [--all] [--zone <zone>]
 compshare quote --gpu <card> --cards 1 --cpu 16 --mem-gb 64 --image <id> \
-                [--region cn-wlcb] [--zone cn-wlcb-01] [--charge Postpay]
-compshare ls [--running] [--ids]                   # instance list (complete, paginated)
-compshare info <uhost-id>                          # current state: spec / IP / ssh reachable / watchdog
-compshare exec <uhost-id> 'CMD' [--wait 120] [--init-grace 300] [--pipefail]  # run on the instance, pass the exit code through
-compshare health <uhost-id> [--no-probe]           # 3-second verdict "usable now": 0 usable / 30 broken / 31 stopped
-compshare ready <uhost-id> [--timeout 180] [--init-grace 180]  # wait until usable; exits at once if the card is initialising
-compshare verdicts [--stale 24]                      # read-only: last verdict + how often it broke; --stale filters return candidates
-compshare pool status|fill|grab|release-broken       # card pool: gap in usable cards / fill plan / grab a card / clear broken machines
-compshare card <id> --kolors ready --smoke ok        # record config and smoke result (what makes a card usable)
-compshare release <id> [--yes] [--keep-udisk]        # return it: both disks go; without --yes only the plan is printed
-compshare pick [<id> ...]                            # read-only: one line per machine, for a human decision
-compshare ssh-setup <uhost-id>                     # once: install the key + write the ~/.ssh/config alias
-compshare ssh <uhost-id> [-- CMD]                  # stand-in for ssh; no CMD opens an interactive shell
+ [--region cn-wlcb] [--zone cn-wlcb-01] [--charge Postpay]
+compshare ls [--running] [--ids] # instance list (complete, paginated)
+compshare info <uhost-id> # current state: spec / IP / ssh reachable / watchdog
+compshare exec <uhost-id> 'CMD' [--wait 120] [--init-grace 300] [--pipefail] # run on the instance, pass the exit code through
+compshare health <uhost-id> [--no-probe] # 3-second verdict "usable now": 0 usable / 30 broken / 31 stopped
+compshare ready <uhost-id> [--timeout 180] [--init-grace 180] # wait until usable; exits at once if the card is initialising
+compshare verdicts [--stale 24] # read-only: last verdict + how often it broke; --stale filters return candidates
+compshare pool status|fill|grab|release-broken # card pool: gap in usable cards / fill plan / grab a card / clear broken machines
+compshare card <id> --kolors ready --smoke ok # record config and smoke result (what makes a card usable)
+compshare release <id> [--yes] [--keep-udisk] # return it: both disks go; without --yes only the plan is printed
+compshare pick [<id>...] # read-only: one line per machine, for a human decision
+compshare ssh-setup <uhost-id> # once: install the key + write the ~/.ssh/config alias
+compshare ssh <uhost-id> [-- CMD] # stand-in for ssh; no CMD opens an interactive shell
 compshare tail <uhost-id> <path> [-n 20] [--grep RE] [--exclude RE]
-compshare status <uhost-id>                        # uptime / spent / GPU / running jobs
-compshare doctor <uhost-id>                        # on-box environment: python/torch/nvcc/raster/rsync/disk
-compshare settle <uhost-id> [--dry-run]            # wrap-up: report ETA while work runs, stop when idle
-compshare push <uhost-id> <local> <remote>            # scp upload (no rsync on the remote)
+compshare status <uhost-id> # uptime / spent / GPU / running jobs
+compshare doctor <uhost-id> # on-box environment: python/torch/nvcc/raster/rsync/disk
+compshare settle <uhost-id> [--dry-run] # wrap-up: report ETA while work runs, stop when idle
+compshare push <uhost-id> <local> <remote> # scp upload (no rsync on the remote)
 compshare pull <uhost-id> <remote> <local>
 compshare start <uhost-id> [--cardless A|B] [--no-watch] [--wait-ready 180] [--init-grace 300] [--force]
-compshare reboot <uhost-id>                        # reboot, disk kept
+compshare reboot <uhost-id> # reboot, disk kept
 compshare reinstall <uhost-id> [--image ID] [--yes] # reinstall the system disk; without --yes only the plan is printed
-compshare wait <uhost-id> [--state Running] [--timeout 180]  # state only, not channels
-compshare stop  <uhost-id>                         # clean shutdown of one machine
-compshare kill  <id> [<id> ...] | --all [--dry-run]  # force stop, several or all
-compshare release <id> [--yes] [--keep-udisk]       # return it: both disks go; without --yes only the plan is printed, and the machine must be Stopped
+compshare wait <uhost-id> [--state Running] [--timeout 180] # state only, not channels
+compshare stop <uhost-id> # clean shutdown of one machine
+compshare kill <id> [<id>...] | --all [--dry-run] # force stop, several or all
+compshare release <id> [--yes] [--keep-udisk] # return it: both disks go; without --yes only the plan is printed, and the machine must be Stopped
 compshare create --image <id> --password '...' [--cards 1] [--cpu 16] [--mem-gb 64] \
-                 [--region cn-wlcb] [--zone cn-wlcb-01] [--name x] [--disk-size 100]
+ [--region cn-wlcb] [--zone cn-wlcb-01] [--name x] [--disk-size 100]
 compshare watch --gpu <card> --cards 1 --image <id> [--minutes 30] [--interval 20] [--open]
 compshare watchdog <uhost-id> [--foreground] [--status] [--off]
 ```
@@ -100,14 +124,14 @@ compshare watchdog <uhost-id> [--foreground] [--status] [--off]
 
 ## Hard rule: never assemble ssh / sshpass yourself
 
-The password and IP sit in `data/instance-<id>.json`, but **you may not read them out and build a command line**. Reasons: the password then appears in the process table; `sshpass -p "$PW" ssh -o ...` is a long string rewritten every time and the port is easy to get wrong; and hosts rate-limit consecutive failures, so one bad attempt costs a long wait.
+The password and IP sit in `data/instance-<id>.json`, but **you may not read them out and build a command line**. Reasons: the password then appears in the process table; `sshpass -p "$PW" ssh -o...` is a long string rewritten every time and the port is easy to get wrong; and hosts rate-limit consecutive failures, so one bad attempt costs a long wait.
 
 Always use these three:
 
 ```bash
-compshare ssh-setup <id>                 # run once; afterwards the machine is "a name"
-ssh cs-<id> 'nvidia-smi'                     # no password (the alias lives in ~/.ssh/config)
-compshare exec <id> 'CMD'                # API-checked, path-completed, exit code from the remote
+compshare ssh-setup <id> # run once; afterwards the machine is "a name"
+ssh cs-<id> 'nvidia-smi' # no password (the alias lives in ~/.ssh/config)
+compshare exec <id> 'CMD' # API-checked, path-completed, exit code from the remote
 compshare tail <id> /root/xxx.log -n 50 --exclude Download
 ```
 
@@ -134,8 +158,8 @@ Billing is **per machine**: a `Running` instance bills every moment, even at 0% 
 One command that shows whether money is burning:
 
 ```bash
-compshare status <id>      # uptime / spent / GPU utilisation / running jobs
-compshare settle <id>      # wrap-up: ETA if work runs, stop if idle
+compshare status <id> # uptime / spent / GPU utilisation / running jobs
+compshare settle <id> # wrap-up: ETA if work runs, stop if idle
 ```
 
 ### After training: stop → start cardless → collect → stop
@@ -149,7 +173,7 @@ compshare stop <id>; sleep 45; compshare ls
 compshare start <id> --cardless A --no-watch
 # 3) pack remotely → pull → unpack locally → verify counts
 compshare exec <id> 'cd <out> && tar -cf /root/<tag>.tar renders data *.json *.log; ls -lh /root/<tag>.tar'
-compshare pull <id> /root/<tag>.tar ./tmp/<tag>.tar
+compshare pull <id> /root/<tag>.tar./tmp/<tag>.tar
 mkdir -p tmp/<tag> && tar -xf tmp/<tag>.tar -C tmp/<tag>
 compshare exec <id> 'du -sh <out>; ls <out>/renders | wc -l; wc -l <out>/data/loss.csv'
 # 4) stop again
@@ -165,15 +189,15 @@ compshare stop <id>; sleep 45; compshare ls
 The moment a batch's `exec` returns, **in the same turn**:
 
 ```bash
-compshare stop <id>                                    # 1) stop the carded instance
-compshare start <id> --cardless A --no-watch           # 2) start cardless
-compshare pull <id> /root/<tag>.tar ./tmp/<tag>.tar    # 3) collect
-compshare stop <id>                                    # 4) stop again
+compshare stop <id> # 1) stop the carded instance
+compshare start <id> --cardless A --no-watch # 2) start cardless
+compshare pull <id> /root/<tag>.tar./tmp/<tag>.tar # 3) collect
+compshare stop <id> # 4) stop again
 sleep 45
-compshare ls                                           # confirm Stopped, paste it into the reply
+compshare ls # confirm Stopped, paste it into the reply
 ```
 
-Backgrounding (`nohup ... &`) is not a reason to stay powered on — the results still have to be collected and the machine stopped.
+Backgrounding (`nohup... &`) is not a reason to stay powered on — the results still have to be collected and the machine stopped.
 
 ## Reading `ls` (three states, told apart at a glance)
 
@@ -189,6 +213,8 @@ The second column stays the bare state (`Stopped`/`Running`/`Starting`…), so e
 
 ## Four "stop" verbs, never interchanged
 
+**Read the table by what each verb destroys, not by what it is called**: two of the four look like stops and only one of them ends the billing.
+
 | Command | Scope | Checks for running work first | Destroys | Use |
 |---|---|---|---|---|
 | `stop <id>` | one | no | no | an explicit single shutdown |
@@ -198,6 +224,8 @@ The second column stays the bare state (`Stopped`/`Running`/`Starting`…), so e
 
 The first three delete no disk: disks keep billing by capacity (zero within the free allowance). `kill` only stops the GPU/CPU/memory charge.
 
+When a job ends — training done, figures pulled, transfer complete, check finished — the instance is stopped rather than left for the next turn: an idle machine adds nothing to the next round and bills for the privilege. A machine that will not come up is released at once, with no refund appeal and no waiting on support: the time costs more than the credit, and a broken instance kept around is a decision nobody re-examines.
+
 `release` calls `TerminateCompShareInstance`, and the official restriction is **only a Stopped instance may be deleted**. Therefore:
 
 - While the instance is Running/Stopping, `release` sends one `stop` and exits 4 (telling you to run it again); it never deletes in the same call, because that delete would land on an unknown state.
@@ -206,18 +234,18 @@ The first three delete no disk: disks keep billing by capacity (zero within the 
 
 ```bash
 compshare stop <id>
-compshare ls                    # wait until Stopped
-compshare release <id>          # irreversible; prints the plan only, --yes executes
-compshare ls                    # confirm it is gone
+compshare ls # wait until Stopped
+compshare release <id> # irreversible; prints the plan only, --yes executes
+compshare ls # confirm it is gone
 ```
 
 "Stop everything" done correctly:
 
 ```bash
-compshare ls --running              # first see what is billing
-compshare kill --all --dry-run      # confirm the list (no request sent)
-compshare kill --all                # stop; partial failure exits 4 with per-machine errors on stderr
-compshare kill $(compshare ls --running --ids)   # equivalent, composable with other filters
+compshare ls --running # first see what is billing
+compshare kill --all --dry-run # confirm the list (no request sent)
+compshare kill --all # stop; partial failure exits 4 with per-machine errors on stderr
+compshare kill $(compshare ls --running --ids) # equivalent, composable with other filters
 ```
 
 `ls` is **complete** (it pages past `Limit=100`), assumes no state and does not care where an instance came from; `--running` is the filter. `--ids` prints ids only, made for pipes.
@@ -238,16 +266,18 @@ The code cites reference codes (`REFS` constant); this section maps code → URL
 
 ## State values: the two official documents disagree; the table wins
 
+**The two documents use different words for the same enum, and the difference decides which command accepts the machine**: compare the two columns before matching on a string.
+
 | Source | `State` enum |
 |---|---|
 | `API` (compshare, 2026-10-11) | Running / Stopped / Starting / Stopping / Install / Rebooting — **no Initializing** |
 | `UAPI` (UCloud, 2026-04-24) | Initializing / Starting / Running / Stopping / Stopped / Install Fail / Rebooting / Resizing / empty |
-| Measured (local records, 2026-11-06) | Initializing 50+ times, Starting several, Install twice, Running / Stopped |
+| Measured locally | Initializing 50+ times, Starting several, Install twice, Running / Stopped |
 
 So "does Initializing exist, and is it billed" cannot be answered by paraphrasing docs; query the table:
 
 ```bash
-compshare states --urls   # value / billed|free|unknown / code + document URL
+compshare states --urls # value / billed|free|unknown / code + document URL
 ```
 
 `unknown` is deliberate: for `Stopping`, `Rebooting`, `Install`, `Install Fail` and `Resizing` the vendor **does not say** whether they bill, so the tool writes unknown — it neither treats them as free nor guesses. The billing labels printed by `status` come straight from this table (`gpu_billed_initializing` / `gpu_not_billed` / `gpu_billing_unknown_x`).
@@ -257,10 +287,10 @@ compshare states --urls   # value / billed|free|unknown / code + document URL
 "Uptime" once had three different meanings (this run 5.15 h / cumulative 37.8 h / 0.3 h since the last verdict), and each time a redefinition papered over it. The definition is now data, not my sentence:
 
 ```bash
-compshare gauges    # per number: which field, unit, and what a misread would conclude (self-checked)
+compshare gauges # per number: which field, unit, and what a misread would conclude (self-checked)
 compshare show <id> # the raw API record for one instance: whole, no fields dropped, no reordering
-compshare correct   # list historical definition corrections
-compshare correct "<old wording>" "<new definition>" --why "<field>"   # record one
+compshare correct # list historical definition corrections
+compshare correct "<old wording>" "<new definition>" --why "<field>" # record one
 ```
 
 Three constraints:
@@ -284,11 +314,11 @@ Measured difference: `wk-09` showed `up=5.15h` and `usage=37.8h` in the same run
 Billing likewise has three definitions, and `status` labels them directly:
 
 ```
-Running      → (no label, normal pay-as-you-go)
-Initializing → gpu_billed_initializing    # official FAQ 2.2: card init is billed
-Starting     → gpu_not_billed             # host not up yet, not billed
-Stopped      → gpu_not_billed + disk_still_billed
-package/daily/monthly → instance_billed charge=Month   # bills while stopped (FAQ 2.1)
+Running → (no label, normal pay-as-you-go)
+Initializing → gpu_billed_initializing # official FAQ 2.2: card init is billed
+Starting → gpu_not_billed # host not up yet, not billed
+Stopped → gpu_not_billed + disk_still_billed
+package/daily/monthly → instance_billed charge=Month # bills while stopped (FAQ 2.1)
 ```
 
 ## Two hard constraints of the official API
@@ -307,10 +337,10 @@ There is exactly one implementation entry: `_paged(action, key, id_field, region
 **Two: never assume a region.** Hard-coded `cn-wlcb` / `cn-wlcb-01` used to decide "north China 2A" on the user's behalf; the moment stock ran out there, the conclusion became "no stock anywhere". The rule now:
 
 ```bash
-compshare stock  --gpu 4090 --image <id>      # omitted = walk all five regions in ZONES
-compshare images --grep PyTorch                # omitted = full pagination per region, region/zone prefixed
-compshare types  --gpu 4090                    # same
-compshare ls                                   # instances carry Region/Zone, no lookup
+compshare stock --gpu 4090 --image <id> # omitted = walk all five regions in ZONES
+compshare images --grep PyTorch # omitted = full pagination per region, region/zone prefixed
+compshare types --gpu 4090 # same
+compshare ls # instances carry Region/Zone, no lookup
 ```
 
 Order of decision: **walk every region first, then conclude about a specific one**. To pin a region, pass `--region`/`--zone` explicitly; instance-scoped commands (`exec`/`health`/`start`) take Region/Zone from the instance record and never guess.
@@ -319,8 +349,7 @@ Order of decision: **walk every region first, then conclude about a specific one
 
 When asked "what did we do yesterday / last time", "what changed versus the earlier code", "where was it strengthened", **read the full IDE context first** for the original words, then check against disk facts (`find -newermt`, file contents, `ls`/`card`):
 
-```bash
-.agent-tools/agent-ide context --id 毕设 --last 200 --since 2026-11-06 --out /tmp/ctx.txt
+```bash.agent-tools/agent-ide context --id 毕设 --last 200 --since <date> --stamps  # no --out: lands at data/context/<key>.md
 ```
 
 - The original text answers **what was asked and bounded at the time** (what the user said, what I promised);
@@ -339,18 +368,18 @@ The CLI states facts, not sentences. Two channels, fixed division:
 Record formats (tokens are lowercase or verbatim states, never Chinese and never punctuation):
 
 ```
-ready      <id> <sec>s
-ready      <id> <sec>s jupyter-only
-not-ready  <id> <state>                # powered off
-not-ready  <id> <state> timeout <sec>s
-not-ready  <id> <state> stuck
-abort      <id> <state|ssh-unreachable> [<sec>s]
-wait       <id> <state> <elapsed>s      # progress, only on state change or once per 30s
-wait-ok    <id> <state> <sec>s
+ready <id> <sec>s
+ready <id> <sec>s jupyter-only
+not-ready <id> <state> # powered off
+not-ready <id> <state> timeout <sec>s
+not-ready <id> <state> stuck
+abort <id> <state|ssh-unreachable> [<sec>s]
+wait <id> <state> <elapsed>s # progress, only on state change or once per 30s
+wait-ok <id> <state> <sec>s
 wait-failed<id> <state>
-plan       id=… state=… image=… system_disk_gb=… wipes=system keeps=data
-pick       <id> <state> <ip> <verdict> <why>
-<id> <state> <ip> <verdict> <why>       # health / ls
+plan id=… state=… image=… system_disk_gb=… wipes=system keeps=data
+pick <id> <state> <ip> <verdict> <why>
+<id> <state> <ip> <verdict> <why> # health / ls
 ```
 
 ### One line per object
@@ -358,10 +387,10 @@ pick       <id> <state> <ip> <verdict> <why>
 Every command follows one shape: one object per line, the first token is the id, the rest are verdicts. No indentation, no sub-headings, no sentences. A human scans the first column; an agent reads the remaining tokens.
 
 ```
-<id> try1 init-stuck 14s      # bootcheck: one line per attempt (verdict + elapsed)
-<id> try2 stop-err 8903       # failed already at the stop stage, platform error code appended
-<id> unhealthy 3/3            # this machine's three verdicts
-summary healthy=0 unhealthy=1 total=1    # batch summary, always the last line
+<id> try1 init-stuck 14s # bootcheck: one line per attempt (verdict + elapsed)
+<id> try2 stop-err 8903 # failed already at the stop stage, platform error code appended
+<id> unhealthy 3/3 # this machine's three verdicts
+summary healthy=0 unhealthy=1 total=1 # batch summary, always the last line
 ```
 
 Codes such as `8903` must appear in the line rather than be replaced by "it failed": the code decides the next step (8903 = state does not allow it, usually a Stopping instance — wait for it, it is not a fault).
@@ -400,7 +429,7 @@ compshare rename <id> wk-09
 `pick` answers "this moment" and cannot answer "how often has this one broken". That fact sits in `data/verdict-<id>.json`, and one command now reads it:
 
 ```bash
-compshare verdicts            # one line per machine: name, id, last verdict, reason, how long ago
+compshare verdicts # one line per machine: name, id, last verdict, reason, how long ago
 ```
 
 Machines judged dead sort first. **Run it before scheduling anything**, especially before decisions of the form "the data is on that machine so it is the only option" — data on a broken machine does not mean the machine can start; confirm it starts, then talk about the data.
@@ -445,12 +474,12 @@ Why this has to be a gate rather than a sentence in a document: for a dead machi
 
 `CheckCompShareResourceCapacity` is called by the platform only when **creating a new instance**. For an **existing** instance, `StartCompShareInstance` takes another route and is not bound by that table's yes/no.
 
-Measured 2026-11-06 (three machines that could all start cardless, while the stock API answered `no` for every 4090 combination in every region):
+Measured (three machines that could all start cardless, while the stock API answered `no` for every 4090 combination in every region):
 
 ```
-wk-05 uhost-1x8mlg61si27  --gpu → Running GPU=1 4090 price=2.05   ready after 53s
-wk-02 uhost-1x8mkvqhpcwb  --gpu → Running GPU=1 4090 price=2.05   ready after 54s
-wk-04 uhost-1x8mlb378pg6  --gpu → Running GPU=1 4090 price=2.05   ready after 55s
+wk-05 uhost-1x8mlg61si27 --gpu → Running GPU=1 4090 price=2.05 ready after 53s
+wk-02 uhost-1x8mkvqhpcwb --gpu → Running GPU=1 4090 price=2.05 ready after 54s
+wk-04 uhost-1x8mlb378pg6 --gpu → Running GPU=1 4090 price=2.05 ready after 55s
 ```
 
 3/3 attached. So **stock `no` only means "creating a new instance right now would fail"**, not "an existing machine cannot take a card". Test attachment with `start --gpu --wait-ready 150`; do not infer it from the stock API.
@@ -462,9 +491,9 @@ Note that a carded start is slower than cardless (cardless 45–58 s; carded 53�
 **Use it first, discuss afterwards.** Whether a machine is dead is not decided by one `start`: a single failure may just be a bad scheduling draw. The check gives three attempts, and one success makes it healthy.
 
 ```bash
-compshare bootcheck <id> [<id> ...]      # default: cardless A, 120s per attempt, 3 attempts, gaps 60s / 180s, 6 machines in flight
-compshare bootcheck <id> --parallel 10   # widen the fan-out (billing and API limits argue against going much past 6)
-compshare bootcheck <id> --keep          # leave it running when the check passes (default stops it)
+compshare bootcheck <id> [<id>...] # default: cardless A, 120s per attempt, 3 attempts, gaps 60s / 180s, 6 machines in flight
+compshare bootcheck <id> --parallel 10 # widen the fan-out (billing and API limits argue against going much past 6)
+compshare bootcheck <id> --keep # leave it running when the check passes (default stops it)
 ```
 
 **Why cardless is enough**: every failure sample (`Install Fail`, `Initializing` stuck) sits in the container layer before the GPU is involved; cardless costs ¥0.15/h against ¥1.7/h carded. So the check is always cardless, with `WithoutGpuSpec` passed and `GPU` omitted.
@@ -472,10 +501,10 @@ compshare bootcheck <id> --keep          # leave it running when the check passe
 **Reading the output** (one line per attempt, one per machine, one summary):
 
 ```
-uhost-1x8mlg61si27 try1 jupyter 48s     # container up, ssh not — still a successful boot
+uhost-1x8mlg61si27 try1 jupyter 48s # container up, ssh not — still a successful boot
 uhost-1x8mlg61si27 try2 ready 56s
 uhost-1x8mlg61si27 healthy 2/3 ready
-uhost-1x8mlg61si27 stopped              # successful machines are stopped too
+uhost-1x8mlg61si27 stopped # successful machines are stopped too
 summary healthy=1 unhealthy=0 total=1 left_running=0
 ```
 
@@ -492,13 +521,13 @@ summary healthy=1 unhealthy=0 total=1 left_running=0
 **Machines are independent jobs, so a sweep runs them in parallel.** `bootcheck` takes any number of ids and checks them with `--parallel`, six at a time by default:
 
 ```bash
-compshare bootcheck <id> [<id> ...] [--parallel N]   # default N=6; one process, N machines in flight
-compshare ls --ids | xargs -P 6 -I{} compshare bootcheck {}   # equivalent; use it when you want one process per machine
+compshare bootcheck <id> [<id>...] [--parallel N] # default N=6; one process, N machines in flight
+compshare ls --ids | xargs -P 6 -I{} compshare bootcheck {} # equivalent; use it when you want one process per machine
 ```
 
 Passing fifteen ids to one invocation is no longer serial: per-machine time is platform boot latency (34–66 s on success, at most 3 × 120 s + 60 s + 180 s on failure), so a fleet costs roughly `ceil(N / parallel) × per-machine`, not `N × per-machine`. Measured: 15 machines six-way finished in 7 minutes; the earlier one-process-at-a-time sweep reached five machines in about ten minutes and was abandoned.
 
-- **Never write your own loop** (`for id in ...; do compshare bootcheck $id; done`): it re-serialises the work and hides the concurrency in shell instead of the tool. The same holds for `start`, `stop`, `health`, `verdicts` sweeps.
+- **Never write your own loop** (`for id in...; do compshare bootcheck $id; done`): it re-serialises the work and hides the concurrency in shell instead of the tool. The same holds for `start`, `stop`, `health`, `verdicts` sweeps.
 - **Do not shorten `--allow`** to make a sweep feel faster. The defaults are the specification: 120 s per attempt, 60 s then 180 s between attempts. Successes land at 45–58 s, so 120 s is a 2× margin; a machine that would boot at 100 s is judged dead by `--allow 90`. The gaps only delay *failing* machines (a healthy one leaves after its first success), so the lever for wall clock is `--parallel`, never the allowance.
 - **Bound the width at about six.** Every in-flight machine bills cardless (¥0.15/h), and the API rate-limits with `226619` (backed off by 20 s), so widening past six produces retries more than throughput.
 - **Output stays grouped per machine** even at width 6: attempt lines are buffered and printed when each machine finishes, so `try1/try2/healthy` never interleave. (With `xargs`, each process writes its own stream; redirect per machine if you need files.)
@@ -508,7 +537,7 @@ Passing fifteen ids to one invocation is no longer serial: per-machine time is p
 
 ## The time windows of a boot verdict
 
-"Can boot" and "cannot boot" are **asymmetric** in time; measured 2026-11-06 (8 successes / 7 failures):
+"Can boot" and "cannot boot" are **asymmetric** in time; measured (8 successes / 7 failures):
 
 | Moment | What can be judged | Evidence |
 |---|---|---|
@@ -541,21 +570,21 @@ Zero means not one byte was written in four minutes, which is the only thing tha
 - they fill the disk (wk-03 reached 40 G of 59 G, 17 G left, and the next write would have failed).
 
 ```bash
-find .cache -name "*.incomplete" ! -newermt "<start of this run>" -delete
+find.cache -name "*.incomplete" ! -newermt "<start of this run>" -delete
 ```
 
 **Stalled means a dead process; `kill` is a recovery action, not a destructive one.** The criterion is write time:
 
 ```bash
-find .cache -name "*.incomplete" -newermt "-4 minutes" | wc -l   # 0 = dead
+find.cache -name "*.incomplete" -newermt "-4 minutes" | wc -l # 0 = dead
 ```
 
 Zero (with the process still alive) means "alive but doing nothing" — monitoring it is then pointless, and watching for 30 minutes is indistinguishable from it having died. There is exactly one correct action, taken at once:
 
 ```bash
 ps -eo pid,args | grep "hf download" | grep -v grep | awk '{print $1}' | xargs -r kill
-find .cache -name "*.incomplete" -delete
-setsid nohup env HF_HUB_DISABLE_XET=1 <py> -m ... >> /root/kolors.log 2>&1 &
+find.cache -name "*.incomplete" -delete
+setsid nohup env HF_HUB_DISABLE_XET=1 <py> -m... >> /root/kolors.log 2>&1 &
 ```
 
 The line is fixed: **writes present = do not kill** (that is progress, killing wastes the download); **four minutes with no writes = must kill** (that is a dead connection; not killing only waits for its timeout). Monitoring is not an action: one sample is enough, and the verdict converts immediately into kill/restart.
@@ -572,10 +601,12 @@ The reason for two attempts: of 8 machines, 3 stalled 2–3 times each; every re
 
 ## Transfers: the destination comes from the content, and every transfer is verified
 
+**Which direction a transfer goes is decided by what you are moving, not by a flag you remember**: the block below shows each direction with its command.
+
 ```bash
-compshare upload <id> <local-path...> [--name label]     # → /root/uploaded/<timestamp>-<content hash>/
-compshare download <id> <remote-path> [--dest DIR]      # → ./downloaded/<timestamp>-<content hash>/
-compshare xcheck <id> <remote-dir> [--local DIR]        # final state check: listing + comparison with the local side
+compshare upload <id> <local-path...> [--name label] # → /root/uploaded/<timestamp>-<content hash>/
+compshare download <id> <remote-path> [--dest DIR] # →./downloaded/<timestamp>-<content hash>/
+compshare xcheck <id> <remote-dir> [--local DIR] # final state check: listing + comparison with the local side
 ```
 
 **The destination cannot be chosen.** The directory is fixed as `/root/uploaded/<YYYYmmdd-HHMMSS>-<first 8 of entries-sha256>[-name]/`: the path comes from the content, the same batch re-uploaded lands in the same directory, and different batches never overwrite each other. Downloads work the same way, landing in `./downloaded/<timestamp>-<hash>/`.
@@ -603,11 +634,11 @@ Fixed action after a transfer: `compshare stop <id>` — never leave a transfer 
 **Background jobs: no need to sit through a large transfer.**
 
 ```bash
-compshare upload <id> <path...> --bg     # returns at once with job=… pid=…
-compshare xfer status <id>               # done/total, bytes, rate, directory — one job per line
-compshare xfer resume <id> [--job J]     # resume: re-send only the files not yet done
-compshare xfer log <id>|--job J          # per file: ok/fail + attempts + error
-compshare xfer run <job> [--stop]        # internal entry; --stop stops the machine when finished
+compshare upload <id> <path...> --bg # returns at once with job=… pid=…
+compshare xfer status <id> # done/total, bytes, rate, directory — one job per line
+compshare xfer resume <id> [--job J] # resume: re-send only the files not yet done
+compshare xfer log <id>|--job J # per file: ok/fail + attempts + error
+compshare xfer run <job> [--stop] # internal entry; --stop stops the machine when finished
 ```
 
 The unit of work is **one file**: each file gets its own tar stream and its own `sha256sum`, failures retry three times with increasing gaps, and progress is written to `data/xfer-<id>-<hash>[-name].json`. Therefore:
@@ -616,7 +647,7 @@ The unit of work is **one file**: each file gets its own tar stream and its own 
 - an SSH drop affects only the current file, and `xfer resume` continues without starting over;
 - `xfer status` is the only observation needed — no more guessing with `du`/`pgrep`.
 
-**No automatic shutdown by default.** The cost was measured on 2026-11-07: a small three-file job stopped a machine that was in the middle of a 17 G download. Shutdown happens only with an explicit `xfer run --stop`.
+**No automatic shutdown by default.** Measured: a small three-file job stopped a machine that was in the middle of a 17 G download. Shutdown happens only with an explicit `xfer run --stop`.
 
 ## Passwords and shutdown: neither should be typed by a human every time
 
@@ -630,7 +661,7 @@ The unit of work is **one file**: each file gets its own tar stream and its own 
 
 ```bash
 $ compshare pool grab --target 16 --count 1 --gpu 4090 --image <id>
-error quota=15 reached (15 instances); platform returns 226608 beyond this   # exit=3
+error quota=15 reached (15 instances); platform returns 226608 beyond this # exit=3
 
 $ compshare create --image <id> --region cn-wlcb --zone cn-wlcb-01 --cpu 16 --mem-gb 64
 error quota=15 reached; release an instance first (platform returns 226608 beyond this)
@@ -647,8 +678,8 @@ A machine is a worker; its name is a number, not an identity. So neither `create
 - to record what a machine is for, use a note and leave the name alone:
 
 ```bash
-compshare card <id> --aux "Shanghai 2B, grabbed 2026-11-06, not deployed"
-compshare pool status        # the note trails the line as aux=…, the number is untouched
+compshare card <id> --aux "Shanghai 2B, grabbed, not deployed"
+compshare pool status # the note trails the line as aux=…, the number is untouched
 ```
 
 The note field is called `aux` everywhere (the old `note` migrated to `aux`; `--note` still writes as an alias). Consecutive numbering has a practical use: `wk-01..wk-12` is the complete pool inventory, a missing number is a missing machine, and no separate ledger is needed.
@@ -667,15 +698,15 @@ The note field is called `aux` everywhere (the old `note` migrated to `aux`; `--
 
 ```bash
 compshare card <id> --kolors ready --smoke ok --note "unet + 3 shards + vae, 0.1 smoke passed at 8 steps"
-compshare pool status             # effective / pending / unknown / broken + gap
-compshare pool fill --target 10   # plan by gap: probe / configure / verify / rent / release
+compshare pool status # effective / pending / unknown / broken + gap
+compshare pool fill --target 10 # plan by gap: probe / configure / verify / rent / release
 compshare pool grab --target 10 --gpu 4090 --image <id> --password <pw> --for 90
-compshare pool release-broken     # dry-run by default, --yes actually deletes
+compshare pool release-broken # dry-run by default, --yes actually deletes
 ```
 
 **Filling the pool is continuous**: while `gap > 0`, refill alongside the experiments, in a fixed order — `probe` existing machines (no `card-<id>.json` does not mean no kolors), then `configure` (complete the weights), then `verify` (run the 0.1 smoke), and only then `rent` (grab a new card). Renting one more costs one more full price; an `idle` machine is merely unconfigured.
 
-**A bad card does not hold a pool slot**: anything with `broken_count >= 3` that will not start goes to `release-broken`. The cost of keeping it is not money, it is that every round of work starts with "try it once more" — on 2026-11-06 two main machines sat in `Initializing` at the same time, 17 G on disk was unreachable, and the whole pipeline stalled exactly that way.
+**A bad card does not hold a pool slot**: anything with `broken_count >= 3` that will not start goes to `release-broken`. The cost of keeping it is not money, it is that every round of work starts with "try it once more" — on two main machines sat in `Initializing` at the same time, 17 G on disk was unreachable, and the whole pipeline stalled exactly that way.
 
 ## Permanently obsolete machines: return them, do not keep them occupying a seat
 
@@ -691,9 +722,9 @@ Criteria (`compshare verdicts` prints both columns):
 A return candidate = **failed ≥ 3 times, the latest failure more than 24 h ago, and never once `ready` since**.
 
 ```bash
-compshare verdicts --stale 24      # only the return candidates
-compshare release <id>             # prints the plan by default, sends nothing
-compshare release <id> --yes       # actually returns it: instance + system disk unrecoverable
+compshare verdicts --stale 24 # only the return candidates
+compshare release <id> # prints the plan by default, sends nothing
+compshare release <id> --yes # actually returns it: instance + system disk unrecoverable
 ```
 
 Three constraints to respect:
@@ -712,15 +743,17 @@ Two constraints hold together:
 2. **No command may hang, and none may emit misleading text.** Waiting always has a bound and ends with a verdict whose reason matches the actual trigger (a timeout stays a timeout, a death stays a death).
 
 ```bash
-compshare pick                     # read-only: one line per machine, for you to choose
-compshare health <id>              # 3-second verdict on one machine, no retries, no waiting
+compshare pick # read-only: one line per machine, for you to choose
+compshare health <id> # 3-second verdict on one machine, no retries, no waiting
 compshare ready <id> [--timeout 180] [--init-grace 180]
-compshare start <id> --wait-ready 180   # boot + bounded wait, one verdict
+compshare start <id> --wait-ready 180 # boot + bounded wait, one verdict
 ```
 
 Exit codes: `0` usable · `32` Jupyter only (work possible, ssh down) · `30` unusable (timeout or judged dead) · `31` stopped.
 
 ### There are only four verdicts (`ready` / `start --wait-ready` share them)
+
+**A verdict is read off its first line, and only four first lines exist**: anything else means the command did not finish, whatever the exit code says.
 
 | Verdict line | Meaning | Exit |
 |---|---|---|
@@ -755,6 +788,8 @@ This criterion exists to prevent two misreadings: calling "state stuck at `Initi
 
 ### State table (official FAQ 1.1 / 2.2 wording)
 
+**The table reads an observation and returns an action**: find the row that matches what you saw, not the state you expected.
+
 | Observation | What it is | Action |
 |---|---|---|
 | `Running` + ssh port open | usable | `exec` |
@@ -776,6 +811,8 @@ A container instance is `root` on port **23**; `ubuntu` on 22 belongs to system 
 
 ### Wait bounds per command
 
+**Each command has its own default bound and its own death condition**, so a wait that is safe for one is not safe for another.
+
 | Command | Default | Death condition | How to change |
 |---|---|---|---|
 | `exec` | `--wait 120` | state reaches a terminal value; or init exceeds `--init-grace 300` | `--wait 0` returns at once |
@@ -789,10 +826,12 @@ A container instance is `root` on port **23**; `ubuntu` on 22 belongs to system 
 
 ### Three steps when a machine breaks (no console needed)
 
+**Three commands, in this order, are what a broken machine needs** — and none of them requires a console.
+
 ```bash
-compshare health <id>                 # 1) verdict: ready / jupyter / init-stuck / not-running
-compshare reboot <id>                 # 2) every channel refused but the instance exists: reboot first (no disk wipe)
-compshare reinstall <id>              # 3) still broken: reinstall. Read the plan first, add --yes to confirm
+compshare health <id> # 1) verdict: ready / jupyter / init-stuck / not-running
+compshare reboot <id> # 2) every channel refused but the instance exists: reboot first (no disk wipe)
+compshare reinstall <id> # 3) still broken: reinstall. Read the plan first, add --yes to confirm
 ```
 
 Official restrictions, all echoed in the command's errors:
@@ -802,6 +841,8 @@ Official restrictions, all echoed in the command's errors:
 * A reinstall is irreversible, so by default only `plan id=… image=… system_disk_gb=… wipes=system_disk` is printed.
 
 ## Hard limits (all from official docs or measurement)
+
+**The limits are quoted from the official documents or measured, and each carries what happens when it is hit**: treat a limit without that column as unverified.
 
 | Limit | Detail | What happens on hitting it |
 |---|---|---|
@@ -836,13 +877,13 @@ Three constraints hold together:
 Model and code are local and do not depend on the old instance's disk, so **never transfer files while paying for a GPU**:
 
 ```bash
-compshare stock --gpu 4090 --cards 1 --image <real image> --all   # find a region with stock
-compshare quote --gpu 4090 --cards 1 --cpu 16 --mem-gb 64 --image <id> [--zone <zone>]  # quote first
-compshare create --image <id> --gpu 4090 ... --zone <region with stock>
-compshare stop <new instance>            # stop right after creation, avoid idling
-compshare start <new instance> --cardless B   # upload at ¥0.15/h
+compshare stock --gpu 4090 --cards 1 --image <real image> --all # find a region with stock
+compshare quote --gpu 4090 --cards 1 --cpu 16 --mem-gb 64 --image <id> [--zone <zone>] # quote first
+compshare create --image <id> --gpu 4090... --zone <region with stock>
+compshare stop <new instance> # stop right after creation, avoid idling
+compshare start <new instance> --cardless B # upload at ¥0.15/h
 compshare push <new instance> <local model/code>
-compshare stop <new instance>            # or go straight to start --gpu
+compshare stop <new instance> # or go straight to start --gpu
 ```
 
 Cardless mode (¥0.15/h) does not use GPU quota, so whether a 4090 is in stock does not affect the upload step.
@@ -858,11 +899,13 @@ Billing and cardless semantics live in one comment (above `BILLING` in `compshar
 
 ## Watchdog
 
+**The watchdog is a loop you leave running, and the block below is its whole body**: if you cannot point at the file it writes, it is not running.
+
 ```bash
-compshare start <id>            # attached at boot; --no-watch disables it
-compshare watchdog <id>         # attach manually
+compshare start <id> # attached at boot; --no-watch disables it
+compshare watchdog <id> # attach manually
 compshare watchdog <id> --status
-compshare watchdog <id> --off   # stop the watchdog only, instance untouched
+compshare watchdog <id> --off # stop the watchdog only, instance untouched
 ```
 
 One SSH read collects five quantities; any one over threshold counts as "busy":
@@ -880,26 +923,21 @@ CPU alone misjudges too: `pip install torch` showed CPU 0.4% and GPU 0, caught o
 
 - `rounds` consecutive idle verdicts (default 20) → `StopCompShareInstance`.
 - **No data → force shutdown**: `blind_max` consecutive rounds (default 5) without usable data (API/SSH error, or data holding no numbers) trigger an immediate `Stop` and a `force-stopped (no metrics)` log line. Reason: a watchdog that has lost observability is a machine burning money by the hour; a wrong stop costs a few hours, not stopping costs without limit. A failed force stop exits 3 and leaves `FORCE STOP FAILED`.
-- Configuration lives in the `watchdog` section of `data/config.json`: `interval_seconds` / `rounds` / `gpu_util_min` / `cpu_busy_min` / `load_per_core_min` / `blind_max` / `boot_grace_seconds` / `boot_poll_seconds`.
+- Configuration lives in the `watchdog` section of `data/config.json` (created on first run): `interval_seconds` / `rounds` / `gpu_util_min` / `cpu_busy_min` / `load_per_core_min` / `blind_max` / `boot_grace_seconds` / `boot_poll_seconds`.
 
 Depends on `sshpass` (`brew install sshpass`) and the password in `data/instance-<id>.json`.
 
 ## Checking a machine after boot
 
-```bash
-.agent-tools/compshare info <id>            # one line of spec + one of IP + ssh ok/denied + watchdog
-.agent-tools/compshare exec <id> 'nvidia-smi --query-gpu=name,utilization.gpu,memory.used --format=csv,noheader'
-.agent-tools/compshare exec <id> 'python -c "import torch;print(torch.__version__, torch.cuda.is_available())"'
-.agent-tools/compshare exec <id> 'nvcc -V | tail -2'         # required to build 3DGS
-.agent-tools/compshare exec <id> 'df -h / /root | tail -2'   # whether the system-disk allowance suffices
-.agent-tools/compshare exec <id> 'cat /proc/loadavg'
-tail -f .agent-ide/skills/compshare/data/watchdog-<id>.log   # one line per watchdog round
+**One line of fact per machine, gathered before you plan anything**: spec, state and price in one call rather than three guesses.
+
+```bash.agent-tools/compshare info <id> # one line of spec + one of IP + ssh ok/denied + watchdog.agent-tools/compshare exec <id> 'nvidia-smi --query-gpu=name,utilization.gpu,memory.used --format=csv,noheader'.agent-tools/compshare exec <id> 'python -c "import torch;print(torch.__version__, torch.cuda.is_available())"'.agent-tools/compshare exec <id> 'nvcc -V | tail -2' # required to build 3DGS.agent-tools/compshare exec <id> 'df -h / /root | tail -2' # whether the system-disk allowance suffices.agent-tools/compshare exec <id> 'cat /proc/loadavg'
+tail -f.agent-ide/skills/compshare/data/watchdog-<id>.log # one line per watchdog round
 ```
 
 `exec` returns remote stdout/stderr verbatim and **the exit code is the remote command's**, so `&&` works:
 
-```bash
-.agent-tools/compshare exec <id> 'test -f /root/.done && echo ready' || echo not-ready
+```bash.agent-tools/compshare exec <id> 'test -f /root/.done && echo ready' || echo not-ready
 ```
 
 `ssh denied` in `info` is usually an expired password in the record (someone reset it); fix the record or run `ResetCompShareInstancePassword`.
@@ -914,6 +952,8 @@ tail -f .agent-ide/skills/compshare/data/watchdog-<id>.log   # one line per watc
 
 ## Local files (`data/`, 700, not transferred with the package)
 
+**These files live only on this machine and are not transferred**, which is why anything you need after a rebuild has to be written somewhere else too.
+
 | File | Contents | Mode | Note |
 |---|---|---|---|
 | `credentials.json` | `public_key` / `private_key` | 600 | the only credential source; deleting it removes access |
@@ -924,10 +964,14 @@ tail -f .agent-ide/skills/compshare/data/watchdog-<id>.log   # one line per watc
 
 ## Panel
 
+**The panel exists to answer "what is running and what is it costing" without opening a console**: read it before starting anything new.
+
 ```bash
 # runtime interpreter, for the reason above (system python3 lacks CA certificates)
-/Users/wukunhuan/agent_ide_global_project/.agent-ide/runtime/standalone/python/darwin-arm64/python3.11/bin/python3.11 \
-  <pkg>/panel/serve.py --port 8770          # open http://127.0.0.1:8770/
+RUNTIME_PY=$(ls "$HOME"/agent_ide_global_project/.agent-ide/runtime/standalone/python/*/bin/python3.1* 2>/dev/null | head -1 || true)
+: "${RUNTIME_PY:=python3.11}"
+"$RUNTIME_PY" \
+ <pkg>/panel/serve.py --port 8770 # open http://127.0.0.1:8770/
 ```
 
 The panel sits in the package directory (`panel/`), works from any project, and does not depend on the project's `quick_access/`. It is a shell over the CLI: `/api/state` runs `images` + `stock` + `quote` and parses those output lines, injecting `COMPSHARE_NO_OPEN=1` into the CLI calls. **Changing CLI output format means changing the parsing in `panel/serve.py` in the same commit.**
@@ -939,7 +983,7 @@ A carded pay-as-you-go instance bills **per machine** (unit price varies by card
 Decide from `status`; switch when both conditions hold:
 
 ```
-gpu=..., 0 %, 1 MiB        1 MiB of memory = no CUDA context
+gpu=..., 0 %, 1 MiB 1 MiB of memory = no CUDA context
 jobs are all hf / pip / apt / gcc / tar
 ```
 
@@ -947,12 +991,12 @@ Sequence (three pitfalls in the "cardless" part of the `BILLING` comment in `com
 
 ```bash
 compshare stop $ID
-compshare ls                     # wait for Stopped; start needs a terminal state
+compshare ls # wait for Stopped; start needs a terminal state
 compshare start $ID --cardless A
-compshare ssh-setup $ID          # required: the IP may change after start, so the alias must be rewritten
+compshare ssh-setup $ID # required: the IP may change after start, so the alias must be rewritten
 compshare doctor $ID
-# ... download / install ...
-compshare settle $ID             # stop when done; start with a card only for real training
+#... download / install...
+compshare settle $ID # stop when done; start with a card only for real training
 ```
 
 Two hard reminders:
@@ -965,7 +1009,7 @@ Two hard reminders:
 
 40-series consumer cards are sm_89, and `diff-gaussian-rasterization` needs CUDA ≥ 11.8 to compile; on other architectures check that `nvcc -V` and `torch.cuda.get_device_capability()` agree. Pick a torch image whose name carries `cu12x` (e.g. `python310_torch240_cu124`); cu116 and below always fail. `App` in an image name means an application image (`root` + 23); `System` means a system image (`ubuntu` + 22).
 
-## Confirmed unusable; stop trying
+**Confirmed unusable, so stop trying:**
 
 - **`Initializing` beyond 5 minutes, `Install Fail`**: official FAQ 1.1 classifies these as container start failure / destroyed environment, and the only remedies are reinstall, another image, or the platform. This is not slowness: waiting and restarting do not help.
 - **Port 23 `refused`**: no sshd inside the container; port 22 on the same IP is the host's shared sshd and says nothing about your instance. Do not edit ssh config, do not raise `--wait`, do not retry `ssh -p 22`.
