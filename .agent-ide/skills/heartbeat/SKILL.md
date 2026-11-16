@@ -31,6 +31,8 @@ Only `Stop` is handled. `SubagentStop` and `UserPromptSubmit` are unusable: a su
 
 ## Install and binding
 
+**Install is a copy plus one binding, and the binding is what makes a heartbeat belong to a task** rather than to the machine.
+
 ```bash
 agent-ide install heartbeat    # writes the launcher (interpreter path baked in)
 heartbeat.py install [--scope user|project] [--loop-limit N|-1]   # installs the Stop hook, idempotent
@@ -49,6 +51,8 @@ heartbeat.py doctor
 
 ## Backlog
 
+**The backlog is what accumulated while nothing was watching**: read it before starting anything new, or the first tick drowns in stale work.
+
 ```bash
 heartbeat.py add "<text>" --evidence <path> --pattern '<re>' \
   --judge "<what counts as finished>" --total <N>
@@ -62,6 +66,8 @@ heartbeat.py add "<text>" --evidence <path> --pattern '<re>' \
 State machine `todo → doing → done`, with `blocked` reachable at any time (carries a reason and takes no part in pushes).
 
 ## Commands
+
+**Each command answers one question about the loop**, and the table names the question rather than the verb.
 
 | Command | Purpose |
 |---|---|
@@ -94,6 +100,8 @@ Everything lives in this skill's `data/`, never in the project directory: `confi
 - No judgement of content.
 
 ## Symptom → command
+
+**Start from the symptom, not the verb**: the table maps what you are seeing to the one command that diagnoses it.
 
 | Symptom | Command |
 |---|---|
