@@ -35,6 +35,8 @@ to the system browser and waits for the credential file to become valid.
 
 ## Commands
 
+**Every command is one line and none of them prompts**: the block below is the full surface, quoted so a wrong flag is visible.
+
 ```bash
 A=.agent-tools/aliyunpan
 
@@ -54,6 +56,8 @@ turns any command's stdout into one object, which is what a caller should parse 
 the human-readable lines are for reading.
 
 ## Before uploading, look
+
+**Look before you upload: what is already there decides whether this is an upload or a delete-and-replace.**
 
 ```bash
 $A --id <id> ls /Backup/exp
@@ -177,6 +181,8 @@ complete(file) → resume record deleted
 
 ## Modules
 
+**Each module owns one concern and imports the others rather than reimplementing them**: the table is the map you need before editing one.
+
 | Path | Owns |
 |---|---|
 | `aliyunpan.py` | command surface: parse, dispatch, print |
@@ -245,15 +251,9 @@ an 18.4 kB/s link. `take()` now pins the first chunk to `min_chunk` whatever
 `target_seconds` says (`src/scheduler.py`, the `next_part_num == 1` branch), so a
 1 MB upload still goes out as 512 KB + 512 KB.
 
-**Still open.** The multi-file pool has only been run against a fake endpoint
-(`tests/test_pool.py` asserts peak concurrency, byte totals and retry counts); it
+**Still open.** The multi-file pool has only been run against a fake endpoint; it
 has not been exercised against the live API with several large files at once.
 
 Single-file `upload_many` is proven end to end: 1 MB as one part, 1 MB as
 4 × 256 KB, and 4 KB as 8 × 512 B (all PUTs `200`, `complete` refused for size).
 
-## Tests
-
-```bash
-cd .agent-ide/skills/aliyunpan && PYTHONPATH=. python3 -m unittest discover -s tests -t .
-```

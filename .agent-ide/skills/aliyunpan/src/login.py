@@ -209,12 +209,12 @@ def terminal_login(agent_id: str) -> dict:
     client = LoginClient(agent_id)
     try:
         url = client.start()
-        print(f"在浏览器打开下面的地址并完成授权：\n{url}\n", file=sys.stderr)
+        print(f"open this URL in a browser and authorize:\n{url}\n", file=sys.stderr)
         try:
             client.open_browser()
         except Exception:
             pass
-        print("授权完成后回到这里按 Enter 继续 > ", end="", file=sys.stderr, flush=True)
+        print("press Enter here when the authorization is done > ", end="", file=sys.stderr, flush=True)
         try:
             sys.stdin.readline()
         except Exception:

@@ -3,9 +3,9 @@
 The client prints an authorization URL and then sits waiting for Enter. So the user
 gets two separate acts, and the window must not merge them:
 
-1. **打开浏览器** — unlocks only after the URL has been captured. It can be pressed
+1. **Open browser** — unlocks only after the URL has been captured. It can be pressed
    as many times as the user likes, because opening a link is not a state change.
-2. **核验** — sends the Enter, then watches the credential file. Success closes the
+2. **Verify** — sends the Enter, then watches the credential file. Success closes the
    window; failure kills the client and starts a fresh one, because the old link is
    spent. The new run prints a new URL and unlocks the button again.
 
@@ -48,12 +48,12 @@ class LoginWindow:
 
         tk = self.tk
         self.root = tk.Tk()
-        self.root.title("阿里云盘登录")
+        self.root.title("Aliyun Drive sign-in")
         self.root.minsize(460, 300)
         self.root.resizable(True, True)
         self.root.protocol("WM_DELETE_WINDOW", self.close)
 
-        self.status = tk.StringVar(value="正在启动登录客户端…")
+        self.status = tk.StringVar(value="Starting the sign-in client…")
         self._build_ui()
         self.root.after(TICK_MS, self._tick_url_ready)
 
@@ -65,13 +65,13 @@ class LoginWindow:
         body.pack(fill=tk.BOTH, expand=True)
         body.columnconfigure(0, weight=1)
 
-        tk.Label(body, text="阿里云盘登录", font=("Helvetica", 18, "bold"),
+        tk.Label(body, text="Aliyun Drive sign-in", font=("Helvetica", 18, "bold"),
                  anchor="w").grid(row=0, column=0, sticky="w", pady=(0, 14))
 
         status_frame = tk.Frame(body)
         status_frame.grid(row=1, column=0, sticky="ew")
         status_frame.columnconfigure(1, weight=1)
-        tk.Label(status_frame, text="状态", anchor="w", width=5).grid(
+        tk.Label(status_frame, text="Status", anchor="w", width=7).grid(
             row=0, column=0, sticky="nw")
         tk.Label(status_frame, textvariable=self.status, fg="#1a5fb4",
                  wraplength=380, justify=tk.LEFT, anchor="w").grid(
@@ -82,18 +82,18 @@ class LoginWindow:
         buttons.columnconfigure(0, weight=1, uniform="btn")
         buttons.columnconfigure(1, weight=1, uniform="btn")
         self.open_btn = ttk.Button(
-            buttons, text="打开浏览器", state=tk.DISABLED, command=self.open_browser
+            buttons, text="Open browser", state=tk.DISABLED, command=self.open_browser
         )
         self.open_btn.grid(row=0, column=0, sticky="ew", padx=(0, 6))
         self.check_btn = ttk.Button(
-            buttons, text="核验", state=tk.DISABLED, command=self.check_token
+            buttons, text="Verify", state=tk.DISABLED, command=self.check_token
         )
         self.check_btn.grid(row=0, column=1, sticky="ew", padx=(6, 0))
 
         tk.Label(
             body,
-            text="先点“打开浏览器”并完成授权，再回来点“核验”。\n"
-                 "未授权就点“核验”，当前链接会作废并换一条新的。",
+            text="Open the browser and finish the authorization, then come back and press Verify.\n"
+                 "Pressing Verify before authorizing voids the current link and issues a new one.",
             fg="#a51d2d", justify=tk.LEFT, anchor="w", wraplength=380,
         ).grid(row=3, column=0, sticky="w")
 
@@ -106,11 +106,11 @@ class LoginWindow:
         try:
             url = self.client.start()
         except PanError as exc:
-            self._say(f"错误：{exc}")
+            self._say(f"Error: {exc}")
             return
         except Exception:
             traceback.print_exc()
-            self._say("错误：登录客户端无法启动")
+            self._say("Error: the sign-in client could not start")
             return
         self.oauth_url = url
         self.url_ready = True
@@ -123,34 +123,34 @@ class LoginWindow:
         if code == 0:
             self.root.after(100, self.auto_check)
         elif not self.submitted:
-            self._say("登录进程在给出链接后退出，请点“核验”重试。")
+            self._say("The sign-in process exited after printing the URL; press Verify to retry.")
 
     def _tick_url_ready(self) -> None:
         if self.url_ready and not self.unlocked:
             self.unlocked = True
             self.open_btn.config(state=self.tk.NORMAL)
-            self._say("链接已就绪，点“打开浏览器”。")
+            self._say("URL ready — press Open browser.")
         self.root.after(TICK_MS, self._tick_url_ready)
 
     # ---------------------------------------------------------------- buttons
 
     def open_browser(self) -> None:
         if not self.oauth_url:
-            self._say("还没有链接，请稍等…")
+            self._say("No URL yet, one moment…")
             return
         webbrowser.open(self.oauth_url)
         self.check_btn.config(state=self.tk.NORMAL)
-        self._say("已在浏览器打开，请完成授权，然后点“核验”。")
+        self._say("Opened in the browser; finish the authorization, then press Verify.")
 
     def check_token(self) -> None:
         self.submitted = True
         self.open_btn.config(state=self.tk.DISABLED)
         self.check_btn.config(state=self.tk.DISABLED)
-        self._say("正在核验…")
+        self._say("Verifying…")
         try:
             self.client.confirm()
         except PanError:
-            self._say("客户端已退出，正在换一条新链接…")
+            self._say("The client exited; fetching a fresh URL…")
             self.root.after(1500, self.restart_login)
             return
         self.attempts = 0
@@ -158,29 +158,29 @@ class LoginWindow:
 
     def _poll_token(self) -> None:
         if self.client.valid():
-            self._say("授权成功，已取得凭证。")
+            self._say("Authorized; credential stored.")
             self.root.after(1000, self.close)
             return
         self.attempts += 1
         if self.attempts < POLL_TRIES:
             self.root.after(POLL_MS, self._poll_token)
         else:
-            self._say("核验超时：链接已作废，正在换一条新的…")
+            self._say("Verify timed out: the URL is void, fetching a new one…")
             self.root.after(1500, self.restart_login)
 
     def auto_check(self) -> None:
         if self.client.valid():
-            self._say("授权成功，已取得凭证。")
+            self._say("Authorized; credential stored.")
             self.root.after(1000, self.close)
         else:
-            self._say("客户端正常退出但未取得凭证，正在换一条新链接…")
+            self._say("Client exited cleanly but no credential was written; fetching a new URL…")
             self.root.after(1500, self.restart_login)
 
     def restart_login(self) -> None:
         if self.restarting:
             return
         self.restarting = True
-        self._say("正在重新获取登录链接…")
+        self._say("Fetching a new sign-in URL…")
         threading.Thread(target=self._restart_worker, daemon=True).start()
 
     def _restart_worker(self) -> None:

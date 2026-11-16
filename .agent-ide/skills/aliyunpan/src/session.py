@@ -91,7 +91,7 @@ class Session:
                 break
         if not drive:
             raise DriveMissing(
-                "this account has no backup drive (备份盘); enable it in the app, then log in again"
+                "this account has no backup drive; enable it in the app, then log in again"
             )
         self.token = token
         self.drive_id = drive

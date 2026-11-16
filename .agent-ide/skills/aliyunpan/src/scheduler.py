@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 
 # Client-side amortisation floor, not a server limit. The endpoint's size floor is
 # 100 KB (measured: 96 KB refused, 100 KB accepted by `complete`), and its count
-# ceiling is 10000 (official CreateFile: "最多 10000 个分片").
+# ceiling is 10000 (official CreateFile says "at most 10000 parts").
 MIN_CHUNK = 512 * 1024
 MAX_PARTS = 10000
 MIN_DOWNLOAD_CHUNK = 10 * 1024 * 1024
