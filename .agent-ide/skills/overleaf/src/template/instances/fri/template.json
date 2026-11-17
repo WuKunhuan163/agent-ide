@@ -91,7 +91,9 @@
         "notes",
         "align",
         "margin_top",
-        "margin_bottom"
+        "margin_bottom",
+        "fit",
+        "first_column_width"
       ],
       "leaf": true
     },

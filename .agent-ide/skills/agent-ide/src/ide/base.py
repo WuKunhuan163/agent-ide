@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 import bisect
 import os
+import time
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -64,6 +65,40 @@ def parse_ts(value) -> datetime | None:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc)
+
+
+PROGRESS_MARKS = (0.01, 0.02, 0.05, 0.10, 0.20, 0.50)
+
+
+class Progress:
+    """The one progress reporter a long scan uses.
+
+    Prints the first item, then the 1/2/5/10/20/50% marks, then the last item,
+    on stderr; stdout stays the rendered text. A second reporter anywhere else
+    is a fork of this one — every scan calls `tick` and nothing prints its own.
+    """
+
+    def __init__(self, total: int, label: str) -> None:
+        self.total = total
+        self.label = label
+        self.marks = [max(1, int(total * m)) for m in PROGRESS_MARKS]
+        self.marks.append(total)
+        self.index = 0
+        self.t0 = time.monotonic()
+
+    def tick(self, done: int, extra: str = "") -> None:
+        first = done == 1
+        reached = self.index < len(self.marks) and done >= self.marks[self.index]
+        if not (first or reached):
+            return
+        if reached:
+            self.index += 1
+        pct = done / self.total if self.total else 1.0
+        tail = f"  {extra}" if extra else ""
+        print(f"\r{self.label}: {pct:4.0%} ({done}/{self.total}) "
+              f"{time.monotonic() - self.t0:5.1f}s{tail}",
+              end="\n" if done >= self.total else "",
+              file=sys.stderr, flush=True)
 
 
 def iso(value: datetime | None) -> str:
@@ -228,13 +263,8 @@ class SessionStore(ABC):
         # Parsing is the expensive half (0.25 ms per file, 28 s over 110k).
         # A silent 28 s looks like a hang, so show the count when it is long
         # enough to matter. stderr only: stdout stays the rendered text.
-        show = span >= 2000
-        if show:
-            print(f"\rread: 0/{span} files", end="", file=sys.stderr, flush=True)
+        progress = Progress(span, "read") if span >= 2000 else None
         for done, (_, path) in enumerate(stamped[lo:hi], 1):
-            if show and done % 2000 == 0:
-                print(f"\rread: {done}/{span} files  {done / span:5.0%}",
-                      end="", file=sys.stderr, flush=True)
             message = self.parse_file(path)
             if message is None or message.is_empty:
                 continue
@@ -243,8 +273,9 @@ class SessionStore(ABC):
             if until and message.at and message.at > until:
                 continue
             out.append(message)
-        if show:
-            print(f"\rread: {span}/{span} files  100%  {len(out)} kept",
-                  file=sys.stderr, flush=True)
+            if progress:
+                progress.tick(done, f"{len(out)} kept")
+        if progress:
+            progress.tick(span, f"{len(out)} kept")
         out.sort(key=lambda m: (m.at or datetime.min.replace(tzinfo=timezone.utc), m.mid))
         return out

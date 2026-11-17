@@ -65,6 +65,83 @@ def doc_lines(doc):
         return f.read().split("\n")
 
 
+def _git(*args, cwd=None):
+    p = subprocess.run(["git", "-C", cwd or ROOT, *args], capture_output=True, text=True)
+    return p.returncode, p.stdout.strip(), p.stderr.strip()
+
+
+def repo_of(path):
+    rc, out, _ = _git("rev-parse", "--show-toplevel", cwd=os.path.dirname(path) or ROOT)
+    return out if rc == 0 else ""
+
+
+def diff_lines(root, rel, base):
+    """New-file line numbers touched between `base` and the worktree."""
+    if not base:
+        return []
+    rc, out, _ = _git("diff", "--unified=0", base, "--", rel, cwd=root)
+    if rc != 0 or not out:
+        return []
+    hits = []
+    for m in re.finditer(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@", out, re.M):
+        start = int(m.group(1))
+        count = int(m.group(2) or 1)
+        hits.extend(range(start, start + max(count, 1)))
+    return sorted(set(hits))
+
+
+def pending_lines(root, rel):
+    """New-file line numbers whose content differs from HEAD — no stored baseline.
+
+    Comparing the worktree with HEAD makes the painted diff self-correcting: once a
+    change is committed the lines stop being marked, and a stale instance can no
+    longer paint a whole file as changed.
+    """
+    rc, out, _ = _git("diff", "--unified=0", "HEAD", "--", rel, cwd=root)
+    if rc != 0 or not out:
+        return []
+    hits = []
+    for m in re.finditer(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@", out, re.M):
+        start = int(m.group(1))
+        count = int(m.group(2) or 1)
+        hits.extend(range(start, start + max(count, 1)))
+    return sorted(set(hits))
+
+
+def sync_before_serve(doc):
+    """Commit whatever is uncommitted in `doc`, and fix the baseline to the commit before it.
+
+    The served page then paints exactly the lines that moved since the baseline,
+    so what the reader sees is the diff, not a claim about the diff.
+    """
+    p = os.path.join(ROOT, doc)
+    root = repo_of(p)
+    if not root:
+        return ""
+    rel = os.path.relpath(p, root)
+    rc, status, _ = _git("status", "--porcelain", "--", rel, cwd=root)
+    dirty = rc == 0 and bool(status.strip())
+    if dirty:
+        _git("add", "--", rel, cwd=root)
+        _git("commit", "-m", "annotate: %s before serve" % doc, "--", rel, cwd=root)
+        rc, base, _ = _git("rev-parse", "HEAD~1", cwd=root)
+    else:
+        rc, base, _ = _git("rev-parse", "HEAD", cwd=root)
+    return base if rc == 0 else ""
+
+
+def mirror_state(doc, body):
+    if not body:
+        return None
+    ip, bp = os.path.join(ROOT, doc), os.path.join(ROOT, body)
+    if not (os.path.isfile(ip) and os.path.isfile(bp)):
+        return {"body": body, "synced": False, "why": "missing"}
+    a, b = os.stat(ip), os.stat(bp)
+    n = lambda q: len(open(q, encoding="utf-8", errors="replace").read().split("\n"))
+    return {"body": body, "synced": a.st_mtime_ns == b.st_mtime_ns,
+            "body_lines": n(bp), "intro_lines": n(ip)}
+
+
 def page_html():
     with open(os.path.join(HERE, "page.html"), encoding="utf-8") as f:
         return f.read()
@@ -101,6 +178,8 @@ class H(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", ctype + "; charset=utf-8")
         self.send_header("Content-Length", str(len(b)))
+        # the served document changes under us between requests: a cached copy would hide that
+        self.send_header("Cache-Control", "no-store, must-revalidate")
         self.end_headers()
         self.wfile.write(b)
 
@@ -131,7 +210,12 @@ class H(BaseHTTPRequestHandler):
             lines = doc_lines(inst["doc"])
             if lines is None:
                 return self._json({"error": "no document " + inst["doc"]}, 404)
+            root = repo_of(os.path.join(ROOT, inst["doc"]))
+            rel = os.path.relpath(os.path.join(ROOT, inst["doc"]), root) if root else ""
             return self._json({"id": inst["id"], "doc": inst["doc"], "lines": lines,
+                               "changed": pending_lines(root, rel) if root else [],
+                               "baseline": inst.get("baseline", ""),
+                               "mirror": mirror_state(inst["doc"], inst.get("body")),
                                "items": inst.get("items") or []})
         seg = [s for s in path.split("/") if s]
         if len(seg) == 1 and load(seg[0]):
@@ -160,9 +244,24 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "empty note"}, 400)
             inst.setdefault("items", []).append(
                 {"line": item.get("line"), "end": item.get("end"), "quote": item.get("quote") or "",
-                 "note": item["note"], "at": datetime.now().isoformat(timespec="seconds")})
+                 "parts": item.get("parts") or [], "note": item["note"],
+                 "at": datetime.now().isoformat(timespec="seconds")})
             save(inst)
             return self._json({"ok": True, "n": len(inst["items"])})
+        m = re.match(r"^/api/([^/]+)/upd$", path)
+        if m:
+            inst = load(m.group(1))
+            if not inst:
+                return self._json({"error": "no instance"}, 404)
+            i = body.get("index")
+            note = (body.get("note") or "").strip()
+            items = inst.get("items") or []
+            if isinstance(i, int) and 0 <= i < len(items) and note:
+                items[i]["note"] = note
+                items[i]["at"] = datetime.now().isoformat(timespec="seconds")
+                save(inst)
+                return self._json({"ok": True, "n": len(items)})
+            return self._json({"error": "bad index or empty note"}, 400)
         m = re.match(r"^/api/([^/]+)/del$", path)
         if m:
             inst = load(m.group(1))
@@ -187,7 +286,19 @@ def cmd_open(a):
     i = a.id or os.path.splitext(os.path.basename(doc))[0]
     inst = load(i) or {"id": i, "doc": doc, "created": datetime.now().isoformat(timespec="seconds"), "items": []}
     inst["doc"] = doc
+    if getattr(a, "body", None):
+        inst["body"] = a.body
+    inst["baseline"] = sync_before_serve(doc)
+    inst["served_at"] = datetime.now().isoformat(timespec="seconds")
     save(inst)
+    root = repo_of(os.path.join(ROOT, doc))
+    if root:
+        rel = os.path.relpath(os.path.join(ROOT, doc), root)
+        n = len(pending_lines(root, rel))
+        print("annotate-file: %d line(s) uncommitted" % n, file=sys.stderr)
+    m = mirror_state(doc, inst.get("body"))
+    if m and not m.get("synced"):
+        print("annotate-file: mirror out of sync with %s" % m["body"], file=sys.stderr)
     ensure_server()
     print(BASE + "/" + i + "/")
 
@@ -230,7 +341,9 @@ def cmd_serve(_a):
 def main():
     ap = argparse.ArgumentParser(prog="annotate-file")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    o = sub.add_parser("open"); o.add_argument("--doc", required=True); o.add_argument("--id"); o.set_defaults(f=cmd_open)
+    o = sub.add_parser("open"); o.add_argument("--doc", required=True); o.add_argument("--id")
+    o.add_argument("--body", help="the document this one mirrors; its lines are checked at serve")
+    o.set_defaults(f=cmd_open)
     sub.add_parser("list").set_defaults(f=cmd_list)
     u = sub.add_parser("url"); u.add_argument("--id", required=True); u.set_defaults(f=cmd_url)
     sub.add_parser("stop").set_defaults(f=cmd_stop)

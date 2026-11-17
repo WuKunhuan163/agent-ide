@@ -101,6 +101,78 @@ def page_size(inst):
                  "h": round(p.rect.height * DPI / 72.0)} for k, p in enumerate(pdf)]
 
 
+
+def _git(*args, cwd=None):
+    p = subprocess.run(["git", "-C", cwd or ROOT, *args], capture_output=True, text=True)
+    return p.returncode, p.stdout.strip(), p.stderr.strip()
+
+
+def repo_of(path):
+    rc, out, _ = _git("rev-parse", "--show-toplevel", cwd=os.path.dirname(path) or ROOT)
+    return out if rc == 0 else ""
+
+
+def sync_before_serve(doc):
+    """Commit whatever is uncommitted in `doc` and return the commit before it.
+
+    The baseline is what the page measures against: every page whose text differs
+    from that commit is painted, so the reader sees the change rather than a claim
+    about it. A PDF that git does not track returns "" and the page falls back to
+    the signature taken when it was opened.
+    """
+    p = doc_path(doc)
+    root = repo_of(p)
+    if not root:
+        return ""
+    rel = os.path.relpath(p, root)
+    rc, status, _ = _git("status", "--porcelain", "--", rel, cwd=root)
+    dirty = rc == 0 and bool(status.strip())
+    if dirty:
+        _git("add", "--", rel, cwd=root)
+        _git("commit", "-m", "annotate: %s before serve" % doc, "--", rel, cwd=root)
+        rc, base, _ = _git("rev-parse", "HEAD~1", cwd=root)
+    else:
+        rc, base, _ = _git("rev-parse", "HEAD", cwd=root)
+    return base if rc == 0 else ""
+
+
+def page_sig(stream):
+    """One short hash per page, taken from the text layer."""
+    import hashlib
+    out = []
+    import pymupdf
+    with pymupdf.open(stream=stream, filetype="pdf") as pdf:
+        for i in range(pdf.page_count):
+            t = pdf[i].get_text().strip()
+            out.append(hashlib.sha1(t.encode("utf-8", "replace")).hexdigest()[:12])
+    return out
+
+
+def changed_pages(inst):
+    """Pages whose text moved since the baseline, plus the reason when it cannot be told."""
+    cur = doc_path(inst["doc"])
+    if not os.path.isfile(cur):
+        return [], "missing"
+    now = page_sig(open(cur, "rb").read())
+    base = inst.get("baseline") or ""
+    if base:
+        root = repo_of(cur)
+        rel = os.path.relpath(cur, root) if root else ""
+        blob = b""
+        if root and rel:
+            r = subprocess.run(["git", "-C", root, "cat-file", "blob", "%s:%s" % (base, rel)],
+                               capture_output=True)
+            if r.returncode == 0:
+                blob = r.stdout
+        if blob:
+            old = page_sig(blob)
+            if len(old) == len(now):
+                return [i + 1 for i, (a, b) in enumerate(zip(old, now)) if a != b], "git:" + base[:8]
+    sig = inst.get("sig") or []
+    if sig and len(sig) == len(now):
+        return [i + 1 for i, (a, b) in enumerate(zip(sig, now)) if a != b], "signature"
+    return [], "no baseline"
+
 def page_text(inst, n):
     out = []
     with open_pdf(inst["doc"]) as pdf:
@@ -190,8 +262,15 @@ class H(BaseHTTPRequestHandler):
                 sizes = page_size(inst)
             except Exception as e:
                 return self._json({"error": "cannot read pdf: %s" % e}, 500)
+            try:
+                ch, why = changed_pages(inst)
+            except Exception:
+                ch, why = [], "unreadable"
             return self._json({"id": inst["id"], "doc": inst["doc"], "pages": sizes,
-                               "items": inst.get("items") or []})
+                               "items": inst.get("items") or [],
+                               "baseline": inst.get("baseline") or "",
+                               "changed_pages": ch, "changed_basis": why,
+                               "mtime": os.stat(doc_path(inst["doc"])).st_mtime_ns})
         m = re.match(r"^/api/([^/]+)/text$", path)
         if m:
             inst = load(m.group(1))
@@ -232,7 +311,7 @@ class H(BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length") or 0)
         body = json.loads(self.rfile.read(n) or b"{}")
         inst = None
-        m = re.match(r"^/api/([^/]+)/(save|add|del)$", path)
+        m = re.match(r"^/api/([^/]+)/(save|add|del|upd)$", path)
         if m:
             inst = load(m.group(1))
             if not inst:
@@ -253,6 +332,14 @@ class H(BaseHTTPRequestHandler):
                 {"page": int(item.get("page") or 1), "rects": rects,
                  "quote": (item.get("quote") or "")[:300],
                  "note": item["note"], "at": datetime.now().isoformat(timespec="seconds")})
+        elif act == "upd":
+            i = body.get("index")
+            note = (body.get("note") or "").strip()
+            items = inst.get("items") or []
+            if not (isinstance(i, int) and 0 <= i < len(items) and note):
+                return self._json({"error": "bad index or empty note"}, 400)
+            items[i]["note"] = note
+            items[i]["at"] = datetime.now().isoformat(timespec="seconds")
         else:
             i = body.get("index")
             if isinstance(i, int) and 0 <= i < len(inst.get("items") or []):
@@ -278,8 +365,18 @@ def cmd_open(a):
     inst = load(i) or {"id": i, "doc": doc, "created": datetime.now().isoformat(timespec="seconds"), "items": []}
     inst["doc"] = doc
     inst["pages"] = pages
+    inst["baseline"] = sync_before_serve(doc)
+    try:
+        inst["sig"] = page_sig(open(doc_path(doc), "rb").read())
+    except Exception:
+        inst["sig"] = []
     save(inst)
     ensure_server()
+    ch, why = changed_pages(inst)
+    if ch:
+        print("annotate-pdf: %d page(s) changed since %s" % (len(ch), why))
+    else:
+        print("annotate-pdf: nothing changed since %s" % (why if why else "open"))
     print(BASE + "/" + i + "/")
 
 

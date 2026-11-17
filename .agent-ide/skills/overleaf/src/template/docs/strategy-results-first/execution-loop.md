@@ -4,1048 +4,782 @@
 
 **This file states the loop; the vocabulary lives one level down.** A reader holding only this file knows the shape of a round but not the nouns of the field it is run in: which quantity a row carries, what a "protocol" is called here, what the venue prints. That is by design — the loop is shared, the words belong to the instance (`src/template/instances/<id>/docs/strategy-roleplay/executor-notes.md`). Two consequences follow. An answer built on this file alone is correct in shape and silent in words; it must say so rather than supply a vocabulary. And when the words do exist in the instance, they are quoted, not paraphrased — a renamed quantity is a new quantity.
 
-## The story in six sentences
+## What the name means: comparison writing, kept closed
 
-**A paper is not written; it is assembled from results that were read before they were described.**
+**Writing a report for the first time leaves no standard in hand**: what a paragraph owes its reader, what counts as a standing opening, which sentences say nothing — none of that is in the grammar, all of it is in other people's finished work, and time does not allow learning it from zero. What benchmarking buys back is the *overall impression* of a finished report: the sections they have are the sections we have, their prose is our prose, and their way of narrating and of showing a result is ours. One comparable sample is put on the desk as a ruler, so that the draft first looks the part and is improved afterwards — a report that will not come together usually has the wrong skeleton rather than too little thought, and copying the skeleton of a finished piece is faster than inventing one.
 
-You run something, you look at what came out, and you write down **what it can be compared against** — that line is the footing. Only then does a sentence earn its place.
+**This section states what benchmarking is for; how a sample is read is the next section's business.**
 
-**A round therefore has one shape**: pick the next thing that is worth doing, do it, read the result, decide whether the footing holds, then say where that leaves the paper.
+## How a sample is read
 
-**The number at the end of a round is not a grade.** It answers one question: how much of the thing the owner asked for is now standing on evidence. If the number cannot be recomputed from a file, it is a feeling.
+1. **Read the shape.** Each sample carries a metadata record: for every section, its opening sentence, whether that sentence organises the paragraph, how many paragraphs it has, how many sentences per paragraph, how many citations per thousand words, and a note on how the paragraphs advance. Those numbers are what the section has to fit.
+2. **Write the position table.** One line per paragraph of the sample. Each line names what that paragraph gives the reader: a field, a turn, the practice that stands today, the cost of that practice, the pivot. The output is a table of positions — not a paragraph to imitate.
+3. **Put each claim in a position.** A claim with no position has two moves: cut it, or keep it and add one line saying this section needs another position, and why a reader cannot follow the pivot without it. A claim pushed into a position it does not fit reads like a paper and argues nothing.
+4. **Read every sentence for what it gives.** A number, a condition, a boundary, a turn. A sentence that gives none of the four is deleted, not polished.
 
-## 1 The claim under test
+**Kept closed means the table is not filled once and left.** A position left empty is a question for the next run; the reading that comes back either fills it or shows the position was wrong, and every sentence standing on the old table is rewritten. So the product of benchmarking is a table that keeps changing, not notes taken once: a version that can be handed over comes first, and the rounds after it raise the floor.
 
-**Footing** is the line under a result that says which earlier study's setting it can be read against, and why it cannot be carried elsewhere; a row without one is a number nobody can compare. The order this document describes is results first, then that line, then the prose that consumes both.
+**Either half alone fails in a way a reader can point at.** Table filled and the numbers taken from the abstract rather than from a run: the section reads well and its first claim has no source. Readings listed in the order they were produced with no turn position: the numbers are all there and the reader never learns what was wrong with the practice being replaced.
 
-The common advice is that a paper is built as: hypotheses from literature → experiment → test → conclude. The observable record says otherwise. Papers are **worked out** as: run the analysis → read what the results will support → find the literature that gives each number its footing → choose the narrative that survives the weakest footing. The printed hypothetico-deductive form is a **presentation**, reconstructed after the analysis, not a description of the order of work.
+## What a round is
 
-Two checks make the claim observable on any corpus, and both take minutes. The first compares the reference set cited in the introduction with the one cited in the discussion: if the discussion draws on literature the introduction never mentioned, the framing was written after the results. The second counts how many papers state numbered hypotheses or explicit expectations before their methods section: where most do not, the experiment was not designed to confirm a prediction, and "unexpected" in a results section is the narrative being revised rather than a surprise.
+A round does one thing: it picks the next piece of work worth doing, does it, reads what came out, and writes down what that can be read against — the footing. Only then does a sentence of the paper earn its place.
 
-## 2 The failure mode this order invites
+The order does not reverse. The result is read before the sentence is written; a sentence written first is a promise the data has not yet kept.
 
-Writing the chapters first and fitting the results into them afterwards: each section then promises something the data may not deliver, and the promises are discovered late, when the prose is already built on them. The order in §3 exists to make that failure visible early — a section that has nothing to put in it says so in its first five lines instead of in a reviewer's report.
+Two moves close the round: the reading goes into the position table, and every sentence of the paper standing on the old table is rewritten.
 
-## 3 The loop: the thesis directs the work, the work rewrites the thesis
+The round reports one number rather than a list of activity: how much of what the owner asked for now stands on evidence. If that number cannot be recomputed from a file on disk, it is not a number.
 
-The spine — the four moves a report is built along, each one consuming what the previous one left — is four moves, and it is a loop because the last move changes the first:
+## 1 Shared operations
 
-```
-thesis  ──directs──▶  making (experiments / analysis / data)  ──produces──▶  results
-  ▲                                                              │
-  └──────────────  repair (slots, boundaries, claims) ◀────feeds back──────┘
-```
+Nine steps, one thing each, run in number order. Every step has three parts: actions, on-disk contract, criteria and breach.
 
-- **The thesis directs the making.** It says which questions are open, therefore which extractions and which analyses are worth running. Work that answers no open slot is not work; it is exploration that has not declared itself.
-- **A slot** is one question the thesis owes an answer to, with its criterion written beside it.
-- **The making produces the results.** Not only numbers: what could be estimated, what could not, what the design cannot answer at all.
-- **The results feed back into the thesis.** A result closes a slot, opens a neighbouring one, or shows that a slot was posed wrongly. The thesis gets rewritten — slots filled, boundaries moved, claims narrowed.
-- **The rewritten thesis directs the next round of making**, and the next round of work is different from the one that would have been run before.
+A contract is a hard constraint, and four parts make it: file and directory, fields and their values, the moment of writing, a countable check. A check is a count, never an adjective.
 
-The loop converges on a sharp thesis, not on a fixed result. Each pass should leave the thesis *smaller and more specific* — one more slot decided, one more boundary stated, one more claim no longer supportable. A pass that leaves it the same size has not fed back; a pass that makes it larger has found a new question, which is legitimate but must be recorded as such.
+Every dispatch carries one `<wish>`, taken from that item's identifier in the wish list. From then on state lives under `tmp/compare-loop/<wish>/`; a different `<wish>` is a different space, two spaces share no file, and reading across them is read-only.
 
-### 3.1 First entry: material exists, but nothing of it is in the workspace
+Four rules hold for every step: state lives only under `tmp/compare-loop/<wish>/`, the body goes where the instruction points; read a file's hash before writing it and merge when it differs from last round's; intermediate output lands in `tmp/compare-loop/<wish>/tmp/` and is cleared before delivery; a round never overwrites an older round, earlier rounds are archived into `tmp/compare-loop/<wish>/archive/<round>/`, append versus rewrite is read from that section's moment of writing, and the workspace hangs on the project's existing data directory.
 
-The loop is usually entered on a project that is **already partly run** — analyses exist somewhere in earlier form, on an older build, under an older definition — and nothing of it is in the workspace yet. Do not start by rummaging for it.
+`<round>` is the integer in `tmp/compare-loop/<wish>/round.json`, incremented when a round opens. A blocked action is replaced inside the same step; the user is asked only after every route has failed, with one stack row; anything new found on the way goes on the stack and the work continues.
 
-**Ask the user first — but only for what the tree cannot answer.** Which of the existing material belongs in this paper, which is superseded, and which build it must be adapted to. The user knows what was tried and why it stopped; the filesystem is the place to look for everything else, and a question whose answer is a `ls` away is a question that hands the work back. **Ask about inclusion and supersession; do not ask about counts, paths or what a file contains.** does not. Then, and only then:
+### 1.1 Turning the thesis into questions
 
-1. **Adapt.** Take the specific thing the user named, and re-express it against the current build — new database, new definition, new plotting — rather than carrying its old numbers across.
-2. **Migrate.** Put the adapted module where the paper will need it (a runnable entry that reads the current build and writes its own output), not where it used to live.
-3. **Declare.** Record in the workspace what was brought in, from what state, adapted how, and what was deliberately left behind. Material that is not declared is material a later reader will rediscover and trust.
+What the idea is: the condensation of what the final report wants to present — what is shown, on what grounds, and where it stops. Not how it was produced, and not the process. The report expands it; when the two disagree, the idea's sentence is corrected first, and no paragraph of the report is deleted to preserve it.
 
-Guessing here is expensive in a way that compounds: an unadapted module keeps producing numbers from the wrong build, and every later pass inherits them.
+Boundary one: the idea ends at the Conclusion. Its last section is the conclusion; there is no bibliography, no reading list, no citation-entry block.
 
-**Entering the project is §3.1 of this file; commissioning it is `src/template/docs/strategy-results-first/01-supervisor.md` (the interface) and `skill.md` (method and expectations) — one copy shared by every instance.** This file states what a loop is and which work is next. How a project is entered, how the next work leaves the room as a fence, and how a returned result is read live in the role documents beside that file — `00-owner.md` (who wishes), `01-supervisor.md` (who commissions), `02-lead.md` (who answers the four questions, dispatches and collects), `03-executor.md` (who does the item). **These exist in one copy only, in `docs/strategy-results-first/`, and are never copied into any `instances/<id>/`**; the venue vocabulary has one exit: `instances/<id>/docs/strategy-roleplay/executor-notes.md`.
+Boundary two: a citation has exactly one form in the idea — the hook 〔key〕, attached to the sentence it supports. The entry behind the key — year, venue, volume, pages — never enters the idea; it lives in `report/final/assemble/references.bib` and in the `10_corpus/` registry.
 
-**What comes next splits into two kinds of work, and only one of them is the loop.** A round can hold both, and a report that names only the second is describing a loop that cannot start.
+Boundary three: citation management touches two places only — the report's prose, and the literature registry (`10_corpus/INDEX.md` and the package directories). What is fed back into the idea is the hook, never the entry: 1.10 writes hooks.
 
-| Kind | What it is | Test of whether it is this kind |
-|---|---|---|
-| **On-ramp** | work that makes the project capable of running the loop at all: the intent exists and is falsifiable; the corpus is thick enough to write against; raw results exist and can be strung into rows; a first draft exists to put a placeholder in; the map and the index agree with the disk; every number that will exist has one home | removing it makes the next round impossible, not merely thinner |
-| **In-loop** | work the loop already can do: a run that turns a named hole into a row, the footing line that anchors that row, the placeholder in the draft that waits for it | removing it leaves the loop runnable and the stage unchanged |
+Boundary four: a hook exists only after it is registered. A key may appear in the idea only when `references.bib` carries the entry and `10_corpus/` carries the package; an unregistered hook is `dangling`, and the same round either deletes the sentence or registers the source — it does not survive the night.
 
-**In-loop work is capped by unresolved on-ramp work, and the cap is not a preference.** A section waiting on a number that no pipeline can yet produce is not a section in progress; it is a placeholder whose owner is a missing pipe. When the on-ramp is empty — no intent, no corpus, no first draft, no raw results — there is no in-loop work to report: the round's product is the on-ramp, named item by item, with what each one unblocks.
+Boundary five: the idea carries no work-log — no todos, rounds, script paths or line numbers. What it promises the reader is conclusions and grounds, not the state of the work.
 
-So a report of next work answers three things before it lists anything: **how much of it is on-ramp, how much is in-loop, and which in-loop items it is deliberately deferring until the on-ramp closes.** An answer that reports only in-loop items on a project whose on-ramp is broken has misread the project's stage, however accurate its individual steps are.
+Boundary six: the idea takes no appendages of the report — no abstract, keywords, list of figures or tables, acknowledgements or table of contents, and no second copy of the report's chapter titles. The first sentence of each section is that section's conclusion, so a reader of first sentences alone still learns what each section holds.
 
-### 3.2 Writing the first thesis: four inputs, four gates
+Numbering: the idea and the report carry two numberings, one-to-one but never interchangeable. The idea's section numbers (1.1, 1.2, 2, 3 …) follow the argument; the report's (§1 Introduction, §2, §3.1 …) follow the prose. That the digits coincide is a coincidence, not an identity. The correspondence is registered section by section rather than inferred from equal numbers: each report section opens with `% SECTION <report number> <- thesis §<idea number>`, and each idea section ends with `→ report §<number>`. Change the numbering on one side and the other follows through the map, one side at a time; using an idea number as a report number, or the reverse, dissolves two tables of contents into one.
 
-The thesis is the loop's first act, and the only one that happens without results. It is written from four inputs, and skipping any of them produces a document that later has to be thrown away.
+Distillation: the idea is the report distilled — not its abridgement and not an outline. The report may carry finer paragraphs, more transitions and more qualifications; the idea keeps only the conclusions, the grounds and where they stop. Both must hold at once: every report paragraph points back to an idea section, and every judgment in the idea has a landing place in the report. A judgment without a landing place is either moved out of the idea or written into the report — the idea does not keep a sentence the prose never cashed.
 
-**The four inputs, in this order:**
+What arrives is a direction: cut the size, run a comparison. A direction cannot be written into the body and cannot be handed to an experiment — it has no truth value, and when it is done nobody can say whether it was met. This step turns it into answerable questions: one question, one criterion, so that answered and refuted are both decidable on the spot.
 
-1. **The user's priors.** Locked items (title, external commitments, venue) and standing preferences (what counts as real data, what kind of contribution is acceptable, what must never be substituted for a missing outcome). These are constraints, not material to weigh: a thesis that violates them is wrong however well argued.
-2. **The corpus.** Read benchmarks for the **pain point, the significance and the contribution they claim against it**, not for the method: which sentences say the field is stuck, what reviews admit, which design gap keeps being repeated. A claim without a quoted pain point has no reason to exist; a contribution that no benchmark sentence sets up is a preference, not an argument.
-3. **The prior work.** What an earlier phase or another author already assumed and found — hypotheses, results, narrative order. It enters the thesis as *prior*, labelled as such. Inheriting a claim is normal; presenting an inherited claim as a new discovery is the failure.
-4. **The traces.** Earlier attempts and abandoned analyses. At this stage their value is not their numbers but what was already tried, so the thesis does not re-propose it.
+Its product governs three steps: paving leaves placeholders per question (1.3), running opens one experiment row per question (1.4), and drafting must trace every section's claim back to a question.
 
-**The four gates every thesis passes before the making starts:**
+Actions:
 
-| Gate | Question it answers | Failure it catches |
-|---|---|---|
-| Pain point | two benchmark sentences, quoted, saying the field is stuck | a topic dressed as a problem |
-| Provenance | every claim labelled: user / prior work / literature / ours | an inherited claim sold as a discovery |
-| Falsifier | for every claim, the result that would kill it | an unfalsifiable story that survives any data |
-| Branch | every open claim carries at least two arms keyed to result shapes | a thesis that can only be confirmed |
+1. Create one record per question in `tmp/compare-loop/<wish>/questions.json`; write `question` as a question, one thing per sentence.
+2. Write `answered_if` and `refuted_if`: what would count as answered, and what would count as refuted. Each is one observable condition; "works better" is not one.
+3. Write `section`: the section of the body where this question is answered. No landing place: `status: dropped`, with the reason in `note`.
+4. Write `arms`: at least two mutually exclusive candidate answers — A lower, B lower, no difference. Fewer than two means the question can only come out one way, which is not a question.
+5. Mark `provenance`: `user`, `prior`, `literature` or `ours`.
+6. Write `pain_quote` as key plus the quoted sentence; without a quotation, keep `status: open` and write "to be confirmed" in `note`.
+7. `needs_new` takes `yes` or `no`: whether answering it needs a new run. A `yes` row either has an experiment row in 1.4 or states why none exists yet.
+8. How the rewrite is done: lift the verb phrase out of the client's sentence — "bring it down", "run a comparison" — and turn it into one yes-or-no or one comparison question; one direction yields several questions that do not depend on each other, and the ones that cannot be split record their order in `note`.
+9. When the direction changes, rewrite rather than append: the affected rows get `question`, criteria and `section` rewritten in place, the old ones go `status: dropped` with `direction changed` in `note`, and `tmp/compare-loop/<wish>/invalidations.json` lists item by item the `pid`s, experiment rows and paragraph numbers that die with them. A `yes` row either has an experiment row in 1.4 or states why none exists yet.
 
-**And the loop's caveat:** the thesis is provisional by construction. The results may kill a claim, a question, or an entire framing. What survives is kept; what does not is recorded as *tested and failed*, never quietly deleted and never carried into the prose. The final thesis is the intersection of what was proposed and what the data could answer — which is why it is written before the work and rewritten after it.
-
-### 3.3 Designing the work: the corpus decides what a method is
-
-Before writing a single line of analysis, inventory **what models the benchmark work actually runs**. A method the corpus uses is the field's default and needs no defence; a method the corpus never uses needs an argument for why this question requires it. Designing in a vacuum produces analyses that are correct and unreadable to the audience the paper is aimed at.
-
-**The baseline comes before the increment.** At first entry the workspace usually holds no reproducible version of the earlier work, only its traces. So the design has two ordered halves — **the baseline first, the increment second** — and the second is designed against the inventory the first produced:
-
-Migrating the baseline is not copying it. Adapt it to the current build, put it where the paper needs it, and declare what was left behind (see §3.1). Then the increment is designed against the inventory, not against taste.
-### 3.4 Literature search is a lookup first, a search second
-
-Searching is expensive and repeatable, so it must be **idempotent**: the second time the same
-gap appears, the answer should come from the shelf, not from the network.
-
-**The shelf has one location, and the project's index is what names it.** Every project keeps its literature in a single directory recorded in the workspace index; what that directory is called is the project's own business (§3.4's next paragraph), so read the path from the index rather than assuming one. Whatever it holds:
-
-| Item | What it is |
-|---|---|
-| the PDF | the file itself, named by citation key |
-| the extraction | the text a PDF reader produced from it (`.txt` / `.md`), so the next reader does not re-extract |
-| the index | one row per key: key · title · DOI/URL · pdf path · extraction path · status (`held` / `requested` / `not obtained`) |
-
-If the project has no shelf yet, create it where the project's own layout leaves room for it, write that path into the index during the first search, and use it from then on. A shelf nobody can find is the same as no shelf.
-
-**The paths named here are an instance's names, not the rule.** `workspace/10_corpus/` is what one project calls its shelf; another keeps `literature/`, a third keeps the PDFs inside the corpus index. The rule is that the shelf has one location written down where the next session will look, and that the index agrees with the directories. Reading the project's own map before searching is the difference between a lookup and a migration.
-
-**A request row carries three fields, and they are not optional:**
-
-| Field | What goes in it |
-|---|---|
-| **Title** | full title, venue, year — enough to identify the record without opening it |
-| **URL** | **a filed copy outranks a link**: if the PDF is on the shelf, the locator is the path to it, and a URL is only needed for what is not filed. Otherwise a clickable link. A DOI is not a link: render it as `https://doi.org/<doi>`; with no DOI, use the publisher or repository page. **If the record cannot be located at all, the URL field carries the query you ran** (`https://api.crossref.org/works?query.title=…`, `https://scholar.google.com/scholar?q=…`), so "searched, found nothing" is reproducible by the next reader. A bare `10.x/y`, or an empty URL field, is a defect even when the rest of the row is right |
-| **Purpose** | the one sentence saying what this paper would change in the design — which question it would answer, which model it would replace |
-
-A paywall note with no link is not a request, it is a complaint. And a link that cannot be
-verified is itself a finding: if the DOI resolves nowhere or carries a test prefix, say so
-in the report rather than passing it along as if it were a record.
-
-**Before searching, run the lookup.** By DOI, by title, by key. Three outcomes:
-
-1. **Held, with extraction** — read the extraction, go to the methods section, quote it. No search, no download.
-2. **Held, no extraction** — extract once, store the extraction next to the PDF, then read it. The extraction is a product, not a scratch file.
-3. **Not held** — search. If it can be obtained, file it into the shelf with its key and update the index. If it cannot, it becomes a request row (title · URL · purpose) and the index status becomes `requested`, so the next session does not search for it again.
-
-**Two things this lookup prevents.** Re-downloading a paper the project already owns, and re-reading a PDF a previous session already turned into text. Both look like diligence and are actually a sign that nobody kept the shelf.
-
-**Held is not the same as trustworthy.** A shelf entry can be wrong: the DOI may not resolve, the file may be an excerpt rather than the paper, the method sentence may be truncated. Verify on first use — resolve the DOI, check the page count against the claims being made from it — and record the outcome in the shelf index:
-
-| Status | Meaning | Consequence |
-|---|---|---|
-| `held` | resolves, complete enough for the claim drawn from it | usable as evidence |
-| `held · method only` | resolvable as a method form but not as a finding (excerpt, no sample, no results) | may shape the design, may not be cited for a number |
-| `held · unverified` | metadata or file fails verification | do not cite; a verification failure is itself a reason to search for a replacement |
-| `requested` | identified, not yet obtained; the request row carries title · locator · purpose | blocks the rows that would cite it, and is listed as open |
-| `not obtained` | searched, no obtainable copy | a result, not a gap: it is written once with the query and the date |
-
-**The thesis says whether the stage owes new evidence.** Declare `needs_new: yes` or `no` when a pass starts. With `no`, a held-only pass is complete and cheap; with `yes`, a pass that returns only held has not done the work, and the shelf being adequate is not an answer — it is the reason to search outside it.
-
-**The pass ends in the shelf, not in the reply.** A pass is done when the index on disk changes: new keys filed with their four assessments, or a refusal row naming what was queried and why nothing usable exists. A report that says "I looked for X and could not find it" while the shelf is unchanged has not run — the next session repeats it verbatim.
-
-**A `needs_new: yes` pass has an acceptance test, not a vibe.** Either at least one new key is filed, or a refusal row exists that a reader could re-run (query, where, date, result). Neither present means the pass failed, whatever the prose says. Two further conditions: the new keys must be *for the open slot* the stage is about, not for the topic in general; and none of them may be a paper already on the shelf under another filename.
-
-**One shelf, many manifests.** A large corpus can be split into sub-collections (`increment/`, `channel/`), each with its own manifest, provided the workspace index lists them. What is not allowed is a sub-collection whose existence is known only to the session that created it.
-
-**The index must agree with the directories.** A shelf whose header says 86 while its folders
-hold 90 has two truths, and the next reader will use the wrong one: counts are the cheapest check
-that a pass actually touched disk, and a stale count is a defect the pass that noticed it must fix.
-
-**A search that found nothing is a record too.** "Not in the shelf, searched by DOI and title, no open copy" is a row; the same gap searched three times across three sessions is a missing row.
-
-### 3.5 What counts as a literature search
-
-**A pass runs in one order: search, then read, then feed back.** Nothing is opened before it is filed under its key, nothing is fed back into the thesis before it is read and noted, and nothing is cited before it is fed back. The order matters because reversing it produces notes nobody can find and citations nobody has read.
-
-**Reusing the shelf is not search work.** Reading a paper the project already owns costs nothing and produces nothing new; it is diligence, not coverage. So a literature pass reports two counts that are never added together:
-
-| Count | Meaning | Cost |
-|---|---|---|
-| **held** | already in the shelf, reused | zero |
-| **new** | found in this pass, assessed, and filed | the actual work |
-
-A pass that returns only `held` has not searched. If the stage needs new evidence, the pass must produce new keys — and each one is assessed before it is filed.
-
-**Four things are judged for every new candidate, and each gets a line in the search log:** whether the record is real (the identifier resolves and the file is the paper, not an excerpt); whether it carries a **premise** the thesis can use, as opposed to a topic it can mention; whether it brings an **axis or a neighbour** the shelf does not already hold, which is what the collision check needs; and which **slot** it serves, since a key that cannot be pointed at a slot is a `rejected` row with its reason.
-
-**Every pass emits a counts line**, whether or not it found anything:
+One record, values illustrative:
 
 ```
-held 3 · new searched 41 · read 18 · kept 14 · placed 12 · dropped 23 · requested 4
+{"qid": "q1", "question": "At equal budget, is A's error below B's?",
+ "answered_if": "A's error is below B's by more than their run-to-run spread",
+ "refuted_if": "A's error is not below B's, or the gap sits inside the spread",
+ "arms": ["A lower", "B lower", "no difference"],
+ "provenance": "user", "section": "4.2", "pain_quote": "<key> · <sentence>",
+ "needs_new": "yes", "status": "open", "note": ""}
 ```
 
-`read` counts papers actually opened and noted; `kept` those filed; `placed` those pointed at an open
-slot. For a chapter-thickening pass: `read` ≥ 12, `kept` ≥ 12, and `placed` no more than two short of
-`kept`.
+On-disk contract: file `tmp/compare-loop/<wish>/questions.json`; fields `qid`, `question`, `answered_if`, `refuted_if`, `arms`, `provenance`, `section`, `pain_quote`, `needs_new`, `status`, `note`. `status` takes `open`, `closed`, `refuted` or `dropped`. The invalidation list of a direction change: file `tmp/compare-loop/<wish>/invalidations.json`; fields `id`, `changed_qid`, `kills` (a list of `pid`s, experiment rows and paragraph numbers), `why`, `round`.
+Written when: at the start of a round; a thesis change rewrites the row in place and appends nothing.
 
-**A thicken pass has a floor, and the floor is set by what it feeds.** The pass is not there to
-justify sentences already written; it is the input from which the thesis draws its axes and the
-body draws its moves. Both are chosen from what has been seen: a pass that files four papers
-yields four candidate moves, and the fifth-best move in the field stays invisible — so the thesis
-reads as a small delta on a narrow shelf, and the writing has nothing to choose between.
+`qid` is the downstream `claim_id`: `footing.json` in 1.6, `claims` in 1.9 and the cross-section check in 1.9 all use it, and no second identifier is coined.
 
-**The floor is a gate, not a stopping rule: a dozen new keys before a pass may be called done, several dozen when the shelf allows.** For a pass
-whose purpose is to thicken a chapter's back half, `kept` is at least 12 and `read` is at least 12;
-when the field is crowded the honest target is 20–40. The number is not a quota for its own sake.
-Two things follow from breadth, and both are what the thesis actually needs:
+Criteria and breach: rows with a missing field number zero; rows whose `arms` hold fewer than two number zero; rows with an empty `answered_if` or `refuted_if` number zero. A row missing either criterion does not enter the question table, cannot supply a placeholder to 1.3, and cannot appear as a claim in the body. A `needs_new: yes` row with no experiment row in 1.4 and no explanation fails the pass.
 
-| What breadth buys | Why four papers cannot buy it |
-|---|---|
-| **The axes** | Axes are drawn from *premises*, and neighbouring premises are usually held by different groups. Twelve-plus papers make it likely that two independent groups tried the neighbouring premise, which is what a collision check needs — two neighbours held by different groups, so the difference sentence can be built against one of them. |
-| **The moves in the prose** | Each paragraph action — what is missing, why the existing line keeps it, what we substitute, what it buys — is instantiated from a paper that did it. With four papers, four paragraphs sound the same. |
+### 1.2 Comparison and verdict
 
-**The increment is made one paper at a time, and each one leaves a note.** The loop per paper:
-locate (title plus arXiv id or DOI) → file into the shelf under its key → extract once with the
-reader in flash mode → write the note: the readings that matter (a table row, a threshold, a commit)
-and what it is used for — the section of the thesis it serves. Batches of three to five; the extraction of one batch
-runs while the next is searched. A paper with no note has not been read; a note with no readings has
-not been read either. This is the slow part of the pass, and it is the part that pays: the note is
-what the thesis and the body quote from later.
+A set of finished pieces is the ruler, not a single one: the position comes from the set's distribution, never from one piece. Measured against one piece alone the only verdict available is "like it" or "not like it", which says nothing about where this draft stands.
 
-**Breadth is not padding, because the floor is on `kept` and the judgement is on `fit`.** Every kept
-key names the open slot it answers and the difference sentence it makes possible; a key that cannot be
-pointed at a slot is a `rejected` row with its reason. A pass that files twenty keys and can place
-eight has padded, and the counts line says so.
+Actions:
 
-`needs_new: yes` with `new searched 0` is not a pass. It is a refusal, and a refusal needs a sentence: what was queried, where, and why nothing usable exists. The sentence goes in the log, not in the reply.
+1. Build the set: pieces of the same register and the same page band go into `samples/`, each logged with its register and page count; where only one can be found, record why no set exists.
+2. Measure each piece: one row per section per sample in `samples/<sample>.position.json`, carrying `gives` and `words`, `sentences`, `paras`, `cites_per_1000`.
+3. Fold the range: one row per section in `samples/<set>.range.json` — `min`, `max`, `median`, `n`. A section whose `n` is one is a reference and never a criterion.
+4. Write the position table: what each section and paragraph of this draft must deliver, taken from the range and from each piece's `gives`, never from one piece's wording. It lands in `tmp/compare-loop/<wish>/position/table.json`, one row per paragraph — `section`, `para`, `gives`, `words_target`, `cites_per_1000_target`, `source` (which row of `samples/<set>.range.json` it comes from), `order`.
+5. Record the judgement: for the same section of this draft, judge where it sits in the set — below the floor, inside the range, above the ceiling — with a page or paragraph reference, into `tmp/compare-loop/<wish>/position/<sample>.json`.
+6. Swap the set or move the floor: recompute the range whole, record which set and which range in `basis`, push the change onto `tmp/compare-loop/<wish>/stack.json`, and judge every finished section again — never only the new ones.
 
-**The log is the product, not a diary.** One row per candidate, kept next to the shelf index:
+On-disk contract, three files:
 
-```
-key | title | venue | year | citations | why kept / why dropped | status
-```
+- `samples/<sample>.position.json`: fields `section`, `gives`, `words`, `sentences`, `paras`, `cites_per_1000`, `basis` (which set and which range this row rests on).
+- `samples/<set>.range.json`: fields `section`, `min`, `max`, `median`, `n`, `basis`.
+- `tmp/compare-loop/<wish>/position/<sample>.json`: fields `section`, `judgement`, `basis`.
+- `tmp/compare-loop/<wish>/position/table.json`: fields `section`, `para`, `gives`, `words_target`, `cites_per_1000_target`, `source`, `order` — which range row this paragraph writes to.
 
-Rejected candidates stay in the log with the reason. A log that contains only the papers that were kept cannot be audited, and the next session repeats the same searches.
+Written when: the per-piece rows and the range rows are written once the set is chosen; a new set or a moved floor rewrites both whole.
 
-**Dedupe before filing.** New candidates are matched against the shelf by DOI and title first; a candidate already held is a `held` row, not a `new` row, and it is not re-downloaded.
-**The instance's §3.6 and §3.7 come before this one.** Two of the loop's sections are numbered in the instance document rather than here: the one on turning scattered work into an increment, and the one on a search being procurement as well as a reading pass. They carry the venue's failure modes, so they are stated there; the numbering gap here is deliberate and says where to look.
+Criteria and breach: one row per section per sample, rows with a missing field number zero, one range row per section — a missing section fails the round. The position table holds one row per paragraph with a non-empty `source`; rows missing or carrying an empty source number zero, and the paragraph count of the body and the row count of that table differ by zero. A range that exists only as a string inside `verdict.target`, with no `samples/<set>.range.json` on disk, fails the round — a range with no file cannot be re-checked and is no ruler at all. A section with `n` of one states in `basis` that it is a single piece and no criterion; using it as a criterion judges the round invalid. A row with an empty `gives` is an idle row and enters the coverage row of 1.2.
 
-### 3.8 Paving: what the search owes the stage that follows
+Measure this draft against 1.2's ruler, item by item, and return pass or fail.
 
-**Paving** is what a search leaves behind for the work that comes after it: the difference sentence, the setting a number will be compared against, the page that will be quoted. It is the part of a literature pass that is not a citation.
+One baseline measurement follows the ruler at once — it records the starting point and is not expected to pass; every later round ends with another, measured the same way so the numbers compare.
 
-Procurement (the instance's two sections on scattered work and on search-as-procurement, and §3.8 below) says a search must leave behind what the work will *run*. That is not
-enough for a paper whose method comes from the literature rather than from a repository: the
-thing to be run is a **specification**, and a specification that is not written down as a package
-is rediscovered three sessions later, usually from the wrong paper.
+Actions:
 
-**A paving pass delivers four things, and the pass is not finished until all four exist on disk** (§3.19.1 is the running checklist; it grows with each wish): the section's skeleton file with its five-key header and a placeholder wherever a number will land; the sign for whatever cannot yet be produced (`DECIDE` or `ABSENT`, with its owner); the difference sentence or sentences, quoting the neighbour's own wording, so the section can be written against it rather than around it; and the pinned asset the section's numbers will come from (`repo · commit · snapshot`), so that a later round can reproduce them instead of describing them.
+1. Compute `target` and `current` per row, for instance size, citations per thousand words, position coverage, literature gap, placeholder gap. How many are measured follows what this round needs to see, not a quota; anything extra gets a row of the same shape, and the count enters this round's `rows`.
+2. `target` comes from the range in `samples/<set>.range.json` or from the index, and `target_source` records the path; the size row takes `min` and `max`, never a single piece.
+3. `current` is measured a fixed way: size counts pages, words and floats in the built output; citations per thousand words divides through the body's word count; coverage compares position rows against `sections.json`, section by section; the literature gap counts `paper` rows and gap rows in `stack.json`; the placeholder gap counts `open` rows in `placeholders.json`.
+4. `verdict` takes `pass` or `fail`.
+5. Every failed row carries one `next`: `section`, `action`, `target`.
 
-**The skeleton is the unit of paving, and its minimum is small on purpose:**
+On-disk contract: file `tmp/compare-loop/<wish>/verdict/<round>.json`; fields `round`, `rows` (`name`, `target`, `target_source`, `current`, `status`), `verdict`, `next`, `readings` (two sets, `open` and `close`, of three integers each: the previous `verdict` value, open placeholder rows, open stack rows), `skipped` (step numbers not taken, with the reason).
+Written when: the size row and the citation-density row of a section are measured and written the moment that section is finished; the remaining rows and the `verdict` follow at the end of the round. One round, one file.
 
-`run.py` must execute far enough to prove the input path and the argument parsing work, then stop
-at the unimplemented step. "It runs" is the difference between a plan and a plan that has touched
-the data.
+Criteria and breach: rows in `rows` with a missing field number zero and rows with an empty `target_source` number zero; a row without a source does not count, and empty rows number zero. A row whose `current` has not moved for two rounds records `fail`, its `next` says `escalate: user`, and one row enters `tmp/compare-loop/<wish>/stack.json`. Each stack row carries `dedupe_key` (one row per gap) and `priority`; a pass pops at least one row, or it has not started. A `target` taken from this draft is void and is re-read; while `verdict` is not `pass`, the round does not close.
 
-**The intent document's pass block grows one line, and only this line makes the paving auditable:**
+### 1.3 Laying the road
 
-```
-paves: <slot> · asset <key> · prior <magnitude + design> · package <path> · unlocks <optional experiment>
-```
+Plan first, place afterwards: which section answers which question, on which number, behind which section. The skeleton is written once that is settled. Laying without planning is writing whatever comes to mind, and what gets handed over is a collage.
 
-A pass that files papers, appends `now claimable`, and omits `paves` has informed the next stage
-but not equipped it. The test is mechanical: open the path in the `paves` line. If it is not
-there, the paving did not happen, whatever the manifest says.
+Actions:
 
-**Before the pass is called finished, five checks, all mechanical:**
+1. Order the argument: from the range file and the question table, write per section what claim it stands on, which `qid` answers it and what it waits behind, into `tmp/compare-loop/<wish>/plan.json`. A section with no claim is marked `no-claim` with the reason it stays.
+2. Scout: for every number still missing, look for its supply on disk — the data, a runnable entry, the source on the shelf, a command that reproduces it. What exists goes into `supply` (path plus command); what does not goes into `gap` (what must be built, and by whom).
+3. Build the skeleton: sections and their order follow the `section` sequence of `samples/<sample>.position.json`; no section absent from that file is added, and each section carries at least one sentence.
+4. Leave placeholders: one row per missing number in `tmp/compare-loop/<wish>/placeholders.json`, and `% PENDING <pid>` on its own line in the body.
+5. Entry raises: `raise NotImplementedError("<pid>: <waits_for>")` where nothing is implemented.
+6. Mark state: `state` takes `open`, `filled` or `dropped`; a filled one moves to `filled` with the hash of its passage.
+7. Record obstacles: a named paper with no repository, an unobtainable full text, compute or time running out, a run that fails after honest attempts — `note` records the obstacle and the routes tried, and one row enters the regurgitation list as 1.5 rule 8 requires; the placeholder stays `open` rather than being deleted for being hard.
+8. Reserve a missing upstream section: compare this section's `gives`, the position table and the section order of the samples. When all three point at one section the idea does not have (present in the samples, present in the position table, absent in the idea), the gap is a high-confidence finding rather than a guess. Record a row in `plan.json` with `action: reserve`, naming where it sits in the idea, what it gives, and which section's prose will rest on it; record the same row in that round's `idea-feed.json` with `idea_section` holding the reserved slot. A reservation is not written at drafting time: the chapter is written, and the section is inserted into the idea at 1.10. Low-confidence gaps are not reserved — a reservation made on a hunch is harder to clean up than a missing section.
 
-| Check | Fails when |
-|---|---|
-| every filed paper carries a **slot tag** in the index (`rq1`, `rq2`, `none`) and the `none` rows say why they are filed | the next pass must re-read eleven summaries to learn which four are for the share |
-| every paper a skeleton depends on is marked **`spec-asset`** and appears in that `SPEC.md`'s source line | a cited source and a running package are two different claims, and only one of them is checkable |
-| every `paves` path opens **and the skeleton has been executed once**, with the exit line pasted into the pass block | an unexecuted stub is a plan; the first thing a later session discovers should not be a missing argument |
-| the pass states **one thing it could not pave**, with the reason: missing paper, undecided instrument, unavailable outcome | a pass that paved everything has either paved nothing or not looked |
-| the index's own counts match the directories on disk | a shelf whose header disagrees with its folders is a lookup that fails silently |
+On-disk contract, two files:
 
-**A stale count is a defect, not a note.** Reporting "`README` still says 86" and moving on leaves
-the first number a reader sees to be the wrong one; the same pass must fix it or say why it may not.
+- `tmp/compare-loop/<wish>/plan.json`: fields `section`, `claim_id`, `needs` (list of `pid`), `depends_on`, `order`, `risk`.
+- `tmp/compare-loop/<wish>/placeholders.json`: fields `pid`, `section`, `waits_for`, `owner`, `question`, `supply`, `gap`, `blocks`, `state`, `note`.
 
-**A skeleton is a floor, not a ceiling.** When a pass implements the pipeline instead of stopping at
-`NotImplementedError`, the obligations change rather than disappear:
+Written when: planning and scouting finish before the skeleton is written, and both files are written when that section is settled; every placeholder state change updates its row at once.
 
-**Optional experiments are ranked, not listed.** Each one carries: the slot it serves, the cost
-in hours, the result that would make it uninteresting, and whether it can run before the main
-result exists. An option that depends on the main result is a *follow-up*, not an option, and
-belongs in a different column.
-### 3.9 Sub-flows: they sit on the spine, they do not replace it
+Criteria and breach: every section has a row in `plan.json`, carrying either a `claim_id` or `no-claim`; a dependency cycle, or a section with no owner, fails the round. A `reserve` row fills `idea_section`, `gives` and the section whose prose will rest on it; a reservation missing one of the three does not count, and the number left unconsumed by 1.10 at the end of the round is written into `verdict` `readings`. Every open placeholder carries `supply` or `gap`, and one with neither is void. A row with an empty `owner` is void and its gap may not stay in the body. A `pid` list with an owner is the input list of 1.4: one open row maps to one experiment row or to one `blocked` note. An entry that reaches unimplemented code exits non-zero and prints its `pid`; an entry that writes an empty result file is rejected and rewritten.
 
-Real projects interrupt the spine constantly — a reproduction test, a documentation fix, a user decision, a literature look-up. These are **sub-flows**: entered from one point of the spine, exited back to the same point, with their own exit condition and their own artefacts. Three rules keep them from becoming the loop:
+### 1.4 Running for a number
 
-- **A sub-flow returns to where it started.** Its output is a decision, a rule, or a fixed file — then the spine resumes at the slot that was open.
-- **A sub-flow never resets the spine's state.** The current thesis, the result table, the open slot are read before the sub-flow starts and are still there after it.
-- **A sub-flow that changes a rule is written where the next session reads it** (a skill document, a case's materials), not only in the conversation.
+Produce the numbers a drafting need requires: one number, one experiment, run until the number can be written into the body.
 
-### 3.10 Memory of the loop
+Position: a placeholder in 1.3 has no source for its number, and 1.5 holds no material for it — the run does not exist, or what exists is not enough.
 
-The loop needs its state to outlive the conversation. Four files carry it, and each is small enough to rewrite in a pass: `data/<identifier>/loop_state.json` (what the layers hold now, each with the command that showed it), `loop_state.json` (the tree, plus `history`: feedback and rounds, append-only), the corpus index (what is on the shelf), and the draft itself (section, claim, readings, hash of the last revision, the round that touched it).
+Actions:
 
-**The state file has one path and is repaired, not rewritten.** `data/<identifier>/loop_state.json` holds the facts a commissioning agent would otherwise re-derive every session, each with the command that produced it. Three rules keep it from drifting: **absent is created, never assumed** (the first commissioning turn builds it from the tree, the way an index is built); **the executor repairs it, the supervisor reads it** (a return updates the fields it changed and leaves the rest alone); **a disagreement is recorded, not resolved** (when the return says fourteen sections and the disk says thirteen, both readings and both commands are kept, because picking the convenient one starts the next round from a fact that was never true).
+1. Fix the target: in that placeholder, state what the number must satisfy — which sentence uses it, under which four settings, and what magnitude counts as enough.
+2. Before building the list, settle four things: interpreters and dependencies, where compute is reachable (this machine, a cluster, a scheduler), the experiment scripts and configs already there, the conventions for logs and result directories. Of these four, what exists is reused, not rewritten; what is missing is looked for in the project first, and only then built, with one stack row saying why.
+3. Build the list: one row per experiment in `tmp/compare-loop/<wish>/experiments.json`, with `id`, `serves` (a `pid` or `claim_id`), `entry` (the command), `needs` (data, weights, compute), `expects` (which `number_key`), `state`.
+4. Order the list: run first the one most likely to yield the target number in one go, the rest by dependency; `state` takes `queued`, `running`, `done` or `blocked`.
+5. Run: get the smallest command to print one number first, then scale to the full set; `entry` is paste-ready in a clean environment; the number goes straight back into `tmp/compare-loop/<wish>/intake.json` and its placeholder turns `filled`; the row is rechecked by 1.5, and only then recorded `indexed`.
+6. When it will not run, repair in place: dependency, path, seed, memory, data split — each repair appends one line to `fixes`. Three repairs in the same place without progress means a different route: another implementation, another dataset, a smaller scale; a smaller scale writes into `degraded` what was reduced and which criterion it affects.
+7. A newly found problem goes onto `tmp/compare-loop/<wish>/stack.json`, and the next row starts at once; the pass never stalls on this one.
+8. A `blocked` row carries three things — the objective obstacle, the routes already tried, and the adjustment proposed (lower the expectation, change a setting, rewrite the narrative, change the sample) — and pushes one row into `tmp/compare-loop/<wish>/regurgitation.json`. Shrinking the target quietly does not count as an adjustment; only the written one does, and shrinking it unwritten is cutting corners.
 
-**The prose is part of the state, and it is tracked per section**, not as one document: section id · its claim · its readings · hash of the last revision · the round that last touched it. Prose written once and never revisited is not a report being iterated; it is a report that stopped. A section reopens for one of three reasons — a feedback item, a new reading, a collision found in a newly filed paper — and the reason is recorded in the same row.
-### 3.11 When to stop
+Not allowed: "it has been run" reported without a number; a nearby number standing in for the target; a criterion bent to fit the result; a reduced scale left unrecorded; an unfinished run recorded `done`.
 
-Not a deadline. Stop when a full pass changes no slot, opens no question, and invites no analysis. Two conditions make that reachable:
+On-disk contract: file `tmp/compare-loop/<wish>/experiments.json`; fields `id`, `serves`, `entry`, `needs`, `expects`, `state`, `number_key`, `fixes`, `degraded`.
+Written when: the list is built; every finish, failure or route change updates its row immediately.
 
-- **The pass itself must be cheap** — tables and scripts, not paragraphs — or the loop stops being run.
-- **The pass must be recorded** — a slot that flips back is a warning that the thesis is still ambiguous, not progress; it is not a reason to stop.
-- **A literature pass stops on saturation, having cleared the floor — never on the count alone.** Clear §3.5's floor first (a dozen kept, a dozen read), then stop when two consecutive batches of
-  three to five papers add no new *premise* — no new axis, no new neighbour for the collision check,
-  no new difference sentence. Stopping earlier because the shelf already holds enough to cite is the
-  failure this floor exists to prevent; stopping later, once the batches repeat each other, buys
-  nothing but notes nobody will quote.
+Criteria and breach: every row carries a `state`. A number an order of magnitude away from the same-setting literature sends the setting back for a check before it is believed; where no cause is found, the row takes `suspect` and one stack row. A `done` row must have its counterpart in `tmp/compare-loop/<wish>/intake.json`, or it fails the pass and returns to `running`. A `blocked` row states what is missing and who supplies it. Closing criterion: every placeholder covered by this drafting need holds a `filled` record, or is `blocked` with its gap named item by item.
 
-If three passes each change a headline claim, the loop is telling you the effect is conditional. That is a result, and the paper should carry it rather than pick the pass whose narrative reads best.
+### 1.5 Intake
 
-**Independent items run at the same time, and independence is a property of the write set, not of the topic.** Two items may be dispatched together when they share **no writable file and no decision**: reading the same corpus or the same ledger is fine, writing the same section, the same table or the same state file is not. The state file has exactly one writer — whoever leads the round — because two sessions updating the same rows produce a file that agrees with neither of them, and the disagreement is invisible afterwards. Serialising costs one round; an inconsistent state costs every later round.
+Register the results as an index: which file holds each number, which run produced it, under which settings it is read. Results are not re-run; intake is checking and indexing, not reproduction. Material has two sources — what the client handed over at the start, and what 1.4 produced; both are registered with the same fields, and the rows 1.4 writes back are rechecked here.
 
-**A round serves the objective the owner stated, and where none was stated that absence is the first thing to fix.** The tree can say what exists; it cannot say what the work is for. So a commission quotes the objective it serves, and a round that cannot name one is a round that will optimise for whatever the files suggest — which is how a project acquires a direction nobody chose.
+Actions:
+
+1. Open every item and look at its contents: a table at the cell, a figure at the annotation, a log at its last lines. Registering from a file name or a directory name counts as not done.
+2. Create one record per item in `tmp/compare-loop/<wish>/intake.json`: which number it yields, which version or run produced it, and the four settings it is read under (`dataset`, `split`, `metric`, `budget`).
+3. Check the settings one by one. Each of the four points at the sentence in the body that will use it and at the figure it becomes; all four pointing somewhere records `state: indexed`, one that points nowhere records `incomplete`, contents unreadable records `unreadable`.
+4. Check each item sensorially and land every check on a place: which page the number sits on, which row and column of which table, and how far apart the two numbers are; whether the heading's wording is the same word as the column name; the sample size as written and the magnitude the claim sentence uses; whether pages and row numbers run without a gap. The result goes to one `flags.json` row — `where` names page and cell, `evidence` names the two numbers.
+5. On fabrication, omission, weakness or doubt: `state: suspect`, plus one row in `tmp/compare-loop/<wish>/flags.json` — `kind` as `fabrication`, `omission`, `weak` or `doubt`; `where` and `evidence` (page, cell, the command line as typed); `needed` (what would settle it).
+6. A suspect item never becomes a conclusion in the body. Mentioning it has one condition — a matching `flags.json` row: the body writes `% PENDING <pid>` plus "to be confirmed", and `pid` points back at that row. No row, no mention.
+7. Where the target number is absent from disk, or present but unusable, go to 1.4 and open one experiment row for it.
+8. A number that contradicts a claim of this draft is registered like any other, the same `qid` takes `status: refuted`, and `tmp/compare-loop/<wish>/regurgitation.json` gets one `kind: conflict` row carrying where the number sits, the claim sentence as written, and the affected paragraph numbers. Hiding the counter-example is not allowed, and neither is bending the claim to fit a number that has not been rechecked.
+
+On-disk contract: file `tmp/compare-loop/<wish>/intake.json`; fields `id`, `what`, `path`, `source_version`, `number_key`, `setting`, `state`, `evidence`, `note`; `state` takes `indexed`, `incomplete`, `unreadable` or `suspect`. File `tmp/compare-loop/<wish>/flags.json`; fields `id`, `kind`, `where`, `evidence`, `needed`, `raised_to`, `state` (`open` / `answered` / `closed`).
+Written when: each item is written the moment its check ends; rows written back by 1.4 take `state` after review.
+
+Regurgitation list: file `tmp/compare-loop/<wish>/regurgitation.json`; fields `id`, `kind` (`conflict` / `impossible` / `expectation` / `basis`), `where`, `tried`, `proposal`, `needs_user`, `state` (`open` / `answered` / `dropped`). Anything that cannot move forward because of an objective obstacle or because it contradicts a claim lands here, and it is raised with the delivery before the worker retires.
+
+Criteria and breach: one row per item, `state` present, `setting` and `evidence` filled. An item registered without being opened is not done and is registered again. A `suspect` row without its `flags.json` counterpart fails the pass. Re-running an experiment in place of checking its settings is treated as cutting corners, unless the user asked for the re-run.
+
+### 1.6 Admitting numbers
+
+Only numbers that can be checked alone enter the body: who produced it, under which settings, what it can be read against, and which sentence carries it.
+
+Actions:
+
+1. Admission: rows are built only for numbers 1.5 reviewed as `indexed`. A number `incomplete`, `unreadable` or `suspect` never enters the body; one already there is withdrawn and a stack row opened.
+2. One row per number in `tmp/compare-loop/<wish>/footing.json`, `claim_id` naming the `qid` it answers and `section` naming where it lands.
+3. `source` holds the file path plus the producing command; a number whose command cannot recompute it takes `not-reproducible` and stays out of conclusion sentences.
+4. `setting` carries the four fields — `dataset`, `split`, `metric`, `budget` — taken from the intake row rather than written afresh.
+5. Units and digits: `unit` names the unit and `scale` the conversion (percentage, per-mille); the body never rounds to a different number of digits than `value`.
+6. Derived numbers: an average, a difference or a percentage carries `derived_from` (the `footing` rows that entered it) and `formula`; one without both stays out of the body.
+7. `against`: the comparison key plus its four settings. The search is fixed — the same section first, then the shelf by `metric` and `budget`; where neither yields one, `not-seen` with the searched range in `note`, and four settings short or mismatched also takes `not-seen`.
+8. `line` names where the number appears — paragraph, float or abstract — and numbers inside figures, tables and the abstract get rows too; being drawn on a figure is no exemption.
+9. Consistency: the same number reads identically in abstract, body and table; `value` governs — the body is corrected around it, and changing `value` follows rule 11.
+10. A number whose `against` is `not-seen` carries no comparison in the body — higher, lower, better, compared with, close to are all barred — and stays out of the conclusion.
+11. When a number is re-run or corrected at intake: the old row takes `state: superseded` and keeps its `round`, the new row carries the new `round`, and the body moves to the new row; two rows never stand available for citation at once.
+12. A number that cannot be produced is judged for runnability first — runnable goes to 1.4 as an experiment row; not runnable pushes one row into `tmp/compare-loop/<wish>/stack.json` and the next placeholder is filled without stalling.
+
+On-disk contract: file `tmp/compare-loop/<wish>/footing.json`; fields `claim_id`, `section`, `value`, `unit`, `scale`, `source`, `setting`, `against`, `derived_from`, `formula`, `status`, `state`, `line`, `round`. `status` takes `seen`, `not-seen` or `not-reproducible`; `state` takes `current` or `superseded`.
+
+Written when: before a number enters the body; a correction appends a new row and marks the old one `superseded`, never editing it in place.
+
+Criteria and breach: every number in the body has one `current` row with a matching `value`, and the paragraph or float its `line` names exists — a miss fails the round. A derived number recomputes from `derived_from` and `formula`, and a mismatch voids it. A `source` that will not run while `status` is not `not-reproducible` judges the step undone. Comparison sentences in the body may not outnumber the rows whose `against` is not `not-seen`. A `suspect` or `superseded` number appearing in the body is recorded `dirty` by 1.9.
+
+
+### 1.7 Thickening
+
+Add literature and narrative detail. Fixed order: look up, fetch, convert, read, file, stack.
+
+Actions:
+
+1. Look up the shelf by `key`, by title, by DOI. A hit is used as is and never downloaded again.
+2. Fetch the full text: if an interface for full texts exists (a search API, a preprint source, an institutional repository), or the project already holds the text, take it from there rather than from a browser page; only where no interface exists are the routes tried by hand, publisher page, preprint server, author page, institutional mirror in that order; a channel that fails is replaced by the next at once; do not wait on one.
+3. Convert on arrival: if the ecosystem has a parser that keeps tables, captions, formulas and section headings, use it to produce the structured text beside the source under the same `key`; if it has none, one stack row records the substitute adopted. That text is the reading copy. Screenshotting page by page, retyping, or scanning the PDF by eye judges the step undone.
+4. Read the whole text: locate by search in the parsed text, read the method and results sections, transcribe the four `setting` fields and the four `comparison` fields and note the pages they sit on; a paper earns a citation only when it moves a claim this section already makes — otherwise it is recorded as `cites: background` and takes no argument slot; every quoted sentence is copied verbatim from the body, never from the abstract, never paraphrased.
+5. File: write three places in the same pass — `literature/meta/<key>.json`, `literature/notes/<key>` (a record file, format as the project keeps it), one index row.
+6. Stack: an unobtainable full text, a missing setting field, an absent reproduction entry, a newly found problem — each writes one row into `tmp/compare-loop/<wish>/stack.json`, and the next entry is taken immediately; one entry never halts the pass.
+7. A batch arriving at once is worked as a batch: deduplicate by `key`, DOI and title, file each item, then rebuild the index and check the count; a duplicate keeps one row and records the other path in `note`.
+8. Every filing writes one citation entry at the same time, into whichever citation library the template uses: `key`, authors, title, year, venue, DOI or URL. That library is the single exit for citations; the body cites keys and never types entries by hand.
+
+On-disk contract: file `literature/meta/<key>.json`; fields `key`, `title`, `venue`, `year`, `locator`, `status`, `input_class`, `setting`, `comparison`, `reading`, `purpose`, `cites`, `verified`, `note`. `status` takes `held`, `held-method-only`, `held-unverified`, `requested`, `not-obtained`; `setting` carries `dataset`, `split`, `metric`, `budget`. Stack file `tmp/compare-loop/<wish>/stack.json`; fields `id`, `kind` (`paper` / `setting` / `entry` / `defect`), `opened_by`, `what`, `criterion`, `owner`, `state` (`open` / `done` / `dropped`).
+Written when: every filing writes its three places in the same pass; a stack row is written the moment it appears.
+
+Criteria and breach: the three locations agree in count; a disagreement is repaired in the same pass and the repair recorded in that key's `note`. A record whose `status` is not `held` supplies no number. A record with only an abstract and no body is `held-method-only` and supplies no number. A full text that could not be obtained and left no stack row fails the pass. Only after every channel has been tried does a `requested` row appear, and it is raised to the user in one message together with the rest. An `open` stack row is never deleted for lack of time; only `done` or `dropped` closes it.
+
+### 1.8 Drafting
+
+Write the sentences the position table calls for, and leave the places with no number as placeholders. Drafting is for a reader, not for handing in: read how others wrote this kind of paragraph before the first sentence, and read the paragraph back as a reader when it is done.
+
+Actions:
+
+1. Read the others first: for each paragraph this section will hold, read a paragraph of the same job in the sample set, sentence by sentence — not the `gives` summary but the sentences themselves, and say what each one does (states the conclusion, gives the basis, names the cost, draws the boundary, hands over to the next paragraph); a paragraph whose moves cannot be named has not been read. One row per paragraph read goes into `tmp/compare-loop/<wish>/voice.json`: `section`, `para`, `sample`, `page`, `move` (what this step does), `pattern` (ten to thirty characters copied verbatim — the sentence shape or the turn), `use` (which paragraph of this draft, and which step, follows it).
+2. A `pattern` must be findable in the sample's own text; one that cannot be found is void — a paraphrase from memory is not reading. If the reading still leaves no sentence shape for this paragraph, read another sample; never start from "roughly like this".
+3. Then read the writing conventions: the writing entries in project memory and the sample's `gives`, and carry what transfers into the sentences — an abstract follows five moves (state, gap, method, finding, boundary) as one page of prose, an introduction follows three (establish, gap, this work), length and citation density follow the measurement convention, and citation format follows its single source. Where a convention and the sample disagree, the sample's position wins and one line goes into `note`.
+4. Write one paragraph per row of `samples/<sample>.position.json`; the first sentence of each paragraph carries that paragraph.
+5. How a paragraph opens: the first sentence states the paragraph's conclusion and names its object, the second gives the basis — a number, a source or a comparison — and the rest carry cost and boundary; one paragraph makes one point, and past the `sentences` figure on that row of the position table it is split.
+6. Where the paragraph needs a number of this draft that is not on disk, write `% PENDING` and create a row in `tmp/compare-loop/<wish>/placeholders.json` naming `waits_for` and `owner`.
+7. Mark every finished paragraph's source: a claim, a citation key, or a row of `tmp/compare-loop/<wish>/footing.json`. A new claim first gets a row in 1.1, then its sentence.
+8. Take structural and positional problems back to 1.3 and 1.2; do not change structure while drafting.
+9. Write where the instruction points: the body goes into the directory and file names the client named — the ones the project's own architecture already holds — never a path invented along the way and never a parallel tree. With no location named, follow the existing structure; ask once only when no structure exists, and from the answer on, keep it fixed.
+10. The template governs: write inside the commands, environments and styles the template provides; a change to the template's preamble gets a row in `tmp/compare-loop/<wish>/stack.json` saying why it cannot be avoided; floats and other display objects use the environments the template already defines; file names and the include hierarchy follow the template rather than a new hierarchy.
+11. Compile after every section: errors and warnings go to zero before the next section starts, and a draft that does not compile is not a draft. Where the template's requirements and the project's directory conflict, satisfy the template so it compiles, keep the location as instructed, and put the conflict into `tmp/compare-loop/<wish>/regurgitation.json` for the client to settle.
+12. Read it back: first as the author — every sentence points at the claim, the key or the number it carries; then as a reader — what does this sentence tell me, and what am I left to guess. A sentence that leaves something to guess gets a row in `stack.json` and is rewritten on the spot, then read again; both passes are recorded in `read_back` of `voice.json` (`author`, `reader`, `guessed`).
+13. Write one section at a time: the moment a section is finished, measure it in 1.2B against its position row — words and citations per thousand words — and do not start the next section until it holds.
+14. Write prose by the paragraph, whole: a paragraph added or rewritten goes into the file as a paragraph. Scripts, `sed` and string replacement that patch sentences inside the body are not allowed — sentences assembled that way have no author, and they read like a machine wrote them.
+15. Register: the body is academic written prose only — declaratives in the third person, each sentence carrying a claim and its evidence in the same breath. Four families are banned: slogan-like antithesis ("the first fails, the other two lose their footing"), metaphor and personification ("loses its footing", "only a slogan"), spoken connectives and hedges ("basically", "obviously", "we feel"), and advertising adjectives ("significantly boosts", "far superior", "greatly relieves"). After delivery, grep the banned list; the hit count must be zero.
+16. Four hard edges of register, each countable: one, declarative sentences only, one claim per sentence, mean length 45 words or fewer for the section and any sentence over 60 split on the spot; two, third person only — "we", "our" and "I" are rewritten as passive or unnamed subjects; three, tenses split by job, present for the method and past for runs and readings, never mixed inside a section; four, every sentence carries its evidence (a key, a number, a derivation) or is deleted — sentences without evidence do not enter the body, including transitions and postures. Paragraphs add three: the first sentence states the conclusion and names its object; one paragraph serves one claim; no bullet marks, and no template connectives such as "firstly", "secondly", "in this section". Register is not style: a sentence without evidence cannot be checked, and drifting person and tense make method and result indistinguishable.
+17. Look through the draft as a white box before looking at the linkage. Three questions in order; no answer, no writing: one, does this paragraph belong in this document — right place, right grain against its neighbours, and nothing pulled in from a section that owns it; two, does the claim land — a key, a number or a derivation, or it is deleted; three, which region of the idea will this feed once written. The first two are about the document alone; the third is the linkage. Decide whether the section stands on its own before deciding what it sends back — the other order writes prose for the sake of the feed.
+18. Drafting feeds the idea, and the idea is located by sense. The moment a section is finished, send the result back to its region: locate by content — the heading, the section's `gives`, the opening sentence's claim — never by matching numbers (idea §3 and report §3 are different things, see 1.1). Every row in `idea-feed.json` carries `located_by`, naming the sentence or heading that located the region. Before sending, confirm three slots: the intake inputs (the `intake` rows of 1.5), the footing slots (the `footing` rows of 1.6), and the code environment (which package, which command, which seed). One missing stops the round until it is filled; prose does not go on over a gap.
+19. What the feed turns up is triaged. A single-point problem — a wrong key, a number that does not reconcile, a sentence filed under the wrong section — is fixed on the spot: same round, re-run, state rows updated. A systemic problem — a whole section missing from the idea, numberings misaligned across the board, an argument chain with no landing place in the prose — is not fixed in this round: it goes into the delivery report under "systemic problems", with its symptom, its reach and the action it needs, delivered with the round. A round that does not report a systemic problem leaves it to be rediscovered next round.
+20. Read the two neighbouring sections before writing, and state each seam in one sentence: the new paragraph catches the end of the one before it and hands its own end to the next; a seam nobody can read is a break, and a break is mended by changing the seam rather than adding a transition. Neighbouring faults are fixed on the spot — a point made twice, a conclusion before its grounds, an unbroken long paragraph, a stale number — with `path:line` in the delivery, never filed as a todo.
+21. No comparison table, no draft: two columns — the readings of comparable published prose (which papers, sentences per entry, citations per thousand words, how many statements of what was left, and how each was counted) and the same readings for this section, counted the same way. Without the table what changes is wording, not prose.
+22. No number without a source: `path:line`, and for corpus statistics the file, the pattern and the denominator. A number inherited from upstream is re-checked the same way — one bad figure upstream is then copied into the feed, the readings and the body.
+23. Register is checked by a countable list: scene-setting openings ("a shopper stands before…", "imagine you…"), rhetorical questions, first person, colloquialisms, imperatives — each counted, and the count must be zero.
+
+On-disk contract, two files: `tmp/compare-loop/<wish>/sections.json` (where the section lands, and its hash) and `tmp/compare-loop/<wish>/voice.json` (one row per paragraph: `section`, `para`, `sample`, `page`, `move`, `pattern`, `use`, `read_back`); `sections.json` fields `section`, `hash`, `claims` (claim ids in that section), `placeholders` (list of `pid`), `file` (the file this section lands in), `round`.
+Written when: once per section written, updated section by section, never rewritten whole.
+
+Criteria and breach: sentence count and citation density are counted against `sentences` and `cites_per_1000` in the position row — those two are the contract edge and stand in for nothing below. Hits on the banned register list number zero; the list is the one in step 15. Every paragraph holds a `voice.json` row with a non-empty `page` and `pattern`, and paragraphs missing one number zero; rows whose `pattern` cannot be found in the sample's text number zero; paragraphs short of a `read_back` field number zero. Two or more in-place sentence patches in one paragraph fail the round, and that paragraph is rewritten whole. The first sentence is copied out on a line of its own; if that line says what the paragraph is about and which sentence is the conclusion, it passes, otherwise the paragraph is rewritten. What is judged is the copied line, not the length of the paragraph. A sentence without a source is recorded `unsourced` by 1.9 and is deleted or demoted to a placeholder.
+24. The idea follows the paper's own subsection shape, not a scaffold: each chapter `## N. Title` holding `**N.k Subsection**` items that open with a claim and read as the skeleton of prose. Label lines such as `Job`, `Narrative arc`, `Potholes` must appear zero times: they are my notebook, not the paper's way of writing.
+25. Skeleton before colour, across the whole manuscript: every chapter has its skeleton subsections in the same round, and "this round only the first sections" is not a skeleton. Chapters without a skeleton must be zero.
+26. Potholes close the chapter: the last subsection is "Open items and where the readings come from", one line per missing item naming the runnable entry that fills it (`PENDING(fill: <entry>)`). "To be filled", "later", "will show" standing in for `PENDING` must be zero.
+27. Paving is a sentence, not a tag: the chapter ends on the interface of the next chapter's first sentence, worded as handing over. Tag-style `Paves` lines must be zero, and the seam is checked by reading the last sentence of one chapter against the first of the next.
+28. Open the full texts before claiming a benchmark: at least three papers, reading the title sequence, the opening paragraph, the first result sentence and the limitation sentence, and writing all four into the readings. A claim of benchmarking supported only by regular expressions must occur zero times.
+29. Reading a paper means four things: the `<title>` sequence (the real names of chapters and subsections), the first paragraph (how the problem is opened), the first result paragraph (what is reported first), and the limitation sentence in the discussion (where limits live). Fewer than four is not reading.
+30. Citation state lives in `references.bib` alone, one `% footing:` line per key. Any use of "benchmark" in a reply must be accompanied by a paper title and a `path:line`; missing either means the paper was not read.
+31. The shelf's shape is a contract: one paper, one flat package, holding only the body (`paper.pdf` or `paper.xml`), the reader output (`chapters/`) and `meta.json`. Group folders, `README`, `INDEX` and `tools` inside a shelf must appear zero times; an index is either generated outside the shelf or does not exist.
+32. Write the names down before moving anything: every move or rename is listed as old-name to new-name in that round's readings, and the list is checked afterwards. Moving without a list must occur zero times. A symlink is a copy, the body has one home, and links are verified the moment the move finishes.
+33. Destructive tidying runs dry first: print and count what will be deleted or moved, then execute; anything irreversible is copied outside the repository first. Deleting without a copy must occur zero times.
+34. A package is the smallest citable unit: if it has no body (`no paper.pdf`) or no reader output (`reader: none`), the numbers it would support may not enter the prose. Every cited number must point at a package with all three parts.
+35. Point at the shelf before citing: every key is first found as a package on the shelf (directory name or `meta.title` matching the key's author and year). Not found means not written. Keys written without a package must number zero, and each key in the prose must be traceable in the readings to `workspace/literature/<package>/`.
+36. A first-hand citation has three parts: body, `chapters/*.md`, and `meta.json`, plus a `path:line` inside `chapters/` given in the reply and the readings. A package missing any part may only appear as `PENDING(fill: <entry>)`, never as an established number.
+37. Stop when the shelf is a mess: any of these counts as mess — group folders, `README`/`INDEX`/`tools`, empty directories, a package name that does not match its title, a `meta.title` that is a placeholder (equal to the package name or ending in `· 01_source`), a broken link. No comparative drafting begins while the mess stands; tidying and drafting never share a round, and the tidying round delivers readings only, no sentences.
+38. Tidying invents nothing: no new ledgers, no empty `chapters/`, no `notes.md` passed off as reader output, no regular-expression counts passed off as reading. A tidying round reports four numbers — packages, packages with all three parts, packages without a body, packages unread.
+39. The shelf's mess is a task, not an excuse: the readings open with one fixed line, "shelf: packages N / complete M / no body X / unread Y". Rounds without that line must number zero, and while it is absent every comparative sentence in that round counts as unverified and may not be cited.
+44. The package name is the citation key: a literature directory's name equals its `references.bib` key character for character, and access is one path, `<literature>/<key>/`. Names that disagree with keys must number zero; a rename changes both in the same round, with the list recorded in the readings.
+45. Shelf and bibliography mirror each other: every package has an entry under the same key, and every `held` or `shelf-only` entry has a package of that name. `not seen` marks only keys the bibliography knows and the shelf does not, and those may not carry a claim of having been read. The difference on either side must be empty.
+46. Split to the bottom: the tidied tree holds no subdirectory with twenty or more mixed entries and no transit folder named `v1_patched`, `misc` or `old`; both counts must be zero.
+47. No bins: `find <package> -type d \( -name '_deprecated' -o -name '_misc' -o -name '_tmp' \)` prints nothing, and every file under the temporary area's `unrecognized/` carries one line saying why it could not be classified.
+46. Hand-off products live under `tmp/` only: case products go to `tmp/reproduce-test/<id>/out/`, and the only other `out/` in a repository is a rebuildable data product (`00_data/build/out`) kept out of version control. A third `out/` is pollution and must number zero.
+47. A figure starts from a sentence, not from data: write down the sentence it carries (with a `path:line` in the readings) before drawing; a chapter with no figure must number zero.
+48. Three files per figure: vector PDF, 300 dpi PNG, and a caption kept beside it. The caption's first sentence is the figure's conclusion, the second gives the reading and n. The re-run command lives in the package's `figures.py` docstring, not in a separate note.
+49. Figures come from a package, never from a scratch script: one command in `<package>/figures.py` redraws all of them into `<package>/output/figures/` and `report/final/figures/`. Figures with no re-run entry that reach the prose must number zero.
+46. The package name is the short key: a shelf directory's name is also its `references.bib` key, in the form author-year or a run of title words, lowercase, `a-z0-9` only, at most 32 characters, unique across the shelf. One work keeps one package; duplicates are absorbed and removed. The old-to-new list is written into the readings before any rename, and afterwards the difference between directory names and bib keys must be empty.
+47. Literature has one address: `<literature>/<key>/`. Prose citations, intro documents, script constants, run records (`run.json`, `summary.json`) and reader output all use it. Paths that no longer resolve must number zero; a historical record that still points at the old layout either moves to the new key or marks the field `path_at_run`.
+48. The key map comes before the rename: the round builds old-key to new-key, every old key in the prose and the intro must appear in it, and an old key with no landing place is either dropped or given a package that round. Unresolved keys must number zero, and renaming, mapping and re-citing happen in one round, never across rounds.
+49. Loop products live under `tmp/compare-loop/<wish>/`: readings, feeds, state and drafts all sit in that one directory, and a `loop/` at the project root must number zero. No relative paths: a citation reads `<project root>/tmp/compare-loop/<wish>/<file>`.
+50. `tmp/` is not versioned, so nothing kept there counts as delivered: each round's `readings.md` and `feed.json` must write their conclusions back into the prose or the idea document within the same round (`1.10`). A feed that exists only under `tmp/compare-loop/` counts as not fed.
+46. This clause sets no threshold of its own: key shape and length follow `1.8-56` only (`<first author surname><four-digit year>`, at most 20, year last), and any older wording that disagrees is void. What remains here: one work keeps one package, duplicates are absorbed and removed; the old-to-new list is written before the rename, and afterwards the difference between directory names and bib keys is empty.
+52. No audit lives only in the reply: every round that inspects the shelf lands as `tmp/compare-loop/<wish>/readings.md` (intake, comparison, drafting, checking, feed) plus `feed.json` (each row carrying `located_by` and `downstream`). An audit that exists only in prose counts as not performed, and such rounds must number zero.
+53. Two identities, one content rule each. A container package that holds subpackages: its own level holds subpackage directories only — loose files zero, non-subpackage directories zero; no `README.md`, `data/`, `common/`, `tools/`, `docs/` or `config/` may sit there. A note belongs in each subpackage's own `README.md`, data belongs in the subpackage that reads it. A leaf package holds exactly four slots: `src/`, `conf/`, `out/`, `README.md` — `kit/` lives inside `src/` because a copied tool is source; what sits beside `src/` is `conf/` (parameters) and `out/` (products), never `kit/`. One directory carrying both identities is a breach, and such directories must number zero.
+54. Numbers have one shape: `NN_name` at the top (two digits), `NN.M_name` on the second level inheriting the parent number, `NN.M.K_name` on the third; children number consecutively under the parent, no gaps; a file's number matches its directory. Renaming updates every reference and re-runs once in the same round, with the rename list in the readings.
+55. Junk has a list: `.DS_Store`, `__pycache__`, `*.pyc`, `*.log`, `*.tmp`, `*.bak`, `*~`, `* 2.*`, dated snapshots such as `results.<date>.*`, `.ipynb_checkpoints`, empty directories. Print the list before deleting, record the count afterwards; upstream clones live only under `_upstream/` with source URL and commit.
+56. Results sit in their own place: source writes only its own `out/`; `out/` holds only what one command from `src/` rebuilds, plus a `MANIFEST.json` (command, time, inputs); a hand-edited product goes to `out/manual/` and is named in the readings.
+57. A shared layer is a breach of the layer package, not an optimisation: no level may hold `common/`, `core/`, `shared/` or `tools/` directories; shared logic exists only as a copy at `<package>/src/kit/`, whose `__init__.py` opens with where it was copied from and when, after which each copy diverges freely. Lifting logic to a layer to save a few lines counts as a breach, and such directories must number zero — one copy per package is preferable, because only then can a single package be audited, a reproduction case be scoped to it, and a change leave the neighbours untouched.
+58. A package lands on the idea first: every package has one row in `tmp/compare-loop/<wish>/packages.tsv` with four columns filled — `package` (the directory), `idea` (the section number and title it supports), `slot` (the place the result feeds, as a section of `report/final/<number>.<name>.tex`), `product` (the file under `out/`). Rows with any column empty must number zero.
+59. What cannot be located is reported, not tolerated: a package whose `idea` cell cannot be filled goes into `stale.tsv` (`package`, `last_touch`, `reason`, `disposition`: absorb, move to `_upstream/`, delete), and the readings open with one line "unlocatable N". New package work does not start while `stale.tsv` is non-empty.
+60. Stake the hole before building the package: before a new package exists, write three things — the sentence in the idea that needs it, the `\ref` in the manuscript waiting for it, the file name that will appear under `out/`. Missing any one, the package is not created; the hole is written as `PENDING(fill: <package>/out/<file>)` and replaced in the round the package lands.
+61. Intake and holes reconcile in the same round: the product in `out/`, the `PENDING` in the manuscript and the section in the idea must agree letter for letter in number and file name; disagreements must number zero. When a package is renamed, its row in `packages.tsv` and its placeholders move with it; renaming the directory alone fails `1.9-40`.
+
+62. Tidying has states, and the states live in the name: four reserved prefixes carry them — `_upstream/` (an outside clone, with URL and commit), `_deprecated/` (kept as evidence, never cited), `_staging/` (untidied, may not be cited), `_shared/` (cross-package, origin noted). Every other directory name says what the package is, not how far it has been tidied; a state word inside a normal package name must number zero.
+63. A tidy lists before it moves: over the given root — the whole `workspace`, one container, or a subdirectory inside a leaf — walk it recursively, judge every bottom package as `ok`, `nonconforming` or `not-a-package`, and write `tidy.tsv` (`path`, `kind`, `state`, `evidence`, `plan`) before touching a byte. A round that moves first counts as not done.
+64. A tidy runs one package at a time: take one `tidy.tsv` row, finish it, retake three readings (top-level entry count, entry exit code, sha of `out/`), then take the next. Batch moves are allowed only inside one parent, and only with `git mv` recorded.
+65. A tidy proves it changed nothing that matters: a `sha256` list and the entry output are taken before and after, and the numeric difference must be zero; only three columns may differ — path, file position, row order. A non-zero difference rolls that package back and records an `impact` row; "it looks the same" is not a pass.
+
+66. A subdirectory passes four questions before it counts as a subpackage: does it have its own entry (one command producing its own product); does it own an `out/` whose numbers some section of the idea cites; does it hold its own row in `packages.tsv` with `idea` and `slot` filled; is its code anything other than a variant of the parent's (same script name, same imports, only configuration differs). All four yes makes it a **subpackage**; configuration only, or no code at all, makes it an **arm**; code without a product that duplicates the parent's entry makes it a **residue**; no code, no product, one note — the note folds into the parent and the directory goes. The verdict goes in the `kind` column of `tidy.tsv`.
+67. Numbers belong to real subpackages: the `NN.M.K_` level holds subpackages only, and an arm or a residue never takes a number — an arm folds into `conf/` (one file per configuration), a residue goes to `_deprecated/` or is deleted. Directory names containing `arm`, `branch`, `old`, `bak` or `tmp` must number zero; that state is carried by the `_` prefix and by position under `conf/`.
+68. Arms and residues name their destination: a `kind=arm` or `kind=residue` row carries `folds-into:<target file>`, `deprecate` or `delete` in its `plan`, together with which file was absorbed. After the round those directories must number zero; an empty directory left behind, or the same configuration copied into both the arm and the parent, counts as not handled.
+69. A tidy splits to the bottom; moving a heap into one folder is not a tidy: a directory that still holds "one subdirectory with twenty or more mixed entries" or "a transit folder named `v1_patched`, `misc`, `old`" counts as untidied, and the count must be zero. The test is that every entry lands in one of the four slots or the project's temporary area — there is no fifth destination.
+70. What cannot be classified leaves the package: anything whose kind is unclear — source, parameter or product — moves to the temporary area's `unrecognized/`, name kept, with one line saying why it could not be classified. No `_deprecated/`, `_misc/` or `_tmp/` may sit inside a package as a bin, and such directories must number zero.
+71. Filing instead of classifying counts as idling: a tidy has four moves — into a slot, folded into an existing file, out to the temporary area, deleted with authorisation. A fifth move, "collect it into a folder for later", makes the package untidied and bars an `ok` row in `packages.tsv`.
+72. Tidying and audit both return to the idea: every package gets a row in `anchor.tsv` whose `idea` reads `毕设立意.md:<line> 第 N 节`; every product under `out/` hangs off that row, and `anchor` holds `anchored` or `no-anchor` only. A `no-anchor` product may not be cited as a conclusion or enter the body.
+73. High-confidence debt is cleared at once, any one of three hitting: the input a product cites no longer exists; one metric differs from the current `out/` by an order of magnitude with no rerun record; the filename carries an old date while every number in it is a placeholder. A hit moves to the temporary area and is recorded `deprecate` in `tidy.tsv`; a doubt that misses all three goes on the delivery's "suspect products" line, never left silently in `out/`.
+74. In-package sanity and mergeability are counted: files under `src/` and their import edges (`grep -c '^from\|^import'`); two directories importing each other, together under 200 lines, with no consumer beyond one entry point, count as mergeable, and the plan goes to `audit.tsv`'s `merge_plan`. Readability has one test — after the merge the entry still runs on one command.
+75. `out/` holds four kinds only: `results.json`, `MANIFEST.json`, `runs/<run>/seed<NN>.png`, `manual/<original name>` for hand-edited files. A delivery note with `.md`, a snapshot with an old date, an ad-hoc csv — none may sit at the top of `out/`: notes go to the delivery, snapshots to `manual/`, the rest to the temporary area.
+76. A deletion carries an evidence card first: every removed file or directory records three things in `tidy.tsv`'s `evidence` — the verdict (`stale` / `fake` / `unreferenced`), the command that read it, and the impact (how many files cited it). Missing one of the three bars the deletion; the delivery lists what went, by class and count.
+77. `src/` is refactored along the idea's lines, not merely merged: `module_map.tsv` holds one row per module (`module` / `idea` / `duty` / `entry`), `idea` reads `毕设立意.md:<line> 第 N 节`, `duty` is one sentence on what that module does for the idea; a directory whose name is a dataset while its content is code is renamed by its `duty`; the only entry is `src/run.py`. After the refactor the entry exits as before and each `out/` product keeps its sha, and both readings go back to `audit.tsv`.
+78. A number is the level, and no digit may be dropped: the layer root reads `0x_`, the second level `0x.y_`, the third `0x.y.z_`, two digits per segment with the parent's number first; `1.1_` or `1.10_` fails on both counts. Siblings run without holes, and a hole has two lawful forms only — a `_staging/0x.y_<note>` placeholder, or a line in `gaps.tsv` giving the number, the reason and the round that fills it. A hole with neither counts as untidied.
+79. Literature and notes found inside a package are routed on the spot: literature (a pdf or md with authors, year or DOI) moves into the literature library and gets a `refs.tsv` row, leaving zero `*.pdf` inside packages; notes (`summary.json`, `run.json`, trial pngs, `try_*.py` and the like) never serve as in-package evidence — they become the `README.md` "observations" section: one sentence of observation, one of condition, one of conclusion, citations written `[@key]`, the rest moves to the temporary area.
+80. Building and intake are one action in two directions: when a package is built (`2.10`) the first step writes `README.md` with four parts — the idea section it answers (with the line), the command that runs it, the product it leaves, and an "observations" section holding `PENDING(obs)`; when it is intaken (`2.13`) that section is aligned with `anchor.tsv`'s `idea`, and a missing reference gets a `refs.tsv` row, with the entry added to `workspace/literature/` when the shelf lacks it — metadata only, never an abstract.
+
+### 1.8A Eight hand-offs, six fields each
+
+A hand-off is one "who gives what to whom". With an incomplete contract it degrades into "I assumed you had it". Each hand-off below carries six fields: trigger (when it starts), product (its name and place), criterion (the command and the line it is read from), failure path (who stops and does what). A hand-off with an empty field may not be reported as complete in that round.
+
+| Hand-off | Trigger | Product | Criterion | Failure path |
+|---|---|---|---|---|
+| commission to idea | the owner states this round's single goal | the matching section of `workspace/<project>立意.md` | section count equals the map's; empty sections 0 | more than one goal: stop and ask once, never guess |
+| idea to report chapter | a chapter's skeleton is complete | `report/final/<n>.<name>.tex` | the `% STATUS` line agrees with the idea section | fix the status line first, do not write prose |
+| shelf to citation | a key is about to be written | a `path:line` inside `chapters/` | key-to-package coverage M = N; citations without a `path:line` 0 | drop the citation or add the package; no hedged sentence |
+| package to number | `output/` has a fresh product | the number in the prose plus the file and line | every number greps back to the product; numbers without a source 0 | fall back to `PENDING(fill: <entry>)` |
+| figure to prose | a script produces the figure | `report/final/figures/<name>` | one command regenerates it; the referenced path exists | withdraw both figure and citation; no stale figure |
+| report to build | prose is finished | `assemble/*.pdf` | compile exits 0; pages and warnings recorded | fix the build before writing new sections |
+| case to executor | the case is written | `tmp/reproduce-test/<id>/PROMPT.md` and `out/` | the existence check prints nothing; first line `id:`; zero fences inside | a non-empty check forbids hand-over |
+| executor to read-back | products land | `verdict` in `card.json` | every criterion carries pass or fail, never "basically fine" | a vague criterion is void and gets rewritten |
+
+Four hard rules:
+
+40. Six fields or nothing: each hand-off reports six values (trigger, product, criterion, failure path — the criterion being a command or a threshold), and hand-offs missing a field must number zero. Words such as "handed over" or "aligned" count as missing fields.
+41. Every round ends with three lines in `tmp/compare-loop/<wish>/handoff.md`: what changed (file and section), who takes the next leg (person or layer), and where to read (one command or one `path:line`). Rounds without that file must number zero.
+42. Keep the previous version: before any section-level rewrite, copy the file to `/tmp/<project>_b<round>.md` and put that path in the readings. Rewrite rounds without a backup path must number zero.
+43. Failure escalates on a threshold, not on a mood: twice failed on the same criterion, the third round stops and writes which command failed at which line, recorded in the first paragraph of `tmp/compare-loop/<wish>/readings.md`. Items failing three rounds in a row must number zero — their appearance escalates the decision to the owner instead of another self-attempt.
+
+### 1.9 Checking the draft
+
+After the edit, check four classes of hard defect.
+
+Actions:
+
+1. Check every sentence's source: a claim, a citation key, or a row of `tmp/compare-loop/<wish>/footing.json`. With none of the three, delete the sentence or turn it into a placeholder.
+2. Check `tmp/compare-loop/<wish>/questions.json`: a row missing `answered_if` or `refuted_if` does not enter the question table.
+3. Check `tmp/compare-loop/<wish>/placeholders.json`: a row missing `waits_for` or `owner` leaves the body.
+4. Check the shelf index for every citation key: a key that does not resolve leaves the body.
+5. Check float numbers and cross-references: every pointer to a figure, table or section that does not exist is repaired until it does.
+6. Check for leftover `% PENDING`: one occurrence in a delivery round records `verdict: dirty`.
+7. Check claims across sections: the same `claim_id` in introduction, method and discussion reads word for word, compared on three things only — the number, the unit, the qualifying phrase; a difference in any one of them makes two wordings, which are reconciled or one is removed.
+8. Check location and template: files outside the directory the instruction named number zero; every change in the template's preamble has a matching `stack.json` row, and places without one number zero; places where the include hierarchy departs from the template number zero; the whole document builds from scratch with zero errors.
+9. Check asset entry points: every figure, table and script carries a rerunnable entry, a version or commit, and one command that runs without the upstream layout; assets missing an entry or a version number zero, and each one is repaired as it is found.
+10. Check the citation exit: every key in the body resolves to an entry in the citation library, and the entry carries authors, title, year, venue and DOI or URL. A missing entry or a missing field is filled item by item; a citation that cannot be completed leaves the body. No hand-typed entry appears in the body.
+11. From the second occurrence of one `kind` on, each occurrence goes to `tmp/compare-loop/<wish>/stack.json`, and the pass clears them down to the last one.
+12. Record this round's result.
+13. Check the register: banned-list hits, sentences without evidence, bullet marks and mean sentence length, all four. `tmp/compare-loop/<wish>/register.json` records the four readings and the line numbers of over-long sentences; the banned list is the one in 1.8 step 15. Any non-zero count records `dirty`, and `next` names the paragraph to rewrite back at 1.8.
+14. The sensory retelling is a closing condition: before handing over, four sentences — what story this section tells, which sentence was fed in, what the reader sees on either side of the change, and which downstream section it feeds; a missing sentence or an empty verb such as "this chapter introduces" records `dirty` and the round does not close.
+15. Checking recomputes; it does not cite last round's conclusions: three counts, each run again — whether every number traces to a `path:line`; whether every added citation key resolves; and whether the comparison table's two columns were re-read after drafting (one column before, one after).
+16. Before delivery, read the feed against the body: `grounds` is a file plus a line, or a stated counting method; rows saying "as above" or "see previous" must be zero; a number in the body with no source in the feed either leaves the body or gains a source.
+
+On-disk contract: file `tmp/compare-loop/<wish>/audit/<round>.json`; fields `round`, `unsourced` (section plus sentence number), `questions_missing_criteria` (`qid`), `placeholders_missing_owner` (`pid`), `unresolved_keys`, `verdict` (`clean` / `dirty`).
+Written when: once per round after the edit, on disk as the check ends.
+
+Where a failed check goes: every `dirty` item names its return step in this round's `verdict` `next` — a sentence, a paragraph or a structural fault goes back to 1.8 and that paragraph is rewritten; too little literature or a citation that will not carry the claim goes back to 1.7; a number missing, mismatched or not reproducible goes back to 1.4. When none of the three routes is open (cannot run, cannot find, cannot write), one row goes into `stack.json`, `next` reads `escalate: user`, and the step does not stall.
+
+Criteria and breach: all four arrays empty records `clean`. A round recorded `dirty` does not close, and its changes do not count toward 1.2's `current`.
+17. Skeleton check closes the round: chapters equals chapters with a skeleton; pothole items equals `PENDING(fill` lines; "Open items" subsections equals chapters; any mismatch means unfinished.
+18. Scaffold residue check: `Job`, `Narrative arc`, `Potholes`, `Paves` appear zero times in the idea. A chapter map, if kept, is a plain table whose every row points at a product that exists on disk.
+19. Contract-work rule: rewriting more than three chapters in one round means re-laying the whole document in the host project's existing idea shape; one chapter revised is not evidence the whole reads.
+20. Shelf check: packages equal top-level directories; packages with all three parts, packages missing a body, and packages with `reader: none` are each counted in the readings; group folders, README, INDEX and tools inside a shelf must number zero.
+21. Moves and deletions are reconciled: the round's readings carry an old-name to new-name list whose length equals the moves made; deletions equal the dry-run list; a shelf of symlinks reports zero broken links.
+22. Key-to-package coverage: the prose uses N keys and the shelf yields a package for M of them; M must equal N, and the difference is listed by name. A non-empty difference fails the round.
+23. Six shelf checks, one command each, each zero or empty: group folders, `README`/`INDEX`/`tools`, empty directories, packages whose name misses their title, placeholder titles, broken links.
+24. Every citation carries a `path:line` inside `chapters/`; citations without one must number zero, and a `path:line` pointing at a file that does not exist counts as missing.
+25. Six fields, item by item: the round's readings end with a small table, eight hand-offs by four columns (trigger, product, criterion, failure path). Empty cells must number zero.
+26. Three hand-off lines and a backup: `tmp/compare-loop/<wish>/handoff.md` complete, and the `/tmp/<project>_b<round>.md` path in the readings; missing either fails the round.
+27. Out-of-scope edits zero: entries in `git status --short` outside the whitelist for this round must number zero, and any unexplained entry is listed by name.
+28. Keys and packages agree character for character: every line of `ls workspace/literature` has an entry under the same key in `references.bib` and the reverse; both differences are produced by one command each and must be empty.
+29. Where `out/` sits: `find <repo> -type d -name out -not -path '*/tmp/*'` may print only `00_data/build/out`; one more line fails the round.
+30. Figure check: every `.pdf` in `report/final/figures/` has a `.caption.txt` beside it, so figures without a caption number zero; each figure has one re-run command, and the byte change after a rebuild goes into the readings.
+31. Figures against narrative: every figure is cited in the prose (`\ref` or a path), so uncited figures number zero, and every "see Figure" sentence names its figure.
+32. Three checks on keys: directory count equals bib key count; the difference on either side is empty; the longest directory name is at most 32 characters.
+33. Three checks on keys: directory count equals bib key count; the difference on either side is empty; the length threshold is the one in `1.9-36` (at most 20), not a second number set here.
+34. Location check: `find <project root> -maxdepth 1 -type d -name loop` prints nothing, and the number of directories under `<project root>/tmp/compare-loop/` equals the number of wishes in flight.
+35. Three checks on key shape: directories not ending in a four-digit year number zero; directories longer than 20 characters number zero; directories with an empty `meta.year` number zero, or all of them sit in the readings' undetermined table and none is cited in the prose.
+36. Clauses must not disagree: the same quantity given two different thresholds in one file must number zero (grep the quantity, e.g. a key length stated as both 32 and 20); a hit is fixed on the spot and the readings are retaken.
+37. Two commands decide the kind: a layer package has zero `.py` files; a leaf package's top level holds only `src`, `conf`, `out`, `README.md` and nothing else.
+38. Six junk checks, one command each, all zero: `.DS_Store`/`__pycache__`, `*.pyc`/`*.log`/`*.tmp`/`*.bak`/`*~`, `* 2.*`, dated snapshots, empty directories outside `.git`.
+39. Numbers: children run consecutively under each parent with no gaps, and a directory's first segment equals its parent's first segment; mismatches number zero.
+40. `out/` closes: every leaf package's `out/` carries `MANIFEST.json`, and every file under `out/manual/` is named in the readings.
+41. Location closes: the row count of `packages.tsv` equals the number of second-level packages; rows with an empty `idea`, `slot` or `product` number zero; the row count of `stale.tsv` equals the N in the readings' first line.
+42. Holes reconcile: every file name inside a `PENDING(fill: <package>/out/<file>)` appears in the `product` column; misses number zero.
+43. Numbers agree: every `report/final/<number>.<name>.tex` named in the `slot` column exists; pointers to missing files number zero.
+44. Numbered directories stand on their own: every `NN.M.K_` directory owns a non-empty `out/` and a row in `packages.tsv`; a miss counts and the total must be zero.
+45. Split to the bottom: the tidied tree holds no subdirectory with twenty or more mixed entries and no transit folder named `v1_patched`, `misc` or `old`; both counts must be zero.
+46. No bins: `find <package> -type d \( -name '_deprecated' -o -name '_misc' -o -name '_tmp' \)` prints nothing, and every file under the temporary area's `unrecognized/` carries one line saying why it could not be classified.
+47. Arms and residues name a destination: `kind=arm` or `kind=residue` rows carry `folds-into:`, `deprecate` or `delete` in `plan`, and those directories must number zero after the stocktake.
+48. Shared layers: `find <workspace> -type d \( -name common -o -name core -o -name shared \)` prints nothing, and every `<package>/kit/__init__.py` opens with its origin and date; either missing fails.
+49. Container emptiness: for each directory holding subpackages, `find <dir> -maxdepth 1 -type f | wc -l` prints 0, and `find <dir> -maxdepth 1 -mindepth 1 -type d` lists subpackage names only; either failing is a breach.
+50. Idea anchoring: `awk -F'\t' 'NR>1 && $2!~/毕设立意\.md:[0-9]+ 第 [0-9]+/' out/anchor.tsv | wc -l` prints `0`; `awk -F'\t' 'NR>1 && $4!="anchored" && $4!="no-anchor"' out/anchor.tsv | wc -l` prints `0`.
+51. Debt disposition: `awk -F'\t' 'NR>1 && $5!="deprecate" && $5!="keep"' out/anchor.tsv | wc -l` prints `0`; a `deprecate` row names its temporary-area target.
+52. Audit: `awk -F'\t' 'NR>1 && $4!~/^(keep|merge:)/' out/audit.tsv | wc -l` prints `0`; every `merge:` row carries the exit code of the entry run after the merge.
+53. Allowed-list check: `find <package>/out -maxdepth 1 -type f ! -name 'results.json' ! -name 'MANIFEST.json' | wc -l` prints `0`; `find <package>/out -maxdepth 1 -type d ! -name runs ! -name manual | wc -l` prints `0`.
+54. Refactor equivalence: `awk -F'\t' 'NR>1 && ($5!=0 || $6!="same")' out/audit.tsv | wc -l` prints `0`, and `awk -F'\t' 'NR>1 && $2!~/毕设立意\.md:[0-9]+/' out/module_map.tsv | wc -l` prints `0`.
+55. Numbering: `find <layer> -maxdepth 1 -type d -name '[0-9]*' -exec basename {} \; | sort` must show two-digit padding with the parent's number first; any name matching `^[0-9]\.` counts as one failure, and a hole absent from `gaps.tsv` as another — both must be zero.
+56. Literature and notes: `find <package> -name '*.pdf' | wc -l` prints `0`; `find <package> -name '*.json' ! -path '*/out/*' | wc -l` prints `0`; `find <package> -name '*.png' ! -path '*/out/*' | wc -l` prints `0`.
+57. README four parts: `grep -c '毕设立意\.md:[0-9]\|^## 观察\|^## 跑\|^## 产物' <package>/README.md` is at least `4`, and `PENDING(obs)` appears at most once, only while the observations section is unfilled.
+
+### 1.10 Feeding the idea back
+
+The situation: the draft is delivered and checked, and the ecosystem holds an idea document — `workspace/<the design document>.md` and its Chinese introduction. An idea that lags behind the draft is what the next round will use to overwrite the draft.
+
+What is done:
+
+1. Fix the scope: for each section this round changed, find its counterpart in the idea. A section with no counterpart is registered in `stack.json` and a section is added in the right place of the idea within the round — never as a new file.
+2. Write it in: the claims, the price and the boundary that this round established go into those sections, placed by the idea's own structure (problem → claim → evidence → boundary → chapter by chapter). The sentences are academic prose, the same register as the body.
+3. No work-log language: `TODO`, `this round`, `done`, `next` never enter the idea. The idea describes the research, not the progress of the work.
+4. As a pair: the English body and the Chinese snapshot are both written in the same round, with the same section count on both sides. One side alone counts as not done.
+5. Record the readings: sections changed, sections matched in the idea, sections added — into `verdict` `readings`.
+
+Written contract: `tmp/compare-loop/<wish>/idea-feed.json`, fields `section`, `idea_section`, `action` (`insert` / `rewrite` / `reserve` / `none`), `located_by` (the sentence or heading that located the region), `note`.
+
+Written when: after 1.9 passes and before the round closes; a round that fails the check does not feed.
 
-**The on-ramp is delivered in a bounded number of rounds, and every fence states how much of it is left.** Before a fence is written, the open on-ramp items are counted (`open on-ramp: n`), and the fence says which of them it will close. A fence that closes two items and opens three has not made progress, however much work it names; a fence whose checks already pass against the tree is not a round, it is a re-run of a finished one. **A round that leaves `n` unchanged is a defect to fix before any new item is added** — the usual cause is an item too broad to close in one pass, and the fix is to narrow it, not to split it into three.
+Criteria and breach: every section this round changed has a row with a non-empty `idea_section`, rows missing number zero; occurrences of work-log language in the idea number zero; a round that writes one side of the pair only is recorded `unmet`. A delivered draft with no feed is likewise `unmet` — an idea behind the draft is harder to notice than a badly written paragraph.`dangling` hooks in the idea number zero, and so do `@` entries and bibliography sections — either one is a breach, returned to 1.1 by boundary two and four.Rows missing on either side of the map number zero — every report section carries `% SECTION`, every idea section carries `→ report` — and so do pointers to sections that do not exist.
 
-**The intent is an on-ramp item while the on-ramp is open, and after it closes it moves only on divergence.** On a project that has not finished its first adaptation, building the intent — the claims, their falsifiers, the branches — is one of the items the fence closes, and it is checked like the others: a claim that no result could kill is an unfinished intent, not a finished one with a caveat. Once the on-ramp is closed, the intent document is **not** rewritten each round: it changes when a round's expected state contradicts a sentence it already contains, and then the sentence is corrected **before** the work is run, with the ledger row naming which sentence moved. Editing the intent to match whatever happened is how a thesis stops constraining anything.
+## 2 Nine small loops
 
-### 3.12 A round: the unit of iteration
+Each loop runs on one dispatch bound to one `<wish>`; everything it produces lands under `tmp/compare-loop/<wish>/`, never in another space and never at the root of `tmp/compare-loop/`.
 
-**A round is one pass over the whole report, not one stage of it.** The report is a single object from the first sentence of the introduction to the last row of the results table, and it is never frozen in halves. Treating "chapters 1–2" as finished and "chapters 3–5" as pending is the failure this section exists to prevent: it produces a document whose front half promises what the back half never measured, and whose back half answers questions the front half no longer asks.
+Five rules hold before any loop:
 
-**Every round takes the same five inputs**, in this order, and skipping one is why a round feels productive and leaves the report unchanged:
+1. Open with three readings: the `verdict` value in the previous `verdict/<round>.json`, the count of `open` rows in `placeholders.json`, and the count of `open` rows in `stack.json`. Close with the same three; the difference is what this round actually moved.
+2. Steps join only through files on disk: each step's close writes its product path and its counts into that step's contract file, and the next step starts from the path the previous one wrote rather than from memory.
+3. The numbered order is the default route, not the only one: each loop's "Order" line is the shortest path. Halfway through, a missing number sends the work back to 1.4, thin literature to 1.7, a paragraph that fails to 1.8; the loop resumes once that step is done. A step not taken is recorded in `rows` of `verdict/<round>.json` with one line saying why; a step skipped without a row makes the round `unmet`.
+4. Anything discovered on the way — a missing paper, a missing setting, a missing entry, a defect — pushes one row into `stack.json`, and the loop continues; work the user has not interrupted is finished.
+5. A criterion is written as a count: which table is counted, and what number closes it. A criterion without a count is not a criterion.
 
-| Input | Where it comes from | What it does to the round |
-|---|---|---|
-| **the user's feedback, verbatim** | the last turn's corrections, questions, refusals | it is the round's first-class requirement: written down before anything else, item by item |
-| **the tree and its open leaves** | `data/<identifier>/loop_state.json` (a leaf with `state != done` is an open item) | the state file says what each layer holds now; the ledger says which feedback items are still open and which layers a previous round deferred |
-| **the literature increment** | a pass under §3.5, at the floor stated there | new premises enter the axes, and axes are what the prose is chosen from |
-| **the draft as it stands** | the compiled body, with its hash | what changed is measured against it, not against memory |
-| **whatever can be run** | the experiment queue | a reading, or an explicit "cannot run yet, because X" |
+Every loop closes at 1.2B and re-runs 1.9 after the edit. Before the round closes, 1.10 feeds the idea back; a round that does not feed is recorded `unmet`. When 1.2B returns `fail` or 1.9 records `dirty`, the round records `unmet` and keeps both lists.
 
-**A round can move five surfaces, and a surface it does not move is named.** Surfaces are what the round changes; the five inputs above are what it reads first — the same words appear in both lists, and that is the point: what you read is what you may move. Not every round can move all five — a round with no runnable experiment cannot produce a new reading — but the omission is written in the ledger, not left implicit:
+### 2.1 No results yet; the introduction is drafted
 
-1. **thesis** — claims, open slots, boundaries;
-2. **skeleton** — one falsifiable sentence per section, plus the experiment that would refute it;
-3. **literature** — keys filed, one note each, at the floor;
-4. **prose** — the section the round is about, rewritten against the four inputs; a section is reopened whenever a new reading or a feedback item contradicts it;
-5. **experiment** — what was run, or why nothing could be.
+Situation: the thesis question is settled, no experiment has run, and three introduction sections must go out.
 
-**Feedback items are closed one by one, and a refusal is a closure.** Each feedback item becomes a leaf (or a `history` entry) in `loop_state.json`, then marked `done` (with the artefact that shows it), `superseded` (with the reason the item no longer applies) or `refused` (with the reason, and what would change the answer). An item left blank is the one thing a round may not end with: an unanswered correction becomes a second correction two rounds later, usually angrier.
+Opening readings: `open` rows in `tmp/compare-loop/<wish>/questions.json`, sections in `samples/<set>.range.json`, entries in the shelf index.
 
-**A round ends with a diff, not a summary.** The record of it is four numbers and one sentence — sections touched · keys added · readings added · feedback items closed, and one sentence naming the claim that changed. "Reworked chapter 3" is not a diff; "chapter 3's cost claim moved from 'cheaper' to 'cheaper in count, not in silhouette fidelity', and the table that would show it is still empty" is. **The record and the report are two different things and both are required:** the record is this one ledger row, written for the next session; the report is the three movements of §3.13 — what changed, what state the project is now in, what is blocking — written for the owner. A round that files the row and sends no report leaves the owner with a diff they cannot read; a report with no row leaves the next session with prose it cannot check.
+In hand: `tmp/compare-loop/<wish>/questions.json`, the range rows of `samples/<set>.range.json`, the shelf index.
 
-**Nothing is ever called final during the loop.** The word only appears in the last round, and what makes it the last round is §5, not seniority. A section written three rounds ago is reopened by exactly the same rule as one written today: a feedback item, a new reading, or a collision found in a newly filed paper.
+What is done: before writing, put down the sentence each of the three sections answers and point it at a `qid`; before the first sentence, read other introductions as 1.8 step 1 requires — three paragraphs per section, their shapes into `voice.json`, and a paragraph that cannot be read that way is not written; each section writes its conclusion first, then its basis — a source, the figure the range gives that section, what the approach costs others; build after each section and never start the next on a broken one.
 
-**When this file is silent, the round decides and records the decision.** Silence has three different meanings and only one of them is an answer:
+Order: `1.1 → 1.2A → 1.3 → 1.8 → 1.2B`.
 
-| Silence about | What to do | What is not allowed |
-|---|---|---|
-| **a fact** — a number nobody measured, a page nobody read | a sign with an owner and a blocker (§3.14) | estimating it, borrowing a neighbouring paper's protocol |
-| **a choice** — which of two admissible shapes to take | decide, then write the decision and its reason into the round's ledger row | "the document does not say, so it cannot be determined" — a choice left undecided is a decision to let the next round re-open it |
-| **a conflict** — two rules that cannot both hold | follow the one that protects the reader who has less time, and record the tension in the same row | quietly satisfying one and pretending the other does not apply |
+Not allowed: any number of this draft in the body — invented, estimated or copied from an older draft; the same sentence twice for bulk; a citation absent from the shelf; "to be confirmed" written as "confirmed".
 
-The distinction matters because the two failures look identical in a report: a missing fact and an unmade decision both read as "not yet". They are not: the first is honest work left for someone with the instrument, the second is work nobody is doing.
+Criteria: every paragraph of the three sections holds a `voice.json` row with all three `read_back` fields, and paragraphs missing one number zero; occurrences of this draft's numbers in the body number zero, every written form counted — digits, number words, percentages, ranges, and the word "about" in front of them; words and citations per thousand words of the three sections inside the range; five rows of `verdict` all `pass`.
 
-### 3.13 Handoff, the report a round returns, and what the next round reads first
+Breach: this draft's numbers appearing once or more make the matching `verdict` row `fail`, and those numbers stay out of `current`; a key absent from the shelf is recorded `unsourced` by 1.9 and the sentence is withdrawn.
 
-**A round starts by reading the five inputs of §3.12, in this order**, so that the diff at its end is measured against the files rather than against memory:
+Close: rows missing in `sections.json` number zero (`section`, `hash`, `file` all filled), `verdict/<round>.json` written, and the `open` count of `placeholders.json` carried into the round's readings.
 
-1. **`data/<identifier>/loop_state.json`** — what each layer holds now, each with the command that showed it; a field that has not been re-read is not a fact yet.
-2. **`loop_state.json`, last `history` entry** — which round is open, which leaves are still not `done`, what was pruned and why.
-3. **the thesis** — claims and open slots as they now stand, not as the last session remembered them.
-4. **the draft's hash and section list** — so the diff at the end of this round is measured against the file, not from memory.
-5. **the corpus index** — what is on the shelf with a note, and what the last pass said it could not obtain.
+### 2.2 The readings have landed; the numbered sections are drafted
 
-**The history has a fixed shape, and it is appended, never rewritten.** Two kinds of entries only:
+Situation: readings and the commands that produced them sit on disk, and one or more placeholders wait on them.
 
-```
-{date, kind: add|prune|refocus|reweight|pause|resume|close|feedback,
- key, from, to, why}
-```
+Opening readings: `indexed` rows in `tmp/compare-loop/<wish>/intake.json`, `open` rows in `placeholders.json`, rows in `footing.json`.
 
-**`kind:"feedback"`** carries the owner's words verbatim in `why` (one sentence, the original) and `key` (the leaf affected, or `root`). **`kind:"reweight"`'s `why` must carry the sentence "cutting observation: …"** — it is the only basis for the next round's cut.
+In hand: the `indexed` rows of `tmp/compare-loop/<wish>/intake.json`, `placeholders.json`, and the position-table row of each section involved.
 
-An entry is written when something actually changes on the tree. **A change with no `history` entry did not happen**, whatever was said in the conversation.
+Order: `1.5 → 1.2A → 1.6 → 1.8 → 1.2B`.
 
-**Two feedback items that contradict each other are not averaged.** Both are recorded, the newer one is applied, and the conflict is raised in one sentence with the evidence that would settle it. A silent average is the one outcome that loses information both ways.
+A few looks first, for instance the unit and digits, where the number sits against the range — inside, below the floor, above the ceiling — and whether its magnitude matches the same-setting literature; where one of the three disagrees, settle the setting before writing. Decide which `claim_id` the sentence carries before writing it; a sentence carrying none is cut.
 
-**Rows that cannot be matched are not blended.** A comparison table assembled from runs under different settings is not a comparison; each row states its setting, and a row that cannot be matched is moved to its own table. This holds in both instances, whatever the field calls the setting.
+Not allowed: two numbers side by side while `against` is short; the gap between two runs reported as an improvement; "about", "close to", "same order of magnitude" standing in for a missing number; a whole section rewritten under the name of filling a gap; a `suspect` item used as a conclusion.
 
-**Each layer of that reading is a reading, not a recollection.** A layer is present or empty because a command showed it — a listing, a count, a grep — and the answer carries that command with the number it returned. A README that says where the outputs live is evidence about the README; the directory is evidence about the project. A position built from the first kind of evidence produces a next item that repairs a defect the project does not have, and the error is expensive precisely because the reasoning around it is sound.
+Criteria: every number in the body has a `current` row in `footing.json` whose `source` command runs; numbers of this draft without such a row number zero; the placeholder gap is 0, or every `open` row carries `waits_for` and `owner`.
 
-**A round's end state is two lists, and the second one is written down.** What will exist — which rows, which anchors, which sections with which headers — and **what will deliberately not exist**: the quantity that stays unestimated, the section that stays a skeleton, the row whose anchor is `not seen`, the boundary that is stated as a boundary rather than explored. The second list is not an omission to be filled later; it is a decision, and a reader who is not told it will read its absence as work not yet done and start inventing a substitute. Stating only the first list is how a round ends with more claims than it can pay for.
+Breach: a number in the body without a `current` row is recorded `dirty` by 1.9 and the sentence withdrawn; a comparison left side by side while `against` is short makes that `verdict` row `fail`.
 
-**Choosing the next item is a reading of the position, not a preference.** Before any work is named, the project's position is stated as what exists and what is empty, layer by layer: the intent and whether it is falsifiable, the corpus and whether it can carry an argument, the data and what it cannot support, the baseline and whether it reproduced, the results table and which rows are still holes, the draft and whether it has a place for a number to land, the footing and whether any row is anchored. **The most suitable next item is the earliest on-ramp item whose absence blocks the most items behind it**; ties go to whichever choice makes a row possible. A list ordered by "what I feel like doing" and a list ordered this way look identical until the second round, when only one of them still has somewhere to put its numbers.
+Close: rows added to `footing.json`, N placeholders filled and M still open, both counted from the tables, carried into the round's readings.
 
-**The report that comes back is written for the owner, in three movements, and it is read once.** A round ends with a report whose reader is the person who commissioned it, not the executor: **what changed**, **what state the project is now in**, **what is blocking**, in that order, one movement per question. Inside a movement, one paragraph describes one layer — the table, the draft, the ledger — because a paragraph that carries a state and its three defects at once cannot be checked by the person reading it. Numbers stay; **implementation detail moves out of the prose**: a broken path in a sync script, an unescaped underscore that crashed the build, are findings, and findings belong in a short list after the prose, never inside the sentence that is supposed to say where the project stands. And a term the owner has not used before is either replaced or projected onto the disk in the same sentence ("signature" = the four-field marker on each table row), because a report that needs a glossary has already failed as a report.
+### 2.3 The deadline arrives first
 
-**When the obstacle was this document, the round's product is a feed.** A defect found during an exam is fixed upstream in the same turn: the section that failed, then the rule file, then the case, and a memory only if the finding is about this machine. The delivery says which section was edited and what the next exam would now check — otherwise the same failure reappears under a new case number and looks like a new finding.
+Situation: the deadline is here, part of the results came back, and the draft must take shape.
 
-### 3.14 Placeholders: one for every missing piece, and a map that runs both ways
+Opening readings: `open` rows in `tmp/compare-loop/<wish>/placeholders.json`, `open` rows in `flags.json`, `open` rows in `questions.json`.
 
-**A placeholder** — a named gap with an owner and what it blocks — is how a missing piece stays visible, and it works in both directions.** A gap with no placeholder is invisible to the next session; a placeholder with no section that needs it is a promise nobody collects. The report is the same object: every section is a road, every claim is a plot, and the two must reach each other. This section fixes the two rules that keep them reaching.
+In hand: any `indexed` material, the position table, the placeholder table, `flags.json`.
 
-**Rule one — missing material is left empty, and the emptiness is named.** A number that has not been measured is not estimated, not "approximately", not taken from a neighbouring paper's protocol. It is a **placeholder**: an explicit, greppable, empty slot that says what will fill it and what it blocks.
+Order: `1.1 → 1.2A → 1.3 → 1.8 → 1.2B`. Same order as 2.1.
 
-| Missing thing | Placeholder form | What it must name |
-|---|---|---|
-| a run not yet done | `% PENDING(<id>): <what fills it> <- thesis §<x.y>` plus a visible `--` in the table cell | the run id or the command, and the section that cannot close without it |
-| a reading not yet extracted | the same, with the key and the page | which paper, which table, which row |
-| a decision the user has not made | `% DECIDE(<id>): <question> — options: a / b` | the two options and what each costs |
-| material that cannot be obtained | `% ABSENT(<id>): <what> — searched <where>, <result>` | the query, the date, the outcome |
+A placeholder's fate is decided before writing, for instance one of these: one someone can fill stays `open` with that name in `owner`; one that cannot be filled takes `dropped` with the reason; a missing source takes `requested` with the channels tried. A fate outside these three records in `note` what it is and what it waits on, and still holds one row in `placeholders.json`; the body carries the placeholder, never the word for its fate.
 
-Three consequences, and they are not stylistic:
+Not allowed: placeholders deleted to look complete; "not seen" recast as "preliminary result" or "the trend is clear"; a `suspect` item written as a conclusion.
 
-- **A placeholder is empty in the render.** If the compiled PDF shows a plausible number where a placeholder should be, the placeholder rule was violated — and a plausible number is the one defect a reader cannot detect.
-- **A placeholder has an owner and a blocker.** `PENDING(run-r1)` without "blocks <section> and <section>" is a note, not a road: nobody knows what to run first.
-- **A placeholder outlives the session.** It lives in the `.tex`, not in the conversation, so the next session greps `PENDING|DECIDE|ABSENT` and gets the whole work queue in one command.
+Criteria: rows in `tmp/compare-loop/<wish>/placeholders.json` missing `owner` or `waits_for` number zero; this draft's numbers in the body number zero; `open` rows in `flags.json` with an empty `evidence` number zero.
 
-**An empty place is filled by naming it, not by importing a rule.** When the measurement, the map or the threshold does not exist yet, the pass records the absence with an owner and a blocker; it does not reach into another project, another paper or another field for a plausible substitute. Importing a layout, a threshold or a definition is how a project quietly acquires a state it never had — and the acquisition is invisible afterwards, because the imported thing looks like a decision. The test is one question: where in this project was this number, path or rule written down before now? If the answer is "nowhere", it is a placeholder, not a finding.
+Breach: a placeholder deleted without a `dropped` record makes the round `unmet`; "not seen" written as a conclusion is recorded `dirty` by 1.9.
 
-**Rule two — every placeholder is marked at both ends.** Each section file carries a header comment naming the thesis section it implements, the claims it carries, and the artefacts it needs; each of those claims names its section and its placeholder back. The map is bidirectional, and a one-way road is a defect in one of the two files:
+Close: `verdict` records "shape delivered, measurements outstanding", and the `open` counts of `placeholders.json` and `flags.json` enter the round's readings.
 
-```latex
-% SECTION 4.2 <- thesis §4.2 "count = faces x k^2"; claims C2, C3
-% NEEDS: tab:count (k in 1,2,4 x 3 scenes) ; PENDING(run-k-sweep)
-% HANDS OVER: <quantity> = <value> <unit> to <section> and <section>
-```
+### 2.4 Thickening only
 
-A section with no such header is a section nobody can check against the plan; a thesis slot with no such header pointing at it is a slot that will be quietly dropped.
+Situation: no new run; one section grows thicker — more sources, more of what others did, more of what it costs.
 
-**Three greps, run before a round is called finished:**
+Opening readings: entries in the shelf index, paragraphs in that section, the literature-gap value from the previous `rows`.
 
-```bash
-# placeholders: the work queue, and nothing else
-grep -rnE "% ?(PENDING|DECIDE|ABSENT)\(" <sections>/
-# every section says which thesis slot it builds
-grep -rn "^% SECTION" <sections>/
-# every thesis claim has at least one section or one placeholder pointing back
-grep -c "thesis §" <sections>/*.tex
-```
+In hand: the shelf index, that section's position-table row and paragraphs, the literature-gap row of the previous `verdict`.
 
-**A count is a pointer, not a verdict**: these two greps tell you only how many sentences hang on a slot and how many back-references exist; **whether the right sentence hangs there must be seen by opening those lines** — the count right and the sentence wrong is dearer than no count at all.
+Order: `1.7 → 1.2A → 1.2B`. A batch arriving at once is worked inside 1.7: deduplicate, file each item with its citation entry, rebuild the index and check the count, return to 1.2 to update the position table, then write the prose.
 
-Two failure modes this catches, both invisible in prose: **a claim with no placeholder** (the thesis promises a table no section will ever produce) and **a road with no plot** (a section that writes beautifully about something the thesis never claimed — the surplus that later has to be cut).
+The "what it changed" line carries three things: the claim added, the sentence of this section it replaces or supports, and the page; a citation missing one of the three stays out of the body. A second filing of the same paper is compared by `key`, then DOI, then title, and counts as new only when all three differ.
 
-**Paving is what makes the next round cheap.** An unnamed hole gets filled with invention; a named hole gets filled with work — the queue in §3.15 is what turns that sentence into a command.
+Not allowed: citations added without a line saying what they changed; "read" recorded as "expanded"; the gap difference left as a word; `comparison` written from an abstract alone; the same paper filed twice.
 
-### 3.15 Placeholder and header grammar: one shape for every sign
+Criteria: the gap row's `current` falls against the previous round; `filed` and `still missing` both enter `rows`; the difference between index entries and filed items is zero.
 
-A placeholder is only useful if its shape is fixed: one whose keys or order vary between files cannot be counted, and a count is the only thing that tells a round where its missing work is. §3.14 says a sign must exist. This section fixes **the shape of the sign**, so that any session — and any script — can read the whole road network without asking what this particular author meant.
+Breach: a citation without its "what it changed" line is withdrawn from the body; a gap difference left as a word makes that `verdict` row `fail`.
 
-**Material: one block, five lines, first five lines of the file, keys in this order.**
+Close: the two numbers in `rows` differ from the round's readings by zero, and that section's `hash` in `sections.json` is updated.
 
-```
-% SECTION: <n> <- thesis §<x.y>[-§<x.y>]
-% CLAIM: <C-ids, semicolons> <one clause each>
-% NEEDS: <artefact> ; <artefact> ; <placeholder-id>
-% HANDS: <artefact> -> §<x.y>
-% STATUS: draft | measured | blocked(<placeholder-id>)
-```
+### 2.5 One section is reworked
 
-The keys are fixed and the order is fixed. `SECTION` takes one arrow `<-`; `HANDS` takes one arrow `->`; nothing else in the file uses either arrow, so `grep '->'` is the handover list and `grep '<-'` is the mapping list. `STATUS` has exactly three values, and `blocked` names the placeholder that blocks it — a section is never "almost done".
+Situation: the previous verdict named one section, and nothing else moves.
 
-**Signpost: one grammar, four fields, pipe-separated.**
+Opening readings: `next` rows of that section in the previous `verdict`, its placeholder rows, its position-table rows.
 
-```
-% PENDING(<id>): <what will fill it> | owner: <run id / key + page / person> | blocks: §<x.y>, §<x.y> | since: <YYYY-MM-DD>
-% DECIDE(<id>): <the question> | owner: <who decides> | blocks: §<x.y> | since: <YYYY-MM-DD>
-% ABSENT(<id>): <what could not be obtained> | owner: <where it was searched> | blocks: §<x.y> | since: <YYYY-MM-DD>
-```
+In hand: that section's position-table row, placeholder rows, citation list, and the `next` rows of the previous `verdict` that belong to it.
 
-Four fields, always the same four, always separated by ` | `. The `what` field is a noun phrase — not a sentence, not an apology, and **never a number**: a placeholder that contains a plausible number is a fabricated number wearing a sign, and the linter fails it.
+Order: `1.2A → 1.6 → 1.8 → 1.2B`.
 
-**One namespace for ids.** `run-*` (an experiment), `read-*` (an extraction from a key), `decide-*` (a user decision), `absent-*` (unobtainable). Lowercase, hyphens, no dates inside the id. Ids are unique across the whole body — two sections may not both invent `run-r1`.
+Reading the verdict starts with three things: which row failed, what its `action` says, and what its `target` is; the three are copied at the top of the round, and after the edit each row is read again — the move from `fail` to `pass` must name the sentence that changed. A problem seen outside the verdict pushes one stack row: it does not block this round and is not ignored.
 
-**One visible form per missing thing.** In a table: `--`. In prose: `\emph{[pending: <id>]}`. Nothing else: not "TBD", not "n/a", not a blank cell — a blank cell is indistinguishable from an editing error, and the whole point of the sign is that it is visible from the road.
+Not allowed: touching another section, including "a quick improvement" to a neighbouring paragraph; deleting a placeholder; editing from impression rather than from the verdict row; a problem outside the verdict left unrecorded — it goes on the stack.
 
-**The linter is part of the round, not a nicety.** Ten checks, each one a defect a reader cannot see:
+Criteria: every `hash` in `sections.json` except that section's is unchanged; every row of `verdict` for that section reads `pass`.
 
-| # | Check | Why it fails the round |
-|---|---|---|
-| 1 | the five header keys, in order, on lines 1–5 | a section without them cannot be mapped to the thesis |
-| 2 | every `SECTION` names a thesis § that exists | a header pointing at a section the thesis never posed |
-| 3 | every `HANDS` target is a section that exists | a handover to nowhere |
-| 4 | id namespace and uniqueness | two different holes with one name get filled once and reported twice |
-| 5 | four fields, in order, in every sign | `awk -F'\|'` is the queue; a missing field drops a row silently |
-| 6 | `what` contains no digits | a fabricated number hiding as a placeholder |
-| 7 | `blocks` targets exist | a placeholder that blocks nothing is a note, not a placeholder |
-| 8 | `STATUS: blocked(...)` ⇒ that id exists in the file | a section blocked by a hole nobody wrote down |
-| 9 | `--` cells ≤ number of signs in the file | a bare dash that nobody owns |
-| 10 | every visible marker `\emph{[pending: <id>]}` in the prose has a sign with that id | a marker with no sign is a hole nobody will fill, and it will be read as an editing slip |
+Breach: another section's `hash` moving makes the round `unmet` and names the sections; a `fail` row remaining in that section makes the round `unmet`.
 
-**What this buys at the next round.** One command prints the whole work queue, sorted by what it blocks, with owners:
+Close: say which section moved and which `next` row moved it, with the `hash` before and after in the round's readings.
 
-```bash
-python3 report/final/assemble/lint_roads.py --queue
-```
+### 2.6 Closing out unfinished experiments
 
-A session that starts with that table does not have to decide *what to do*; it decides only *whether to do it now*. That is the difference between a queue and a conversation: a session that has the queue decides when to run something, not what it should be.
+Situation: the shape of the draft stands and the numbers are what is missing; this round either finishes the open experiments or records why they stop.
 
-### 3.16 Acceptance: what a finished report must look like, and what
+Opening readings: `queued`, `running` and `blocked` rows in `tmp/compare-loop/<wish>/experiments.json`.
 
-**Acceptance is the third phase's gate** (§3.19.2): a report that has not passed the recheck checklist is not finished, however good its tables look. it is read against
+In hand: `experiments.json`, `placeholders.json`, `intake.json`.
 
-A finished report is **complete as a document and incomplete as measurements** — those are compatible, and confusing them is why drafts are either padded or paralysed. Complete as a document means every section says something falsifiable and every missing number is a sign (§3.14); incomplete as measurements means the holes are real holes, named and owned, not smoothed over.
+Order: `1.3 → 1.4 → 1.5 → 1.2A → 1.2B`.
 
-**Three tiers of properties, judged separately.** They fail for different reasons and are fixed by different work; collapsing them into one "is it good" judgement is how a report with fine prose and no argument passes.
+`done` is backed by evidence such as these three: the row reads `done` in `experiments.json`, a counterpart sits in `intake.json` with `state: indexed`, and the placeholder reads `filled`. One missing sends the row back to `running`. Three failures on the same cause — one dependency, one error, one absence — make it `blocked` with `tried` and `proposal`, and the fact goes to 2.7.
 
-**Tier 1 — countable, against the corpus's distribution.** Recomputed from the current build, never quoted from an older run; the reference is the sample set's `[min, max]`, and the median only says thick or thin.
+Not allowed: a `blocked` row written as `done`; the long-dependency run skipped for the easy ones; a reduced scale left out of `degraded`; "it ran once" taken as "intake complete".
 
-| Feature | Where it is computed | Passing rule |
-|---|---|---|
-| pages · words · sections per chapter | the build, per chapter | inside the sample `[min, max]`; outside on the high side is allowed if the extra pages carry a table or a reading |
-| citations per 1000 words | body text, per chapter | inside `[min, max]`; a chapter below the minimum has a citation promise it is not keeping |
-| figures · tables per chapter | body text | a chapter claiming a comparison with no table is not thick, it is assertive |
-| references (distinct keys) | bibliography | ≥ the sample minimum, and every key held with a note |
-| words per paragraph | body text, per chapter | inside the corpus band; far **below** it means one-sentence paragraphs stitched into a list, far **above** means a wall of text |
-| an exemption, when a band genuinely does not apply | `% EXEMPT: <feature> — <reason>` in the section file | the reason must name the structural difference (e.g. this chapter is prerequisites while the corpus's same-numbered chapter is methods), and the acceptance read reports `exempt`, never silently `in` |
-| first-person density | body text | inside the corpus band; the band is per venue, not zero |
-| sentence length (words per sentence) | body text, per chapter | inside the corpus band; far below it reads as a list, far above as a wall — both are the same defect of rhythm |
-| connectives per 1000 words (however · therefore · consequently · moreover) | body text, per chapter | inside the corpus band; a chapter below it presents findings without relations, above it argues where it should report |
+Criteria: `queued` and `running` both 0 in `experiments.json`; every `done` row has a counterpart in `intake.json`; every `blocked` row carries `tried` and `proposal`; `open` rows in `tmp/compare-loop/<wish>/placeholders.json` tied to this round's experiments number zero.
 
-**Tier 2 — readable, and the windows are the six listed here, each read as a yes/no per section.** Each window is a yes/no per section, read by eye after the tier-1 numbers are in:
+Breach: a `done` row short of one piece of evidence returns to `running`; `queued` or `running` not at zero makes the round `unmet`.
 
-| Window | What "pass" looks like |
-|---|---|
-| claim before evidence | each section's first two sentences say what it will establish; the evidence follows |
-| every claim anchored | each claim carries a reading (`value + setting`) or a sign (`PENDING(id)`) — never a bare adjective |
-| collision stated | for every claim the report calls new, one sentence names the nearest work and the difference, quoted from that work |
-| boundary stated | each chapter ends by saying where its claim stops holding |
-| handover | each chapter ends by naming what the next one takes from it |
-| one name per concept | a glossary-level check: no concept carries two names, no name carries two concepts |
+Close: three numbers — `done`, `blocked`, placeholders still `open` — carried into the round's readings.
 
-**Tier 3 — perceptual, read blind.** One reader who has not seen the notes or this document reads the compiled PDF once, and answers five questions on a 1–5 scale. The blinding is the point: a reader who knows the placeholders exist will forgive them, and a reader who does not will report them as defects — which is exactly the reviewer's behaviour.
+### 2.7 Reflection: the number disagrees, the run will not come, the expectation moves
 
-| # | Question | Fail signal |
-|---|---|---|
-| 1 | after one reading of the introduction, can you state the claim in one sentence? | the claim needs the method section to be understood |
-| 2 | does each chapter answer the question its own title asks? | a chapter titled "results" that reports setup |
-| 3 | does the related work read as an argument, or as a list? | paragraphs that could be reordered without loss |
-| 4 | are the missing pieces visible as gaps, or discovered as surprises? | a reader who only learns at the end that the control run is missing |
-| 5 | where would a reviewer write "compared to what?" | any claim of improvement with no row beside it |
+Situation: a hard fact is in hand. The common ones are these — a number contradicts a claim of this draft; an experiment has exhausted its routes; the thesis as written cannot deliver what the draft requires. A fact outside the list that blocks the draft, moves the thesis or moves the expectation takes this same loop.
 
-Pass: no item at 1–2, and at least two at 4–5. A report that scores 3 everywhere is not accepted — it is the shape of a document nobody will argue with and nobody will cite.
+Opening readings: `open` rows in `tmp/compare-loop/<wish>/regurgitation.json`, `refuted` questions in `questions.json`, `open` rows in `stack.json`.
 
-**A criterion that cannot tell the two directions apart is not a criterion.** Every acceptance check must be able to fail: state what a passing report looks like *and* what a report with the defect looks like, and confirm the check answers "no" to the second. A window that any draft satisfies — "the introduction motivates the problem", "the results are discussed" — measures nothing and reads as a check while certifying everything. The test is one sentence: name the draft that would fail this, or delete the check.
+In hand: the rows of `tmp/compare-loop/<wish>/regurgitation.json`, the refuted questions with their `pid`, the `sections.json` rows of the sections involved, and the `open` rows of `stack.json`.
 
-**Read against what, exactly.** Three references, used for three different things, and never interchanged:
+Order: `1.5 → 1.1 → 1.2A → 1.3 → 1.2B`.
 
-1. **the sample corpus** (the 11 theses in the project) — for *distributions and grammar*: how long a chapter is, how a section opens, how a contribution is phrased. Copied as shape, never as sentences.
-2. **the venue's benchmark papers** — for *what a reviewer expects to see*: which table is mandatory, what an ablation must contain, what "state of the art" is allowed to mean this year.
-3. **the shelf** — for *whether a sentence is true*: one key, one page, one reading. A sentence can match the corpus's grammar and still be false; the shelf is the only reference that can catch that.
+What is done: the fact goes onto the reflection list in its existing shape; back to 1.1 to change the thesis — a refuted question takes `refuted`, a changed narrative or a lowered expectation records before and after in `note`; back to 1.2 to re-judge the position table; back to 1.3 to mark the dead placeholders `dropped` with the reason; then one fresh verdict.
 
-**What the acceptance read may not do.** It may not fail a report for having signs — a report with ten named holes and a clear queue is *better* than one with ten invented numbers. It may not pass a report because the prose is fluent. It may not compare against a paper that solved a different problem; the nearest neighbour in the collision check is the only fair comparator, and it is named in the sentence.
+One fact carries four fields: `kind`, `where` (the data location or the error as printed), `tried` (each route with its result), and `proposal` (lower the expectation, change the setting, change the narrative, change the sample, or another way through). A fact missing one of the first three is not on the list; the proposal is written as concretely as it can be, and where none exists yet, `pending` goes in and the fact returns to `stack.json`.
 
-### 3.17 Sentences, and the spine that answers the two questions
+Not allowed: the counter-example removed from the body as if it never existed; the target quietly shrunk; a contradicting number explained away as noise; a route declared dead without `tried`.
 
-A report is not judged sentence by sentence in isolation, but a report fails sentence by sentence first. Six sentence types carry everything; a sentence that is none of them is either decoration or a claim in disguise, and both cost the reader.
+Criteria: every hard fact has a row in `regurgitation.json` with a non-empty `tried`; the affected `qid` and placeholders carry their states; `verdict` was re-run.
 
-| Type | Required shape | Fails when | Belongs |
-|---|---|---|---|
-| **claim** | "X is Y, because Z" — falsifiable, no hedge | it survives any data ("plays an important role") | section openers, chapter openings |
-| **evidence** | "value · setting · source" — a number is never alone | the setting is missing, so nobody can compare | after a claim, in tables' company |
-| **difference** | "A does P; we do P but Q" — the neighbour's own words first | it summarises the neighbour instead of quoting it | where the report calls something new |
-| **boundary** | "this holds for W; outside W it does not, because V" | it is an apology rather than a limit | chapter ends |
-| **handover** | "chapter N takes X from here" | it names a chapter that does not use X | chapter ends |
-| **sign** | `PENDING(id) · owner · blocks` (§3.15) | it is an apology for missing work | wherever work is missing |
+Breach: a fact without `tried` is void; a `refuted` question still in a conclusion sentence is recorded `dirty` by 1.9.
 
-**What goes into a section file, and in what order.** The six types above are the language; this is the shape a section takes when the language is used. A section that cannot be read top to bottom in this order is either missing a move or has one twice.
+Close: `refuted` questions, `dropped` placeholders and the `open` rows of `regurgitation.json` enter the round's readings.
 
-| # | Slot | What is written | Rule |
-|---|---|---|---|
-| 1 | **header** | the five keys of §3.15, on lines 1–5 | written before the prose; a section without it has no owner for its gaps |
-| 2 | **claim** | one paragraph: what this section establishes, and what would refute it | first sentence falsifiable; no "we then describe" |
-| 3 | **evidence** | the readings that carry the claim, each with value · setting · source | a number without a setting is deleted, not footnoted |
-| 4 | **difference** | one sentence naming the nearest work, quoted, and what changes | only where the report calls something new; if it is not new, cut the claim instead |
-| 5 | **boundary** | where this holds, where it stops, and why | last paragraph of the section, not a footnote |
-| 6 | **handover** | what the next section takes from this one, by name | one sentence; if nothing is taken, the section does not belong here |
-| 7 | **signs** | `PENDING(id)` inline for anything not measured, with the table cell left `--` | no estimate, no "approximately", no borrowed protocol |
+### 2.8 Re-running on outside comments
 
-**Every requirement carries the cost of its absence, and the cost is paid by the next round.** A rule stated without that cost is decoration, and a round that follows it knows the shape but not the reason — which is why rules copied this way collapse the moment the project differs from the one they were copied from. Three consequences are worth naming, because they are what makes the loop iterate rather than restart:
+Situation: a batch of comments came back and a person has already turned it into a list of operations: re-run a run, add a comparison, rewrite a passage. The worker does not read the comments, only the list.
 
-| If this is missing | Next round pays | Where it shows |
-|---|---|---|
-| the round's diff (four numbers, one sentence) | re-reads the whole draft to find out what changed | the ledger row, or the absence of it |
-| the named layer that was skipped | assumes the skipped layer is done, and builds on it | the same row's `layers moved` column |
-| a sign with owner and blocker | either plots a number it does not have, or forgets the gap entirely | the queue (`lint_roads.py --queue`) |
+Opening readings: items on the list, questions in `tmp/compare-loop/<wish>/questions.json`, `queued` rows in `experiments.json`.
 
-**This file is written as rules with section numbers; that is the wrong shape for an account of the work.** The numbers exist so a rule can be found again, not so it can be quoted instead of applied. When the work is explained — in a defence, in a hand-over, in the introduction of the paper itself — copy what the rules require, never their form: a paragraph of this file turned into a paragraph of speech is a paragraph about the file. The same holds for the slots above: they are named here so that a section can be checked, not so that a sentence about the section can recite them.
+In hand: the list as turned into operations, `questions.json`, `experiments.json`, and the previous `verdict`.
 
-**A report is a line, not a set of headings.** The reader is not asking what the report contains; the reader is asking where the project stands and what that means for what happens next. So the sections are not parallel boxes — each one takes the project from a state to the next state, and the account has to make that movement visible: this was open, here is what closed it, this is what it left open. A reader who finishes a section and cannot say *what stage the project is now in, what that stage means — what it has established, what it has made possible, what it has closed off — and therefore what must come next* has been given a table of contents with paragraphs under it. The stage is a fact (the control run has not happened); its meaning is the claim that fact carries in the argument (so every number about cost is still an estimate, and no section may present one as measured). A report that states stages without their meaning has told the reader where it is without telling them what it means.
+Order: `1.1 → 1.4 → 1.5 → 1.2A → 1.2B`.
 
-**The three opening moves are the line's beginning, and everything after continues it.** The problem (whose it is, quoted, with a reading that shows how much it costs), why it matters (what becomes possible that was not), and what this work contributes (who can do what now, at what price) are not three sections to be filled — they are the first three moves of one argument, and each later section is that same argument continuing under a heavier burden of evidence. A section that could be moved anywhere else in the document without changing how it reads is not on the line; it is an appendix that happens to be bound in the middle.
+What is done: each item maps to one `qid` (a new question row is opened where it maps to none); the runs it needs are opened in 1.4 and finished as 2.6 says; results are filed and reviewed in 1.5; then one fresh verdict.
 
-**Every section consumes what the previous one produced.** The previous section's leftover — a premise it had to assume, an open slot, a cost it could only name — is this section's input; the section that does not consume anything is either misplaced or unnecessary. This is why the order is not free: the order is the argument.
+When an item maps to nothing: open a question row with `provenance: user` first, then decide whether a run is needed; an item needing several runs opens them all, and the count enters the round's readings; every section edited updates its `hash` in `sections.json`.
 
-**A sequence of headings written as prose is still a list.** "First, the ledger row; second, the named layer; third, the five carriers; fourth, what must not be established" is the document's own table of contents, recited — the paragraphs could be reordered without changing the reading, which is the test: **swap any two paragraphs; if the passage still reads the same, it was a list.** The repair is not shorter sentences but a chain: each paragraph opens by consuming the previous one's result ("so the row is there, and the row is what makes the next question askable"), and closes by leaving the next paragraph something it must answer. Enumerating is what a report does when it has nothing to say about the relations between its parts. The swap test alone is not enough, because a writer with no document at all can satisfy it: the chain must also be checkable against the stations — swap two paragraphs and the sentence that consumes the previous station's leftover stops making sense, which is a defect that fluent prose cannot hide.
+Not allowed: an item called "handled" without a row; one item needing several runs with only one taken; the verdict left un-run after the edit.
 
-**Talking about the work, rather than about this file.** The rule may be named once, in parentheses, and only after the thing it governs has been said — and the test is countable rather than a matter of taste: **in any paragraph that explains the work, the subject of its sentences is the work, not this file.** "The control run has not happened, so the row is a sign with an owner and three sections waiting on it" is a sentence about the work; "§3.14 requires a sign instead of an estimate" is a sentence about the document, and a reader who has never opened the document learns nothing from it. A paragraph with two or more sentences beginning "this file", "§", or "the rule" is a paragraph about the manual: delete it and say what the work is instead. The same test the reader applies: say it aloud to a colleague; if they have to ask what a section number is, it was a citation, not an account.
+Criteria: every item has a row in `questions.json` or `experiments.json`; `queued` and `running` are both 0 in `experiments.json`; `verdict` was re-run.
 
-**Four things the section owes before it can be called written.** The slots above say what the section contains; these four say what its non-prose parts must do for the reader, and a section with every slot filled and none of these four is finished in shape and unfinished in obligation:
+Breach: an item without a row makes the round `unmet`; `queued` not at zero makes that `verdict` row `fail`.
 
-- **the table owes its setting** — dataset, split, resolution, hardware, in the caption and again in each row. Without it a reader subtracts two rows produced under different settings and reports the difference as the method's effect.
-- **the equation owes its symbols** — each defined in the sentence that introduces it, units stated where they can be checked. Without it a reader re-derives the expression under the assumptions of the paper we borrowed it from.
-- **the figure owes a way to be wrong** — the caption says what to look at and what would look wrong. Without it the picture is taken as support for a claim it was never about.
-- **the citation owes its sentence** — attached to the sentence it supports, which would be false without it. Without it the reference list reads as a survey and the sentence as our own finding.
+Close: items on the list, items with rows, and `queued` at zero enter the round's readings.
 
-A section that skips one of these is not "almost done": the reader's error is already determined, and it will be made in the next round rather than this one.
+### 2.9 Tidying the repository
 
-**The section is written in this order and read in another.** Work proceeds claim → evidence → difference → boundary → handover, because that is the order in which each can be checked; the reader encounters claim → difference → evidence, because that is the order in which a claim can be doubted. The file keeps both: the slots are present in the first order, the sentences inside them are written for the second.
+The situation: a round of experiments has run and the workspace has started to rot — outputs scattered between `tmp/` and each package's `output/`, old packages stopped halfway with no record of where, one number living in three copies, paths drifted into a spelling only the author remembers. The next experiment, the next absorbed script and the next reservation all need this ground cleared first. Tidying is not neatness: it is the ground the next round stands on, and the turning of the soil before anything sprouts.
 
-**One claim per paragraph, and the claim comes first.** A paragraph whose topic sentence is a citation, or a definition, or a date, has no claim; it is a note that will be cut in revision.
+Entry readings: number of packages; rows marked `runnable` / `blocked` / `dead` in `repo.json`; entries under `tmp/`; copies of one output.
 
-**The chapter's five moves are borrowed from the corpus; the corpus's victory story is not.** The sample chapters agree on five moves: reopen the field in one sentence (never "as described in chapter 1"), name the single obstacle the chapter attacks, put the assertion before the evidence, enumerate conditions one variable per item, and close on a boundary that points at the next chapter's question. Copy the moves — they are the genre working — and never copy the outcome sentence: a sample that reports a method "revolutionising" a field is telling its own result, not a shape available to ours. The moves are borrowed for what they let a reader do; the verdict is earned by our own readings and signs.
+What is in hand: `experiments.json`, each package's `run.py` and `expected.md`, the table under `50_results`, the footing check under `60_footing`, the `tmp` listing.
 
-**The abstract is a projection of the written body, not a promise about it.** Every sentence in it must be recoverable from a section that exists: the claim from the introduction, the price from the results table, the boundary from a chapter end, the next step from the queue. An abstract written before those sections exist is a plan; when the body moves, the abstract is re-derived rather than edited, because an edited abstract drifts into claiming what no section carries.
+Order: `1.4 → 1.5 → 1.2A → 1.6` — tidying drafts nothing and does not touch 1.8.
 
-**The three questions every version of the introduction has to answer, and where each is answered.** These are the paper's questions, not the exam's four (§3.13); the exam asks how the project stands, the introduction asks what the paper claims. They are bound: a problem with no significance is a curiosity, a significance with no contribution is a wish, and a contribution with no problem is a feature looking for a reason.
+What is done:
 
-| Question | Answered by | What makes the answer fail |
-|---|---|---|
-| **What is the pain point?** | one quoted sentence from a benchmark paper (or two, agreeing), plus one reading that shows the pain is quantitative | a topic dressed as a problem; a pain point that only the author feels |
-| **Why does it matter?** | the capability that exists after the work and does not exist before, with its cost named in the same breath | a benefit that any method in the field already gives; a benefit with no cost stated, which reads as marketing |
-| **What does this work contribute, under that problem and that significance?** | one sentence naming the change that a reader can perceive — who can do what, at which moment, that they could not do before — with the cost of that change in the same sentence; every clause of it traceable to a reading or a sign | a contribution stated as a property of the method ("we introduce X") rather than as a difference in what someone can do; a contribution that would survive the work being wrong; a contribution whose cost appears only in the limitations |
+1. Inventory the entry: every package needs one command that re-runs it, with entry, inputs and outputs written down. A package that cannot run is marked `dead` with one sentence naming what is missing.
+2. Put each output where it belongs: one true copy, duplicates removed, a `dup_of` pointer in `repo.json` — no new explanatory document.
+3. Call the bluff: draw five rows from the results table at random, re-run each against its footing row. A row that does not match is recorded `fake` and handled in this round, not the next.
+4. Routine testing: every runnable package runs `smoke` (small sample, seconds) and must pass; `full` records wall time, seed and the hash of its output, and two runs at one seed with different hashes are recorded `nondeterministic`.
+5. Regroup: package names and numbers align with the questions and chapters of the idea (RQ1/RQ2/RQ3); moves go through `git mv` so history survives.
+6. Reserve: a package stopped at an unimplemented step keeps `expected.md`, a `run.py` exiting 1, and one sentence naming what it waits for, marked `blocked` — a reservation, not a broken package.
+7. Absorb: take one proven piece from `tmp` (a function, a script), never a whole package; the source is written into the package, and whatever is left behind is neither deleted nor moved.
 
-All three answers live in the introduction, and all three are **re-answered** at the end: the conclusion says the same three things in the past tense, with readings attached. A conclusion that introduces a new benefit is a second introduction, not a conclusion.
+Written contract: `tmp/compare-loop/<wish>/repo.json`, one row per package: `package`, `entry`, `status` (`runnable` / `blocked` / `dead`), `outputs`, `dup_of`, `absorbed_from`, `last_run`, `seed`, `note`.
 
-**The spine: seven stations, and every chapter sits on one.** The order is the reader's, not the worker's (§2–§3), but the dependency is the worker's: each station consumes what the previous one produced.
+Written when: once per experiment loop closed, and never later than the first experiment of the next round.
 
-```
-1 pain point (quoted)  ->  2 why the existing routes cannot fix it  ->  3 what premise we change
-   ->  4 what that premise buys (count and appearance as inputs)  ->  5 what it costs, measured
-   ->  6 where it stops holding  ->  7 what the next worker should run first
-```
+Criteria and breach: every package holds a row with an existing `entry`, missing rows number zero; a `runnable` package's entry exits 0, and a non-zero exit is re-marked `dead` and handled in the same round; `fake` rows number zero; copies of one output number zero; whole-package copies out of `tmp` number zero; `nondeterministic` counts enter `verdict` `readings`. Starting a new experiment while last round's `fake` or `dead` is still open fails the round.
 
-| Station | Lives in | Carries | Proven by |
-|---|---|---|---|
-| 1 pain point | introduction | the quoted sentence + one reading | the shelf, one page |
-| 2 routes cannot | related work | one line per route, each ending on what it cannot give | the four-column grid |
-| 3 premise changed | method | the substitution, stated once | position/count/colour formulas |
-| 4 what it buys | method + results | budget before the run, re-texture without retraining | the two knobs, one table |
-| 5 what it costs | results | fidelity, bytes, and where the loss sits | the band table |
-| 6 where it stops | results + conclusion | template dependence, single scoring source | the failure cases |
-| 7 what to run next | the signs and the queue | three runs in order, with owners | the instance's queue command |
+**2.10–2.13 are the four entry points for code work, and all four close on the same tree contract.** Development, retest, maintenance and locating each have a small loop, but each lands through `1.8-58` (two kinds, four slots), `1.8-59` (numbers inherit, no gaps), `1.8-60` (the junk list), `1.8-61` (results only in `out/`), `1.8-62` (each package carries its own `kit/`) and `1.8-63..66` (a package pinned to the idea and to a hole). No task may invent another shape, and "this round only touches code" is not a reason to skip the `1.9-46` container check.
 
-**Paving shows itself as a hand-over, not as a promise.** The test is behavioural, and it takes five minutes: hand a reader the compiled PDF and the queue, and ask them to state **the next three runs in order, with owners, and which section each unblocks**. If they can, the report is paved, whatever its prose is like. If they cannot — but the prose still reads well — the document is a report about work, not a report that lets work continue.
+### 2.10 Building a package, or adding one experiment to it
 
-**And that is how the narrative becomes clear rather than decorative.** Each section's last sentence must open the next section's first question (§3.19.2 C). Stations 1 and 2 make the pain point *someone else's quoted problem*; stations 3 and 4 make the contribution *the answer to that problem and nothing else*; station 5 makes the cost *the price of that answer*, not a caveat bolted on; station 6 keeps the claim from overreaching; station 7 hands the reader the queue. A reader who can retell those five moves in one breath has understood the paper; a reader who cannot was given sentences, not a spine.
+Situation: a section of the idea needs a reading the manuscript still writes as `PENDING(fill:)`, and the package may not exist yet.
 
-**The spine is verified as a chain, not asserted as a list.** Each station is only present if the body contains the sentence that carries it, in the chapter that owns it, and that sentence consumes what the previous station produced. A mapping table written from the plan is a hypothesis; the same table written after locating each carrier sentence is a status. Where a station has no carrier yet, it is a sign (§3.14), not a silent gap.
+Entry readings: the idea section and its sentence, the `PENDING` line number, the row count of `packages.tsv`, the row count of `stale.tsv` (non-zero means clear it first, `1.8-64`).
 
-### 3.18 When the report is done
+On hand: the sentence, a neighbouring package's `src/` to copy rather than import, reusable `conf`, the `kit/` template.
 
-The conditions are the ones in §5, applied to the whole document rather than to a claim; they are not repeated here, because a second copy of a list is a second number to keep in sync (this file has already had to fix "five exit conditions" against a list of six).
+Order: `1.3 → 1.4 → 1.5 → 1.6 → 1.8`.
 
-Two conditions are specific to a multi-round report and are not in §5:
+Do: 1. stake the hole with `PENDING(fill: <package>/out/<file>)` and write the three things (sentence, `ref`, product name) into the readings; 2. take the smallest free `NN.M` under the parent, no gap, no recycling; 3. build exactly four slots; 4. copy the tools you need into `src/kit/` with origin and date, import no other package; 5. one command reruns it, exit 0, product in `out/` with `MANIFEST.json`; 6. add the `packages.tsv` row with all four columns filled.
 
-| Condition | Check |
-|---|---|
-| every placeholder is either filled or listed as a blocker | `grep -rE "(PENDING\|DECIDE\|ABSENT)\\("` returns only slots the ledger names as open, and each names its owner |
-| every section is attached to a thesis slot, and every slot to a section | the `% SECTION` headers and the thesis's slot list are the same set, both directions (§3.14) |
+Lands as: the new `packages.tsv` row plus `out/MANIFEST.json`. Written in the round the package is created, placeholder and replacement in that same round.
 
-A section that fails one of these is not "done pending polish" — it is open, and the next round's ledger says so.
+Criteria: a new package's top level holds only `README.md`; `src/run.py` exits 0; the row has four non-empty columns; `stale.tsv` does not grow because of the new package. Any miss counts as not built.
+6. The first step of a build writes the four-part `README.md` (`1.8-80`): idea section with its line, the command, the product, and an observations section holding `PENDING(obs)`; literature found on the way is fed back into the library per `1.8-79` with one `refs.tsv` row. Numbers follow `1.8-78`, padded, with the parent's number in front.
 
-### 3.19 Three phases of every round: pave, work, recheck
+### 2.11 Retest: same input, the numbers must not move
 
-**A round is not one activity.** It is three, in this order, each with its own product: **paving** leaves a road (a skeleton, a `run.py` that runs up to the unimplemented point, placeholders carrying `% PENDING`), **work** leaves a reading, **recheck** leaves a **maintained, placed** artefact (checked, aligned, fit for the report). **The thesis is the start, the work is the core, the recheck is maintenance and settling** — all three belong to the loop, and miss one and the next round starts from scratch.
+Situation: the package runs, but running is not reproducing; a new machine or a pinned dependency shifts the numbers the manuscript already cites.
 
-**Two qualifiers that get dropped.**
+Entry readings: `runnable` rows in `repo.json`, sha of every `out/*.json`, seed and runtime in `MANIFEST.json`.
 
-1. **Paving includes maintenance, debugging and debunking.** It is not "pave once before starting", but every time a paper enters the library, code lands, or a citation changes, someone goes back and levels the road: is the paper really in the library, is its conclusion still bound to the same thesis site, has someone else's implementation quietly substituted the mechanism we claim. **This work produces no new readings, which is exactly why it is skipped first; skip it once and every round after runs on a crooked road.**
-2. **Paving faces the whole document, including the sections already written.** Introduction and Related are the two sections written first and rechecked last: their citations must equally be in the library, equally bound to a site, and their background must equally set up the next chapter's motive. **"It is already written" is not an exemption — the opposite: the key they set is what every section after follows.**
+Order: `1.4 → 1.5 → 1.2b` (no drafting).
 
-**The wish decides which rows are live.** The list is not all done each round but **taken as a subset by wish type**; change the wish and the subset changes — which is exactly why the list must be complete:
+Do: 1. freeze inputs into `tmp/compare-loop/<wish>/inputs/<package>/`; 2. rename `out/` to `out.first` rather than deleting it, then rerun; 3. compare file sha, JSON key sets and every value (1e-9 for floats); 4. classify each difference as seed, float drift, dependency or real error; 5. keep both outputs until the round ends and record both sha; 6. update `rerun_at` and `sha` in `MANIFEST.json`.
 
-| Wish type | Rows live now | Not live, but do not delete (the next type will use them) |
-|---|---|---|
-| **paving type** (the current one) | all of §3.19.1 + §3.19.2 A (papers and assets) | rows like "boundary reading" under result truthfulness can wait |
-| **reproduction type** | §3.19.2 A + all of B | "handover" under C, landing, can wait |
-| **writing type** | all of §3.19.2 C + "recheck of written sections" in §3.19.1 | asset download can wait |
+Lands as: `retest.tsv`, one row per package: `package`, `first_sha`, `second_sha`, `diff_keys`, `verdict` (`same`/`drift`/`fail`). Written once after tidying and once before numbers enter the prose.
 
-**The lists below are open.** They are **working lists**, and they keep growing with each wish: the current wish is paving, so the list is long; the next wish is reproduction, and other rows will appear. **Only as the rows fill out can one round of bottom-layer work be complete, robust and grounded. One rule governs additions: a new row says which wish type it serves.**
+Criteria: rows equal the number of `runnable` packages; rows with equal sha under the same seed equal that number; every `fail` row appears in `stale.tsv` with its blocker. Otherwise the package counts as not retested.
 
-#### 3.19.0b The thesis and the work have lists too (the **start** and **core** segments, also open tables)
+### 2.12 Maintenance: an equivalent refactor moves things, never numbers
 
-**The thesis (start) — a three-line entry check, and missing one means everything after is rewritten:**
+Situation: numbers need renumbering, packages need merging, `kit/` needs trimming, a container needs emptying — all moves, not a single number may change.
 
-| Check | Criterion | Failure shape |
-|---|---|---|
-| the pain point is citable | one quotable sentence (which paper, which page) | a "pain point" I summarised myself |
-| the significance is measurable | one sentence landing on a measurable quantity (volume / duration / editability) | "important", "promising" |
-| each contribution matches the trio | every contribution points at a column of the main table or at a section | contributions that match no column |
+Entry readings: sha of every file under `out/`, each package's entry command, how many files mention the old name.
 
-**The work (core) — six lines, and missing one means the round did not run:**
+Order: `1.4 → 1.5 → 1.9` (no new content).
 
-| Check | Criterion | Failure shape |
-|---|---|---|
-| one command | rerunnable from a clean environment, input paths hard-coded in config | parameters typed by hand, paths on the command line |
-| one variable per change | differences from the reference implementation listed item by item, one changed at a time | six variables changed together, and a red run names nobody |
-| readings land on disk | `outputs/` holds json / csv / figures, and every number cited in the body points at file and line | terminal output only |
-| conditions from one source | dataset, split, metric and budget written in one place | two sections each stating their own setting |
-| failures logged too | interruptions, timeouts and crashes all enter `results.jsonl` | only successes recorded |
-| stop condition | "under what condition this round stops" is written first (cost, time, boundary) | it stops when the money runs out |
-| cost discipline | **smoke first** (run the smallest command, then scale) / budget hard-coded per item (steps · elapsed · devices) / **never wait blind**: one command (including `sleep`) may not exceed 300 seconds, once it runs you keep reading, **anything that looks deadlocked or diverging is stopped at once**, no "let us wait a little longer" / parallel only for independent items, one polling point / **`stop` at the end with verified output** | going straight to full scale; discovering at minute 40 what died at minute 2; the machine still billing after the run |
+Do: 1. record the baseline into `baseline.sha`; 2. move only with `git mv`, no newly written files; 3. chase references with `grep -rl` down to zero, `sys.path` and imports in the same round; 4. rerun once; 5. compare sha with the baseline and call it equivalent only when equal; 6. run the two `1.9-46` commands.
 
-**A machine nobody is watching is money burning.** The dearest error in a round is not one wrong number, it is **starting a command and going off to do something else**: it may be stuck in the `dataloader`, it may be NaN by step three, it may hold the device while computing nothing. **Those three look identical when nobody reads the log**, and the only difference between them is whether anyone stops it early.
+Lands as: `renames.tsv` (`old`, `new`, `basis`), `baseline.sha`, the rerun comparison. Written and rerun in the same round.
 
-So "monitoring" is not a good habit but **this layer's hard discipline**: **one command (including `sleep`) runs no longer than 300 seconds**; longer and you cut it into blocks, each returning one reading; **progress stalled, loss diverging, memory climbing, log no longer growing — stop first, then investigate**. **One stop costs a minute; one burnt budget costs a whole round.**
+Criteria: `grep -rl '<old name>'` is zero; rerun sha equals baseline; both `1.9-46` counts are zero. Any miss counts as unmaintained and its numbers may not be cited.
 
-#### 3.19.1 Paving checklist (paving: make the next round runnable) — **this table keeps growing**; a new row states which wish type it serves (paving / reproduction / writing)
+### 2.13 Locating: pin a package to a section and a hole
 
-**Read this table against the tree, one row at a time**: each row is a thing the next round must be able to do without asking anything, and a row whose criterion cannot be shown on disk is a row not done.
+Situation: the product exists but nobody can say which section it feeds, or the idea moved and the package still points at the old number.
 
-| Action | Criterion | Failure shape |
-|---|---|---|
-| the paper is in the library | the PDF is under `workspace/literature/`, `references.bib` has the key, the page is retrievable | citing a paper never downloaded, a key pointing at nothing |
-| code downloaded so it can be evaluated | the repo to be evaluated is in the workspace and runs one command | "download it when needed" |
-| conclusions bound to thesis sites | each paper's conclusion hangs on a thesis section node (`% PENDING: <what> ← thesis X.Y`) | papers and claims each saying their own thing |
-| skeleton + `run.py` | runs up to the unimplemented point and stops, the exit line pasted into the pass block | a README with no entry point |
-| the `paves:` line | all five fields `slot · asset · prior · package · unlocks`, with the `package` path openable | a road reported whose path does not exist |
-| **paving the recheck of written sections** | every background sentence in Introduction / Related points at a paper in the library, and that paper says the same thing | written, therefore unchecked |
-| **the conclusion–site two-way table** | each paper's conclusion → which thesis site; each thesis site → which papers support it; **a row empty on both sides is a dead end** | one direction only, the other end dangling |
-| **the debunking record** | the moment "another mechanism passing under our name" is found, append one row to `## feedback` (action, reading, correct practice) | said aloud this round, back again next round |
+Entry readings: `packages.tsv` rows and empty cells, `stale.tsv` rows, `PENDING(fill:)` occurrences in the prose.
 
-#### 3.19.2 Recheck checklist (recheck: maintain, debug, debunk) — **this table grows whenever the wish changes**; the more rows, the more one bottom-layer round can actually check
+Order: `1.5 → 1.6 → 1.10`.
 
-**A. Papers and assets**
+Do: 1. read the idea for the section it supports and quote one sentence with its line number; 2. fill `idea` with number and title, and never guess from the package name; 3. fill `slot` with the section of `report/final/<number>.<name>.tex`; 4. fill `product` with the file under `out/` that carries the number, matching `MANIFEST.json`; 5. send what cannot be located to `stale.tsv` with `last_touch`, `reason`, `disposition`; 6. write one feed row with `located_by` pointing at the `packages.tsv` line.
 
-| Action | Criterion | Failure shape |
-|---|---|---|
-| existence | every citation opens its PDF and turns to that page | a key with no text |
-| binding agreement | the paper's sentence and the body's sentence say the same thing | the quote says A, the body uses it as B |
-| library agrees with the index | the search log's row count, the library's file count and the bib's key count agree | three places, three numbers |
+Lands as: the four `packages.tsv` columns, the four `stale.tsv` columns, one `feed.json` row. Written after every intake, before the prose cites a new number.
 
-**B. Truthfulness of results**
+Criteria: empty cells zero; `stale.tsv` rows equal the N in the readings; every `PENDING` file name appears in the `product` column; every `slot` names an existing `.tex`. Any miss counts as unlocated and its numbers stay out of the prose.
+5. Intake aligns the README observations with `anchor.tsv`'s `idea` (`1.8-80`); a missing reference gets a `refs.tsv` row and, when the shelf lacks it, an entry under `workspace/literature/` — metadata only.
 
-| Action | Criterion | Failure shape |
-|---|---|---|
-| the action is a real action | the result comes from `outputs/` produced by this repo's command, and the command reruns | **another mechanism passing under our name** (SDEdit read as score distillation) |
-| figures agree with the body | every annotation in a figure has a synonymous sentence in the body, and the reverse | figures say good, body says bad |
-| narrative logic | the result's direction, magnitude and conditions sit in the same convention as the claim | comparing across changed conditions |
-| robustness | at least one boundary (views, seeds, budget) has a reading | a single point taken as the conclusion |
-| detail in the body | every choice affecting reproduction is written | key parameters only in code |
+### 2.14 Tidying: walk from a root to the bottom packages, move one at a time, prove nothing changed
 
-**C. Landing in the report**
+Situation: a root is given — the whole `workspace`, one container, or a subdirectory inside a leaf — and its packages mix four states with no way to see which level should look like what.
 
-| Action | Criterion | Failure shape |
-|---|---|---|
-| the repository is tidy | someone else can run the same number from the README | three v1/v2/final copies in the directory |
-| the README points at assets | every figure and table says which command produced it and which path it lands in | a README about motivation |
-| the README carries a reportable conclusion | one line of conclusion + conditions + source | results with no conclusion |
-| section handover | each section's last sentence raises the next section's first question (one handover line); **one or two sentences of transition, no restating what has been said**; the Introduction's last paragraph must read as the research motive | sections as islands, joined by "in summary" |
-| the read | **it reads smoothly and does not lose pace** (short sentences, one thing per paragraph), and afterwards you can state the pain point, the significance and the contribution | two pages in and still unclear what is being solved; fluent but the claim does not stick |
-| **the README states the section it feeds and the approach** | each package README says "which section of the report / how that passage is written (what comes first, what after) / what to watch (traps, conditions, things not to say)" | a README about how to run the code |
+Entry readings: directory count under the root, whether `tidy.tsv` exists, top-level entry count per candidate, sha of every `out/`, row counts of `packages.tsv` and `stale.tsv`.
 
-**D. Meta-rules for the recheck itself**
+Order: `1.4 → 1.5 → 1.9` (a tidy does not draft).
 
-| Item | Rule |
-|---|---|
-| who | **the lead** rechecks and writes the conclusion into the dispatch; the executor does not edit the state file and does not conclude on the lead's behalf |
-| when | ① new assets entering (papers / code) ② a citation or number in the body changed ③ before each round closes ④ **before writing a section that is "written first"**, such as the Introduction |
-| product | one line of reading: how many items checked, how many closed, who owns each unclosed one; **unclosed items must be named**, no "basically fine" |
-| found means written back | one of three places: the literature library or index, that package's README, or that sentence of the body; **report without changing and it returns unchanged next round** |
-| readings enter the state | the recheck conclusion goes into `## EXIT-READINGS` of `data/<identifier>/loop_state.json` (how many checked, how many closed), and the overturned old conclusion is appended to `## feedback`; **a recheck written into a conversation did not happen** |
+Six steps, one line each, and no step starts before the previous one has readings:
 
-#### 3.19.3 The interfaces between the three segments
+1. Identify. Walk down from the root; a directory holding only subpackage directories is a container, one that fits or can be folded into the four slots is a leaf, anything under `_upstream/`, `repo/` or `.git` is not a package. `tidy.tsv` carries one row per bottom package, containers take no row, and an undecidable package is `kind=unknown` and also enters `stale.tsv`.
+2. State. Apply `1.8-67`: a normal name carries only content; `_upstream/` for clones, `_deprecated/` for retired evidence, `_staging/` for untidied and uncitable. Every rename goes into `renames.tsv` with the clause that justified it.
+3. List. The `plan` cell says how many moves and what each one is ("`dispatch.py` → `src/run.py`"); "tidy it up" is not an action and fails the criterion.
+4. Analyse. Per row, classify every top-level entry (source, config, result, document, junk), try the single entry command, and separate products from snapshots inside `out/`; write the conclusion into `evidence`, not into a new document.
+5. Execute. Move by `git mv` only, no newly written files; retake the three readings (entry count, exit code, sha) and append them to `evidence`.
+6. Prove. Compare with `baseline.sha`: the numeric difference must be zero (`1.8-70`); otherwise roll that package back and record `impact`. When every row is done, run `1.9-46` once more.
 
-- **Paving's product is work's input**: a work item must point at a road already paved (the `paves:` line); if it cannot, pave first.
-- **Work's product is recheck's input**: the recheck reruns no experiment, it only asks "did the reading come from there, and is it written in the right place".
-- **`id` is the first interface**: every layer's hand-over starts with `id: <identifier>`, and the context and wish are located under `data/<id>/` by that id. **Losing the id loses "which wish this is"** — with several in flight, no product can be attributed, however good it looks.
-- **Recheck's product is the next round's foundation**: each inconsistency found is written back to one of three places — the library or index, that package's README, or that sentence of the body. **Report without changing and it returns in the same shape next round.**
+Lands as: `tidy.tsv`, `renames.tsv`, `baseline.sha`, `impact.tsv`, all under `tmp/compare-loop/<wish>/`. Written in the round the tidy is ordered, appended per row, closed after the last row.
 
-## 4 What this changes about the thesis document
+Criteria: rows equal the number of bottom packages under that root; empty `state` cells zero; `plan` cells without an action verb zero; `impact.tsv` rows with a non-zero `diff` zero; both `1.9-46` counts zero afterwards. Any miss means the root counts as untidied and its numbers stay out of the prose.
 
-The thesis is written **before** the results exist, so it is not a plan the results obey; it is the **space of stories the results will choose among**. That is why it is written as branches, not as a claim:
+### 2.15 Branch residue: decide whether it is a subpackage or another way of writing configuration
 
-- each open slot carries the two or three forms its sentence can take, keyed to the result shape that selects it; choosing a branch costs one sentence per slot, and if a branch forces the Introduction to be rewritten, the branch was drawn too late;
-- the thesis records, for each slot, whether it was written **before** or **after** the result arrived — the same disclosure the paper owes its reader.
-- each chapter that will run code names the pinned asset (`repo · commit · snapshot path`) and the order the work happens in — control row, then the increment on the same protocol, then the cost against both — so a later pass neither re-clones nor re-derives it.
+Situation: a numbered subdirectory sits under a parent (for instance `00.1_2d_diffusion/00.1.1_boundary_prompts` or `00.1.2_img2img`). It may be a real subpackage, or the shell left by a trial branch — one `README.md` and one `prompts.yaml`, or a script nobody calls.
 
-A thesis that reads as a single confident story before the data exist is not more committed; it is unrevised.
+Entry readings: file count and `.py` count per candidate, whether it owns `out/`, whether `packages.tsv` has a row for it, whether the parent already holds an equivalent configuration.
 
-## 5 Exit
+Order: `1.4 → 1.5 → 1.9`.
 
-**These seven are the read and narrative criteria, not statistical ones.** Word count, citation density and citation count are **gates**: falling short means not handed over, and meeting them **does not mean passing**. Passing is judged by **whether a reader walking the pages stops** — whether what each sentence states can be pointed at a row of results, whether that sentence has a neighbour to be compared with, whether the Introduction promises something the results cannot carry (**a citation that exists only to decorate a sentence is itself a defect**, not a bonus). **The two easiest fake passes**: many citations, all decoration; enough pages, every section restating someone else's conclusion.
+Do: 1. answer the four questions of `1.8-71`, one point each, and write them as a four-digit string into `evidence`; 2. read the total — `1111` is a subpackage, `0001`/`0010` is an arm folding into `conf/`, `1100` with a duplicated product is a residue going to `_deprecated/`, `0000` is a note folding into the parent's `README.md`; 3. check whether the parent still points at it ("the configuration for this arm lives in <directory>") and fix that line after folding; 4. move with `git mv` only, record `old`/`new`/`basis` where `basis` reads `1.8-71:<digits>`; 5. verify with `1.9-47` and `1.9-48`.
 
-- Every headline claim traces to a result row and to an anchor, or is marked `not seen`.
-- The paper states which analyses were pre-specified.
-- The Introduction contains no claim the results cannot carry, and no citation that exists only to decorate a sentence the results would not support.
-- The two checks of §1, run on this paper's own draft, classify it the same way they classify the corpus described there.
-- The thesis has a pass log, and the last pass changed nothing.
-- Every `code-asset` and `baseline` has a pin and a workspace entry that runs without the upstream repository's layout; every unobtainable or unbuildable candidate is a `rejected` row with its reason.
-- **Every headline claim has a neighbour, or says why it has none.** The claim's row carries `aligned-on:` (dataset · split · metric · budget) and the neighbour's own row; a claim whose neighbour is missing is written `not comparable — <what differs>` **in the draft**, not dropped. **The other conditions can be satisfied by a paper comparing itself to itself; this one cannot.**
+Criteria: numbered directories judged `arm` or `residue` number zero afterwards; both `1.9-47` and `1.9-48` print zero; the parent no longer points at a removed directory. Any miss means the parent counts as untidied and its row may not be cited.
 
-### Citation admission: a number passes four gates before it enters the body (revision of 2026-11-16)
+### 2.16 Idea anchoring and in-package audit
 
-**This section governs "may it be cited", not "is the result good".** All four gates pass before it enters the body; miss any one and that number can only appear in the draft as `not seen` or `not comparable`.
+**Situation:** a package can come out tidy and ownerless — every file in a slot, yet the products match no section of the idea; or the code splits into two halves and nobody asks whether they should merge and read better as one.
 
-**Gate one: input class.** The input behind every number states whether it is `real` (a capture / a dataset) / `synthetic` (programmatic, a synthetic benchmark, a self-made scene) / `derived` (processed from the first two). **A number with no class is treated as `synthetic`.**
-**Gate two: the producing command.** One command rerunnable from a clean environment; parameters typed by hand, an item left out, or a reliance on "it was run last time" all count as non-rerunnable. It must be in `manifest.json`.
-**Gate three: `path:line`.** Every number cited in the body points at a line of a file on disk; one that cannot is an **unowned number** and is demoted on the spot to uncitable.
-**Gate four: the impostor check.** Whether this number came out of the mechanism it claims: is `runs/` there, does `sha256_12` match, has a cheaper path been substituted. **A swapped mechanism is fabrication: it may not enter the body, and it must be written into the feedback.**
+**Entry readings:** rows of `out/anchor.tsv` (equal to the package count), how many read `no-anchor`, and how many `merge:` rows `out/audit.tsv` holds.
 
-**A synthetic input has one fixed place: the control-experiment column, with `not comparable` in the same sentence.**
-It may not serve as main evidence. The cell it occupies in the main table reads `not comparable — <what differs>` (input class / steps / resolution / view set), and "put the number in and note it beside" is not allowed. The same rule: a control-experiment leaf's weight may not exceed the main-line leaf it supports — otherwise the tree props real conclusions with synthetic material.
+**On hand:** `tidy.tsv`, the actual products under each package's `out/`, and `毕设立意.md`.
 
-**A retired product needs a written declaration, and citations of it in the body must be zero.**
-Write `DEPRECATED-<date>.md` in the product directory: which files, why retired, why kept (as evidence that "it once ran this way"), and the restore condition (which input, then which protocol). Every place in the body that cited it returns to a placeholder; it may not be quietly left in.
+**In order:**
 
-**The only progress convention is "citable rows", not "planned coverage".**
-A main table has some number of rows and columns, and some number of cells can enter the body — that numerator is the progress. Reporting "dispatched / returned / paved" as a percentage to the owner treats activity as achievement; **the tree's weighted progress exists to schedule work and may not be reported as achievement.**
-One self-check: **"if the deadline were now, how many numbers would land in the body?"** Unable to give a cell count means you are fooling yourself.
+1. One row per package in `anchor.tsv`: `package` / `idea` / `product` / `anchor` / `debt`; `idea` reads `毕设立意.md:<line> 第 N 节`, section number and title copied verbatim.
+2. Judge each product's anchor and write `anchored` or `no-anchor`; a `no-anchor` product is named on the delivery's line and never cited in the body.
+3. Apply the three debt tests (`1.8-78`): a hit writes `deprecate` with a temporary-area target; a doubt that misses them writes `keep` and is named on the "suspect products" line.
+4. Audit `src/`: count files, import edges and entry points; one row in `audit.tsv`: `package` / `files` / `edges` / `merge_plan` / `entry_exit`.
+5. Merge what `1.8-79` judges mergeable, run the entry once afterwards, write the exit code back; a non-zero exit rolls the merge back.
 
-### How comparison writing lands: take the skeleton, insert your claims, then check sentence by sentence
+6. Write `module_map.tsv` per the refactor clause, rename and merge by `duty`, converge the entry to `src/run.py`; run the entry and take `out/` shas before and after, writing both back to `audit.tsv`.
+7. Clear the top of `out/` per the allowed-list clause and delete only with the evidence card; `manual/` keeps hand-edited snapshots only.
+**Product contract:** `out/anchor.tsv` with five columns, `out/audit.tsv` with six (adding `entry_before` and `sha_same`), `out/module_map.tsv` with four, headers verbatim as above; a missing column or empty value fails.
 
-**"Write against the samples" is not reading a model text once and writing by feel.** Four steps, and missing one produces "prose that looks like a paper":
+**When to write:** each package's two rows the moment its tidy ends; the delivery note only after every package is done.
 
-1. **Take the criteria**: the table in the samples directory's `README` (criteria / metadata) is this venue's **passing shape** (which blocks each section needs, the order of blocks, which kind of sentence belongs in which position). **Copy that table to the head of the section first**, and tick each cell as you write.
-2. **Take the skeleton**: pick one sample of the same chapter type and write its **paragraph functions** one line each ("this paragraph gives the conclusion first → this one gives the comparison → this one admits the boundary"). **Take the function, never the sentences.**
-3. **Insert claims**: put your headline claim into the corresponding cell; **a claim that does not fit is either cut, or the section says why it needs a new cell** (a new cell carries a reason; never add one silently).
-4. **Check sentence by sentence**: after each paragraph, look at the sample's paragraph in the same position — **what is that sentence giving (a number, a condition, a boundary, a turn)**; is yours giving the same thing. **A mismatch is a misalignment**, and it has nothing to do with word count or citation count.
-
-**The acceptance criterion is §5's seven lines, not word count or citation density.** The gates (word count / citation density / line-level pointing) are in `00_pre_delivery.md` — **pass the gates first, then judge against §5**; reversed, you hand over a draft with "pretty metrics and nothing right".
-
-### The standard for a first draft: **basically acceptable**, not "just get something down"
-
-**Every draft that lands is "a draft written to this standard", not a placeholder.** All three must hold at once:
-
-1. **The comparison reaches a basic level**: structure, paragraph function and what each sentence carries match the sample chapter (the four steps above). **"Prose that looks like a paper" does not pass** — it has no checkable shape.
-2. **Max effort, no "later" left in the text**: every paragraph is the best you can give right now; **where you cannot write it, write `% PENDING: <what is missing> ← <anchor>` rather than covering it with a vague sentence**.
-3. **Do not overwork it; leave room for the revision pass**: **the reader (the owner) will later rewrite to remove AI traces and adjust the thesis before the next revision** — so **do not change structure for "prettier", add rhetoric, or pile up transitions**; that burns the revision room in advance. **Leave blank where it should be blank, and do not spare one sentence where it must be clear.**
-
-**Both of these fail**: **writing carelessly** (which means the round produced nothing) and **over-polishing** (which uses up the room, so the revision can only throw it away). One criterion: **delete any sentence — does the reader know one thing less?** If not, delete it.
-
-### Choosing what to keep: cut to what can be proved, then talk about completeness
-
-**Criterion one: which claim does it support.** Write the corresponding claim after each branch; one that cannot be written is deleted outright. One that can be written but cannot stand alone is not a branch, it is the handling of another branch's product.
-
-> Example: the export evaluation supports no claim; with the position frozen, export equals "template + baked texture", and comparing its topological-consistency rate against Poisson reconstruction is a pseudo-comparison — we did no reconstruction.
-
-**Criterion two: resources.** Every branch is tagged with hours, the total not exceeding 75% of budget, leaving three tenths for reruns after failure. Over budget, cut the resolution before cutting the branch: five levels to two still draws a curve, and where the knee sits goes into the limitations; delete the branch and an argument disappears.
-
-The same action in writing is called deleting a paragraph: if a paragraph supports no claim, deleting it is cheaper than polishing — polishing useless prose only makes it harder to delete.
-
-**Criterion three: narrative.** Whichever branch changes the paper's centre of gravity or some chapter's conclusion goes first. One that changes no conclusion goes last or out — something necessary that only fills an appendix table should not queue ahead of the main figure.
-
-**An upstream change must be raised in the same round the branches are listed.** If a branch depends on changing the current configuration (say, sweeping constraint strength requires the position to go into the optimiser first), saying it after the run wastes that compute entirely and leaves an unsweepable curve in the report.
-
-**A combination counts as novel only if it satisfies one of**: (a) it produces a phenomenon the single component does not, and that is measurable; (b) it changes the acceptance item, so a fact nobody had measured becomes the standard. One of the two, clearly stated, is enough; (b) is commoner and easier to attack — it must at the same time give the new conclusion (after the acceptance item changed, which conclusion changed). Neither, and it is engineering integration that belongs in the system description. Every claim also needs the strongest baseline: build a weak version and compare, and the reviewer's first sentence is "why not compare with the original implementation".
-
-### Sketch the whole first, then colour the detail
-
-With time short, the first reflex is "cut the scope"; the right reflex is "run the whole story through, then go back and colour".
-
-```
-wrong   perfect one detail while the other chapters stay empty
-right   every chapter has something, even a skeleton; then thicken one by one
-```
-
-A drawing with only its lines still shows what it is; a drawing with one eye only leaves people unsure whom you are drawing. A report is the same: **ten skeletons beat ten empty sections**, because a reviewer first checks whether the narrative holds, then looks at the points.
-
-Concretely:
-
-1. Run the whole chain once by the shortest path — even with the plainest implementation and the fewest comparisons — so every section has a number to write.
-2. Once it runs, go back: add comparisons, add criteria, add ablations. At that point a change risks only a locality, not the narrative.
-3. The only question about "do this now" is: **without this, is there a break in the story?** A break means do it first; no break means it queues.
-
-**Do not pre-estimate per-item hours.** Estimating by "number of unimplemented modules" is for ordering, not for declaring the work impossible. Tight time means working faster, not conceding early — reality is often faster than the estimate, especially once the implementation path is clear.
-
-### One increment is parallel, not three phases
-
-One step forward in the report moves three things at once: **find literature, align the narrative, fill in results**. They are not the sequence "read first, then write, then experiment"; they trigger each other as a triangle:
-
-```
-find literature → discover someone has done this route  → the "gap" in the narrative must change
-align narrative → a section cannot say why this step is necessary → an experiment is needed to answer
-fill results    → new data overturns the earlier statement → that section's citations must be re-chosen, and elsewhere compressed
-```
-```
-
-There is one criterion: **when any one link moves, look back at the other two.** Change one alone and the report contradicts itself elsewhere — and that is the hardest class of error to find, because every section is right on its own.
-
-### Advance by the whole story by default
-
-Unless the user explicitly wants one section only, every step works on the whole story. Three reasons:
-
-**One, a report is not a set of chapters but a chain of argument.** Change the third chapter's gap and the first chapter's problem definition may stop holding.
-
-**Two, the links are parallel to begin with.** Add a paper and the narrative changes; change the narrative and an experiment is required; the result then compresses something elsewhere. Watching one section is cutting a hole in a net and sewing a patch on it.
-
-**Three, a collection of locally correct pieces is not globally valid.** The commonest and deadliest report is one whose every section is self-consistent and whose joins are broken — the reader reaches chapter three before discovering that chapter two overturned chapter one's assumption.
-
-Criterion: **after the change, walk from the first sentence of chapter one to the last sentence of the last chapter without the reader having to supply any logic.** This is the cross-link version of "dangling".
-
-### Four moves fixed inside every cycle
-
-**The four moves answer four different questions, and a cycle that only adds must inflate**: which one you are making decides what you write, not how much.
-
-| Move | When | Criterion |
-|---|---|---|
-| add | a link lacks evidence | can the new sentence be refuted in one sentence? if not, it is not an argument |
-| compress | two places say one thing | delete one paragraph: is information lost |
-| drop | an experiment or paper unrelated to the claim | which sentence of the claim does it answer for? no answer, drop it |
-| move | right content, wrong place | which chapter's conclusion does it serve? follow the conclusion |
-
-These four are not "what you do when you run out of words". **A cycle that only adds, never compresses or drops, must inflate, and everything it inflates with is repetition.**
-
-### How a cycle closes
-
-Closing is not "finished writing"; it is four things at once:
-
-```
-1  every citation added passes "delete it — does the sentence still hold"
-2  every section's topic sentence matches the evidence under it (same for the closing sentence after a table)
-3  the whole story reads straight through, with no place needing the reader to supply logic
-4  conclusions that held before were not quietly overturned by this change — look back at chapter one and the conclusion
-```
-
-Item 4 is skipped most often, because the change is far from them.
-
-### Zero citations does not mean no literature work
-
-The first version of a report may hold only a narrative skeleton and not one citation, and still walk the same cycle: find literature (read the main method line of that direction) → align the narrative (decide section order and the wording of the gap) → fill in results (put the numbers of existing experiments in).
-
-**Zero citations means the basis is not written into the body, not that nothing was searched.** It also means a cycle's product can be a skeleton alone — whether the cycle completed is judged by "does the story close", not "is the body a finished draft".
-
-### Revise section by section against the standard, not by instinct
-
-The closing act of every cycle is to measure the report section by section against this file. **Not reading for feel — checking against the criteria, one by one.**
-
-The order is fixed, because each item depends on the previous one's conclusion:
-
-```
-§13 skeleton and narrative  do the chapter names read as a paper's contents or a work summary; is each section's topic sentence a complete conclusion
-§14 contribution classes    does each entry of the contribution list forward-reference a section number; has learned behaviour been mixed into achieved behaviour
-§5  four prohibitions       meta-discourse, current state, invented terms, fast variables
-§17 nine hand-over questions  cover the title and can the topic still be guessed; is the first sentence "we did X" or "the field defaults to Y"
-§19 the four closing items  citations, topic sentences and evidence, whole-story coherence, old conclusions not overturned by this change
-```
-
-**The product of a revision is a diff, not "I looked at it".** After measuring each section you must be able to say what changed there and why; if you cannot, you measured nothing, you only read.
-
-**The standard itself is tested by this round too.** If revising the report reveals that a rule conflicts with the draft — the draft already upgraded that criterion — change the standard first, then the draft. A stale ruler produces wrong conclusions, and produces them confidently. (Same source: "when adding a prohibition, search back for items teaching the opposite action" in §15's three checks.)
-
-### Before migrating or incrementing, answer four questions
-
-Moving material from the old draft into the new, or adding content to a section, requires answering four questions first. **If you cannot answer the third, do not add.**
-
-```
-1  what kind of information is this?   narrative (structure, order, gap wording) / literature (citations, comparisons) / results (numbers, figures, tables)
-2  which move am I making?             add / compress / drop / move — four different standards, four different written forms
-3  what does it contribute to the whole narrative?  one sentence naming the section and sentence it supports. If you cannot, or the contribution is one line of background, consider not adding it
-4  does it introduce a contradiction?  which existing sections conflict; does resolving it require touching other chapters (if so, it goes on the stack — do not change it in passing)
-```
-
-The third question is the gate. **"This passage is well written" is not a contribution; "it proves the third chapter's gap holds" is.** Typical low-contribution shapes:
-
-```
-a fine observation that no section's conclusion depends on  → drop
-a highly relevant citation no assertion cites              → drop, or demote to one line of background
-an experiment that ran for hours and supports one boundary sentence → compress it into the boundary, no process narrative
-```
-
-The fourth question's product is usually **a stack**: a migration is not a series of independent edits — changing the third chapter's gap requires the first to restate the problem and the sixth to reword its boundary. Such chains walk the `task-queue` entry by entry (see §0), and before starting you write one sentence on **the migration's approach** — the same discipline as giving the survey table before touching the first word of a thesis revision.
-
-**Migration's direction is not "move the old draft's good sentences into the new draft" but "make every piece of valid information land where it belongs in the new narrative".** The old draft organised by stage and by experiment; the new one is an argument chain, and the same paragraph serves a different conclusion in each. Moved across, it must be re-confirmed whose it serves, or what you get is "new structure plus old argument".
-
-### The loop of advancing: judge the state before acting again
-
-§21 governs "how to kill a hypothesis". This section governs the step after it. **It does not belong to experiments** — it governs how any action closes.
-
-Writing code, running experiments, writing documents, delivering, changing a plan — all walk the same four rings:
-
-```
-action → observation → judgement → decision
-```
-Skipping the middle two rings leaves "action → action → action": every step moves and no step knows where it is. That is not advancing, it is parallel trial — and parallel trial is cheaper done in one go; done piecemeal it only multiplies fixed overhead by the count.
-
-### 1. Observe with output measures, not process measures
-
-**The two columns below describe the same run two ways, and only one of them says whether the thing exists**: process measures can all look normal while nothing is being learned.
-
-| | Describes | Example |
-|---|---|---|
-| process measure | how much I did, how far the object moved | how many steps ran, how many places changed, what the loss was, how much the error fell |
-| **output measure** | **what the object has become** | is the thing made, does the reader understand, can the other side use it |
-
-Output measures per setting:
-
-| Setting | Output measure |
-|---|---|
-| running experiments | what the product looks like, how much it covers, where it is wrong |
-| writing code | the behaviour it actually shows, not how many places changed |
-| writing documents | can the reader restate the claim afterwards, not how many sections were written |
-| delivering | can the other side use it directly, not whether the list is complete |
-
-The first paragraph of any report or self-check must be an output measure. Pasting a loss table only proves the model moved, not that the thing was made.
-
-### 2. A judgement is three pieces; with one missing, do not start the next step
-
-1. **which product is currently the best** (down to the file, the version, the sentence), not "the thing we made";
-2. **which class the defect belongs to** — a class is compulsory; "good or bad" is not one;
-3. **how far off it is** — consecutive numbers on the same ruler.
-
-**The class sets the direction, the number sets the magnitude.** Without a class, "still short" yields no action; without a number, the action's magnitude is by feel. A good-or-bad judgement yields no next step, only a mood.
-
-Grain for the classes: fine enough that **each class corresponds to a different fix**.
-
-| Setting | Class examples |
-|---|---|
-| product | absent → incomplete → inaccurate → imprecise (coverage / placement / form / artefact) |
-| code | does not run / runs wrong / runs right but slow / runs right but brittle |
-| document | not understood / understood but not believed / believed but not remembered |
-
-The criterion is fixed before acting and only filled in afterwards — no changing the criterion, no substituting the eye.
-
-### 3. A decision's change must be traceable
-
-When proposing the next step, you must be able to name **which observation of the previous step caused this change.**
-
-If you cannot, the change came from "it looks bad", not from observation. Then this step and the previous ones are **parallel branches**, not progress — the condition did not come from the previous step, it merely queued beside it.
-
-Parallel branches should be done in one go; piecemeal only multiplies fixed overhead by the count (for experiments, boot and loading; for code, build and deploy; for documents, a full read and a review).
-
-**That is the whole answer to "what is the point of doing it in several passes": only when the last result changed the next condition is several passes better than one.**
-
-### 4. The ruler checks itself first
-
-Observation depends on a measuring instrument, and instruments break. When the eye and the number disagree, suspect the ruler first, and do not rush to explain the object.
-
-A broken ruler is most dangerous in its chain: it produces a number → you give that number a cause → you change the next step against that cause. Every step has a "reading", it looks exactly like progress, and three wrong turns are walked in a row.
-
-Criterion: **measure the same object once more with a different instrument.** If the two disagree, fix the ruler first.
-
-### 5. Several steps of progress must form one line
-
-Put several states side by side and you should see **one line moving**: the same quantity improving, the defect upgrading its class (absent → incomplete → inaccurate → imprecise).
-
-If each state measured a different ruler or a different quantity, that is not a line but several branches; then you may say **"several candidates were tried"**, not "several rounds of progress".
-
-This is also a self-check: if you cannot say "the same quantity is improving", those rounds did not advance.
-
-### 6. Before a retrospective, sweep all products
-
-**Prerequisite: list every existing run directory with its timestamp, and mark which have never been cited by any retrospective.**
-
-The evidence is usually already on disk. Run, stored, never logged, never pulled out for comparison — each day such a thing sits there is another day of repeated guessing.
-
-Criterion: **directories cited per round ÷ directories that exist.** If the ratio does not rise over time, the retrospective only looks at the newest round.
-
-### 7. Exclusions are assets, not a field
-
-Each exclusion records three things: the hypothesis in one sentence, the reading, the reason it was out. Keep them as a list you can pull up at any moment.
-
-**The whole point of memory is not stepping in the hole again.** So the list reads "next time X appears, do Y first", never "on such a day this happened".
-
-Each retrospective does two things: merge the new exclusions into the list, and check whether the road this round intends to walk is already on it.
-
-### 8. Progress is defined by products
-
-Writing documents, editing memory and giving retrospective reports are not progress in themselves. The only standard: in the full context, has "the currently best product" improved.
-
-If it has not, the round is zero, however many pages of methodology it produced. Memory guards against repetition, it is not output; reporting it as output replaces "I made something" with "I was diligent".
-
----
+**Criteria and breach:** the three commands of `1.9-51`, `1.9-52` and `1.9-53` must all print 0; citing a `no-anchor` product as a conclusion is a breach.

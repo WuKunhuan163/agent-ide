@@ -60,6 +60,8 @@ def build(agent_id: str, project_id: str, *, do_compile: bool = True) -> dict:
                 "MALFORMED_FILE", None, "tectonic not found in PATH; re-run with --no-compile"
             )
         result["pdf"] = tex_compile.compile_tex(tex_path)
+        # 断尾是排版结果，块层看不到：编译后回到 PDF 上量，作为 warning 一起返回。
+        warnings.extend(tex_compile.tail_warnings(result["pdf"]))
 
     return result
 

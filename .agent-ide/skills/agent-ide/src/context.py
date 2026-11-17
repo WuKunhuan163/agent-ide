@@ -31,7 +31,7 @@ import unicodedata
 import time
 
 from .ide import registry
-from .ide.base import Message, iso, parse_ts
+from .ide.base import Message, Progress, iso, parse_ts
 
 CONFIG = Path(__file__).resolve().parent.parent / "data" / "config.json"
 
@@ -231,11 +231,7 @@ def probe_keys(store, fragment_file: Path, limit: int | None = None,
 
     hits = {}
     done = 0
-    # Progress reports milestones only: the first item plus 1/2/5/10/20/50/100%. Scanning
-    # 200k files, flushing every 500 entries washes the terminal out and the reading hides.
-    marks = [0.01, 0.02, 0.05, 0.10, 0.20, 0.50, 1.00]
-    steps = [max(1, int(len(queue) * m)) for m in marks]
-    step_i = 0
+    progress = Progress(len(queue), "probe")
     jobs = [(conv.name, str(path)) for conv, path in queue]
     workers = processes or max(2, (os.cpu_count() or 4))
     use_procs = len(jobs) > 20000 and workers > 1
@@ -255,16 +251,7 @@ def probe_keys(store, fragment_file: Path, limit: int | None = None,
             done += 1
             if name:
                 hits[name] = hits.get(name, 0) + 1
-            label = None
-            if done == 1:
-                label = f"{1/len(queue):.0%}" if len(queue) > 100 else "0%"
-            elif step_i < len(steps) and done >= steps[step_i]:
-                label = f"{marks[step_i]:.0%}"
-                step_i += 1
-            if label:
-                print(f"probe: {label:>4} ({done}/{len(queue)}) "
-                      f"{time.monotonic()-t0:5.1f}s  hits={len(hits)}",
-                      file=sys.stderr, flush=True)
+            progress.tick(done, f"hits={len(hits)}")
     print(file=sys.stderr)
 
     sized = {
@@ -324,7 +311,7 @@ def _load(store, conv: Path, since: str | None, until: str | None,
 
 def render_conversation(store, conv: Path, *, last: int | None = None,
                         since: str | None = None, until: str | None = None,
-                        with_tools: bool = True, stamps: bool = False) -> str:
+                        with_tools: bool = True) -> str:
     msgs = _load(store, conv, since, until, tail=last)
     if last:
         msgs = msgs[-last:]
@@ -342,7 +329,7 @@ def render_conversation(store, conv: Path, *, last: int | None = None,
         out.append("")
         out.append(f"# r{i} {span}")
         for msg in rnd:
-            out.extend(_emit(msg, with_tools, stamps=stamps))
+            out.extend(_emit(msg, with_tools))
     return "\n".join(out)
 
 
@@ -418,7 +405,7 @@ def _stamp(msg: Message) -> str:
     return at[11:19] + "Z" if at != "?" else "?"
 
 
-def _emit(msg: Message, with_tools: bool, stamps: bool = False) -> list[str]:
+def _emit(msg: Message, with_tools: bool) -> list[str]:
     """Bash-style lines for one message: $ user, > assistant, * call, = result, ~ thought."""
     role = msg.role
     lead = "$" if role == "user" else ">" if role == "assistant" else " "
@@ -433,7 +420,7 @@ def _emit(msg: Message, with_tools: bool, stamps: bool = False) -> list[str]:
         lines.extend(f"  {ln}" for ln in body[1:])
     if msg.text.strip():
         body = msg.text.rstrip().splitlines() or [""]
-        prefix = f"@{_stamp(msg)} " if stamps else ""
+        prefix = f"@{_stamp(msg)} "
         lines.append(f"{prefix}{lead} {body[0]}")
         lines.extend(f"  {ln}" for ln in body[1:])
     if with_tools:

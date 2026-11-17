@@ -188,7 +188,7 @@ Read three things, never its self-description:
 
 Think before you judge a record incomplete. Within one message the renderer prints `~` (thinking) **before** `>` (the reply), matching the order it was produced in. Reading by line number, a `~` block after prose used to look like the end of a message, and the verdict then was "the answer was never written" while the `>` body sat further up. Judge completeness from the structure — how many messages, and each message's field lengths — never from where `head` or `tail` happens to stop.
 
-Times are UTC (`...Z`); add `--stamps` for per-message times.
+Times are UTC (`...Z`); every message carries its own time by default.
 
 ## 5.5 Feed before the turn ends
 

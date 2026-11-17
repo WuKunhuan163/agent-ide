@@ -95,6 +95,95 @@ def compile_tex(filepath: str) -> str:
     return pdf_path
 
 
+def tail_warnings(pdf_path: str, *, max_words: int = 3, min_fill: float = 0.20,
+                  limit: int = 5) -> list[str]:
+    """段末行断尾：在成品 PDF 上量，返回可直接展示的提示。
+
+    为什么在这里而不是在 block 里：断尾是排版结果，块层看不到。判据只用几何——
+    两端对齐的正文里非段末行必然被撑满，所以"墨迹明显短于本栏右界"就是段末行。
+
+    栏宽自标定：按行首 x0 分栏（实例可能是单栏或双栏），同栏里最长的 x1 就是该栏右界，
+    因此不需要每个实例再报一次 \\textwidth，也不需要知道是 article 还是 twocolumn。
+    """
+    try:
+        import fitz
+    except ImportError:
+        return []
+    try:
+        doc = fitz.open(pdf_path)
+    except Exception:
+        return []
+
+    skip = re.compile(r"^(\d{1,4}|[ivxlcdm]{1,6}|Chapter\s+\d+\..*|References|"
+                      r"Table of Contents|Contents|Abstract)$", re.IGNORECASE)
+    lines = []
+    refs_page = None
+    for page in doc:
+        raw = []
+        for blk in page.get_text("dict")["blocks"]:
+            for ln in blk.get("lines", []):
+                txt = "".join(s["text"] for s in ln["spans"]).strip()
+                if not txt:
+                    continue
+                if refs_page is None and txt.lower() == "references":
+                    refs_page = page.number + 1
+                bold = all(("Bold" in s["font"]) or ("Black" in s["font"])
+                           or ("CMBX" in s["font"]) for s in ln["spans"])
+                raw.append({"page": page.number + 1,
+                            "x0": ln["bbox"][0], "x1": ln["bbox"][2],
+                            "y0": ln["bbox"][1], "y1": ln["bbox"][3],
+                            "txt": txt, "bold": bold,
+                            "size": round(max(s["size"] for s in ln["spans"]), 1)})
+        if refs_page is not None and page.number + 1 >= refs_page:
+            break
+        for r in raw:
+            if skip.match(r["txt"]) or r["txt"].count(".") >= 4 or r["bold"]:
+                continue
+            lines.append(r)
+    if not lines:
+        return []
+
+    mode = max({r["size"] for r in lines}, key=lambda s: sum(1 for r in lines if r["size"] == s))
+    lines = [r for r in lines if r["size"] == mode]
+    if not lines:
+        return []
+
+    starts = sorted({round(r["x0"]) for r in lines})
+    column = {s: s for s in starts}
+    anchor = starts[0]
+    for s in starts:                     # 把相差 < 25bp 的行首并成一栏（段首缩进、悬挂）
+        if s - anchor < 25:
+            column[s] = anchor
+        else:
+            anchor = s
+            column[s] = anchor
+    right = {}
+    for r in lines:
+        c = column[round(r["x0"])]
+        right[c] = max(right.get(c, 0.0), r["x1"])
+
+    out: list[str] = []
+    for r in lines:
+        c = column[round(r["x0"])]
+        width = right[c] - c
+        if width <= 0 or r["x1"] >= right[c] - 4:      # 满行：不是段末
+            continue
+        words = len([t for t in r["txt"].split()
+                     if re.search(r"[0-9A-Za-z\u4e00-\u9fff]", t)])
+        fill = (r["x1"] - r["x0"]) / width
+        if words > max_words and fill >= min_fill:
+            continue
+        out.append(
+            f"p{r['page']} tail: last line holds {words} word(s), {fill:.0%} of the column "
+            f"— …{r['txt'][-48:]!r}. hint: shorten the closing sentence so the tail joins the "
+            f"line above, or add a clause long enough to fill it; fix the prose, not the spacing "
+            f"(parfillskip/rightskip only move the gap)."
+        )
+    if len(out) > limit:
+        out = out[:limit] + [f"…and {len(out) - limit} more short paragraph tails"]
+    return out
+
+
 def _intermediates(dirname: str, basename: str) -> list[str]:
     return [os.path.join(dirname, basename + ext) for ext in _INTERMEDIATE_EXTS]
 

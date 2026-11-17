@@ -16,6 +16,9 @@ body { margin:0; background:var(--bg); color:var(--ink);
 .ln .tx { flex:1; white-space:pre-wrap; word-break:break-word; }
 .ln.h { font-weight:700; }
 mark { padding:0 1px; position:relative; cursor:pointer; border-radius:2px; }
+.ln.chg .tx { background:#dbe7ff; box-shadow:inset 2px 0 0 #7ba6ef; }
+#top .sync { color:#1a6b4a; }
+#top .unsync { color:#a33; }
 mark .bdg { position:absolute; top:-9px; left:-3px; font-size:9px; line-height:1;
   padding:1px 3px; border-radius:6px; color:#3a3a34; border:1px solid rgba(0,0,0,.18); }
 #tip { position:fixed; z-index:40; display:none; max-width:340px; background:#fff;
@@ -40,38 +43,45 @@ button.p { background:#1a6b4a; color:#fff; border-color:#1a6b4a; }
 .e { padding:6px 8px; border-left:2px solid var(--mark); margin-bottom:6px; font-size:13px; }
 .e .m { font-size:11px; color:var(--dim); }
 .e .x { float:right; cursor:pointer; color:#bbb; }
+#box .q { cursor: move; }
+#box.moving { opacity: .97; box-shadow: 0 16px 36px rgba(0,0,0,.22); }
 </style>
 <div id="top"><b id="name"></b><span id="cnt"></span><span class="sp"></span>
   <button id="copy">复制全部</button><button id="clear">删除全部</button></div>
 <div id="doc"></div>
 <div id="list"></div>
-<div id="tip"><div class="t" id="tiptext"></div><div class="a"><button id="tcopy">复制</button><button id="tdel">删除</button></div></div>
+<div id="tip"><div class="t" id="tiptext"></div><div class="a"><button id="tcopy">复制</button><button id="tedit">编辑</button><button id="tdel">删除</button></div></div>
 <div id="box">
   <div class="q" id="quote"></div>
-  <textarea id="note" placeholder="这里怎么改（Enter 保存，Shift+Enter 换行，Esc 取消）"></textarea>
+  <textarea id="note" placeholder="这里怎么改（Enter 换行，⌘/Ctrl+Enter 保存，Esc 取消）"></textarea>
   <div class="r"><span id="pos"></span><span class="sp" style="flex:1"></span>
     <button id="cancel">取消</button><button class="p" id="ok">保存</button></div>
 </div>
 
 <script>
-let lines = [], items = [], target = null, tipI = -1, hideT = null;
+let lines = [], items = [], target = null, tipI = -1, hideT = null, editing = null;
+const ID = decodeURIComponent(location.pathname.split("/").filter(Boolean)[0] || "");
 const PAL = ["#ffe9a3","#ffd9cb","#d5f0e2","#d6e4ff","#ecdcff","#ffdff0","#e8f6c8","#fff1c2","#cfe9ea","#f2dccb"];
 const $ = s => document.querySelector(s);
 
 const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
 async function boot() {
-  const ID = decodeURIComponent(location.pathname.split("/").filter(Boolean)[0] || "");
   const d = await (await fetch("/api/" + ID + "/doc")).json();
   lines = d.lines; items = d.items;
+  changed = new Set(d.changed || []);
+  mirror = d.mirror;
   $("#name").textContent = d.id + " · " + d.doc.split("/").pop();
+  $("#cnt").textContent = (mirror ? (mirror.synced ? `镜像同步 · ${mirror.body_lines}/${mirror.intro_lines} 行` : `镜像不同步 · ${mirror.body}`) : "")
+    + (changed.size ? ` · 改动 ${changed.size} 行` : "");
+  $("#cnt").className = mirror && !mirror.synced ? "unsync" : "sync";
   render();
 }
 
 function render() {
   $("#doc").innerHTML = lines.map((t, i) => {
     const n = i + 1;
-    const h = /^#{1,6}\s/.test(t) ? " h" : "";
+    const h = (/^#{1,6}\s/.test(t) ? " h" : "") + (changed.has(n) ? " chg" : "");
     return `<div class="ln${h}" data-n="${n}"><div class="no">${n}</div><div class="tx">${esc(t) || " "}</div></div>`;
   }).join("");
   items.forEach((a, i) => {
@@ -89,8 +99,12 @@ function render() {
   });
   $("#cnt").textContent = items.length ? `${items.length} 条` : "";
   $("#list").innerHTML = items.length ? "<h3>已记下的反馈</h3>" + items.map((a, i) =>
-    `<div class="e"><span class="x" data-i="${i}">×</span>
+    `<div class="e" data-i="${i}"><span class="x" data-i="${i}">×</span>
      <div class="m">L${a.line}${a.end && a.end !== a.line ? "-L" + a.end : ""}</div><div>«${esc(a.quote)}»</div><div>${esc(a.note)}</div></div>`).join("") : "";
+  $("#list").querySelectorAll(".e").forEach(e => e.onclick = ev => {
+    if (ev.target.classList.contains("x")) return;
+    openEdit(+e.dataset.i);
+  });
   $("#list").querySelectorAll(".x").forEach(x => x.onclick = async () => {
     await fetch("/api/" + ID + "/del", {method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({index: +x.dataset.i})});
@@ -123,6 +137,8 @@ document.addEventListener("mouseup", () => {
   if (!parts.length) return;
   const quote = parts.map(x => x.text).join(" / ");
   target = {line: first, end: last, parts, quote};
+  editing = null;
+  $("#ok").textContent = "保存";
   $("#quote").textContent = quote;
   $("#pos").textContent = "L" + target.line;
   $("#note").value = "";
@@ -137,20 +153,88 @@ document.addEventListener("mouseup", () => {
   $("#note").focus();
 });
 
-$("#ok").onclick = async () => {
+async function submitNote() {
   const note = $("#note").value.trim();
   if (!note || !target) return;
-  const item = {line: target.line, end: target.end, parts: target.parts, quote: target.quote, note};
-  $("#box").style.display = "none";
+  const box = $("#box");
+  box.style.display = "none";
   window.getSelection().removeAllRanges();
-  await fetch("/api/" + ID + "/add", {method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({item})});
+  if (editing !== null) {
+    await fetch("/api/" + ID + "/upd", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({index: editing, note})});
+  } else {
+    const item = {line: target.line, end: target.end, parts: target.parts, quote: target.quote, note};
+    await fetch("/api/" + ID + "/add", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({item})});
+  }
+  editing = null;
   await boot();
+  await copyAll(true);
+}
+
+$("#ok").onclick = submitNote;
+
+// 单击已有高亮：重新出框，框里填回原来的反馈
+function openEdit(i, el) {
+  const a = items[i];
+  if (!a) return;
+  editing = i;
+  target = {line: a.line, end: a.end, parts: a.parts, quote: a.quote};
+  $("#quote").textContent = a.quote || "";
+  $("#pos").textContent = "L" + a.line + (a.end && a.end !== a.line ? "-L" + a.end : "");
+  $("#note").value = a.note || "";
+  $("#ok").textContent = "更新";
+  const box = $("#box");
+  box.style.display = "block";
+  const rect = (el || document.querySelector(`.ln[data-n="${a.line}"]`)).getBoundingClientRect();
+  box.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 452)) + "px";
+  let top = rect.bottom + 8;
+  if (top + 220 > window.innerHeight) top = Math.max(8, rect.top - 230);
+  box.style.top = top + "px";
+  $("#note").focus();
+  $("#note").setSelectionRange($("#note").value.length, $("#note").value.length);
+}
+
+$("#doc").addEventListener("click", e => {
+  const m = e.target.closest && e.target.closest("mark");
+  if (!m) return;
+  openEdit(+m.dataset.i, m);
+});
+
+// 编辑框可拖动：按住框内非输入区域拖走
+(function () {
+  const box = document.getElementById("box");
+  if (!box) return;
+  let mv = null;
+  box.addEventListener("mousedown", e => {
+    if (e.target.closest("textarea,button,input,a,select")) return;
+    const r = box.getBoundingClientRect();
+    mv = {dx: e.clientX - r.left, dy: e.clientY - r.top};
+    box.classList.add("moving");
+    e.preventDefault();
+  });
+  document.addEventListener("mousemove", e => {
+    if (!mv) return;
+    box.style.left = Math.max(0, Math.min(e.clientX - mv.dx, window.innerWidth - box.offsetWidth)) + "px";
+    box.style.top = Math.max(0, Math.min(e.clientY - mv.dy, window.innerHeight - box.offsetHeight)) + "px";
+  });
+  document.addEventListener("mouseup", () => {
+    if (!mv) return;
+    mv = null;
+    box.classList.remove("moving");
+  });
+})();
+
+$("#cancel").onclick = () => {
+  $("#box").style.display = "none";
+  $("#ok").textContent = "保存";
+  editing = null;
+  window.getSelection().removeAllRanges();
 };
 $("#cancel").onclick = () => { $("#box").style.display = "none"; window.getSelection().removeAllRanges(); };
 $("#note").onkeydown = e => {
-  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("#ok").click(); }
-  if (e.key === "Escape") $("#cancel").click();
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submitNote(); }
+  else if (e.key === "Escape") $("#cancel").click();
 };
 const tip = () => $("#tip");
 function showTip(i, x, y, note, rect) {
@@ -184,23 +268,47 @@ $("#tcopy").onclick = async () => {
   await navigator.clipboard.writeText(`${rng}  «${a.quote}»\n${a.note}`);
   $("#tcopy").textContent = "已复制"; setTimeout(() => $("#tcopy").textContent = "复制", 1000);
 };
+$("#tedit").onclick = () => {
+  if (tipI < 0) return;
+  const i = tipI;
+  tipI = -1;
+  tip().style.display = "none";
+  const el = document.querySelector(`mark[data-i="${i}"]`);
+  openEdit(i, el || null);
+};
 $("#tdel").onclick = async () => {
   if (tipI < 0) return;
   const i = tipI; tipI = -1; tip().style.display = "none";
   await fetch("/api/" + ID + "/del", {method:"POST", headers:{"Content-Type":"application/json"},
     body: JSON.stringify({index: i})});
   await boot();
+  await copyAll(true);
 };
 $("#clear").onclick = () => {
   if (!confirm("删除全部反馈？")) return;
   items = []; sync();
 };
-$("#copy").onclick = async () => {
-  const t = items.map((a, i) => `${i+1}. L${a.line}  «${a.quote}»\n   ${a.note}`).join("\n\n");
-  await navigator.clipboard.writeText(t);
-  $("#copy").textContent = "已复制";
-  setTimeout(() => $("#copy").textContent = "复制全部", 1200);
-};
+async function copyAll(silent) {
+  // 任何一次编辑之后，把全部批注复制到剪贴板；失败不打断操作
+  const t = items.map((a, i) => `${i+1}. L${a.line}  «${a.quote || ""}»\n   ${a.note}`).join("\n\n");
+  try {
+    await navigator.clipboard.writeText(t);
+  } catch (e) {
+    return false;
+  }
+  if (!silent) {
+    $("#copy").textContent = "已复制";
+    setTimeout(() => $("#copy").textContent = "复制全部", 1200);
+  } else if (t) {
+    const b = $("#copy");
+    const old = b.textContent;
+    b.textContent = "已复制";
+    setTimeout(() => b.textContent = old, 900);
+  }
+  return true;
+}
+
+$("#copy").onclick = () => copyAll(false);
 boot();
 </script>
 </html>

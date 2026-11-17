@@ -206,6 +206,10 @@ grep -c '^PROMPT$' /tmp/case.txt                        # must be 1
 
 ## Delivering a reproduction case
 
+**The `PROMPT` sits in one fence with no language label.** Three backticks on their own line, the instruction, three backticks; never `text` as a label, never a second fence inside, never a quote block. The fence is what makes it copyable in one gesture; the label is not part of the instruction and arrives in the new session as junk. The first line inside is `PROMPT`; code inside is indented, not fenced again.
+
+**Every clause number is printed by a program before it enters the case.** `python3 tmp/reproduce-test/clause-refs.py <case>/PROMPT.md <contract>` prints `MISSING <number>` per gap and `OK <n> refs` when every reference exists; the case ships only with `OK`. A missing number is a defect in the contract — fill the gap or renumber the section contiguously, then re-run — never quote a neighbour clause that says something else.
+
 **Three things the case must carry before anything else is written:**
 
 1. **A root that the entry path alone determines.** The subject resolves “which tree am I in” from the path it was handed; if the case lives in `/tmp/x/m` while the session sits in the real project, **it will do the right work on the wrong tree** — the output looks fine and answers a different question. Put cases inside the working directory, or make the root explicit and add a criterion for it. **Check the root before judging: if the root is not the case's tree, the whole case is void.**
@@ -364,7 +368,7 @@ The needle has exactly one function — **turn a fragment into a conversation ke
 
 ```
 context --probe <needle-file>            # -> <key>	<hits>\t<msgs>\t<bytes>; the needle's work ends here
-context --key <key> --last 200 --stamps  # no --out: lands at data/context/<key>.md
+context --key <key> --last 200  # no --out: lands at data/context/<key>.md
 ```
 
 Judging reads `/tmp/run.md`. The needle is **not evidence**: a fragment matching is not a behaviour observed, and a fragment that does not match is not a failure of the tested agent. So the needle never appears in a verdict, is never quoted, and never decides pass or fail — it only decides *which file gets opened*. If the key is already known (`--bindings` + `--id`, or the user hands you a key), skip the needle entirely; a needle used when the key is known is a self-inflicted risk with no payoff.
@@ -416,6 +420,12 @@ Cases open against a stack of unclosed findings — the ones in `ledger/violatio
 **Keep the stack in the task-queue tool, not in a markdown file.** If `task-queue` is installed (`agent-ide install task-queue`, then `./.agent-tools/task-queue`), the stack is one temporary instance of it — `push` per item, `next` for the head, `resolve pass|fail` to close with a verdict, `list` to show the owner what is left. The order then lives in `data/<id>/queue.json` rather than in a reminder to yourself, and the next session can read it without this conversation. **A scratch file under `/tmp` is the fallback, used only when the tool is absent**, and it must carry the same fields (item, verdict, what closes it) so it can be migrated in one move.
 
 ## When a run comes back
+
+**The first move is the probe, not the score.** Take the export (`agent-ide context --probe`, `--bindings`, `--key`), read the session whole — commands, files opened first, scope drift — and only then say which case came back. Naming the case from the user's sentence and scoring criteria it never ran is the first way this goes wrong.
+
+**The default needle is `./probe` at the working-directory root.** Pass the path only (`agent-ide context --probe ./probe`); never `cat` it, never paste it into the reply, never hunt the binding table, never ask which session, never retry with a synonym. The table sorts by hits then by time, so the newest session is the first row; take that key to `--key`. Zero hits is the only invalid-needle outcome, and only then is `unjudged` reported.
+
+**Feed by default.** Unless the user says no feed, locate what the case was built to test — which clauses, in which document — and feed each exposed weakness into exactly those clauses: one row per weakness with `located_by` and `downstream`. When the user names the sites, feed only those. A wrong feed gets stopped; an empty feed cannot be corrected.
 
 **A verdict is read off the export, one round at a time.** ① **Frame the round first** (`# rN` or a timestamp interval) — reading across rounds lets the next round's "push and commit" scroll the previous round's hand-over off the screen, so what gets judged is a different thing; ② shape criteria (**how many fences, how many lines inside the fence, whether prose sits outside it, whether the delivery is in the reply or in a file**) come only from that reply body; ③ `* execute_command` / `* write_to_file` / `* read_file` are **behaviour** — **no such line means it was not done**, and the product may not be used to infer it; ④ the file only judges **whether the content is true** (does the number agree with `ls`, does the citation exist).
 
@@ -519,7 +529,7 @@ agent-ide registry list|add|remove|sync [path...] [skills...]   # projects shari
 agent-ide context --bindings                                # agent id -> conversation key
 agent-ide context --id <id> [--last N] ...                  # render a bound conversation
 agent-ide context --ide <ide> --probe <file>                # fragment -> conversation keys
-agent-ide context --ide <ide> --key <key> [--last N] [--since T] [--until T] [--stamps] [--no-tools]
+agent-ide context --ide <ide> --key <key> [--last N] [--since T] [--until T] [--no-tools]
 ```
 
 - `--project` is the project a command acts on, defaulting to the one holding the script. It exists so the global project's launcher can equip another project.
@@ -558,15 +568,15 @@ Once authorized, the binding table is the entry:
 
 ```
 agent-ide context --bindings                                   # <agent id><TAB><conversation key>
-agent-ide context --id <agent id> --since <ISO> --until <ISO> --stamps
-agent-ide context --key <conversation key> --last 200 --stamps   # when you already hold the key
+agent-ide context --id <agent id> --since <ISO> --until <ISO>
+agent-ide context --key <conversation key> --last 200   # when you already hold the key
 ```
 
 **The two columns are not interchangeable.** `--bindings` prints `agent id` then `conversation key`; `--id` takes the **left** column, `--key` the **right**. Feeding a key to `--id` is the standard first mistake and it fails loudly (`'…' is a conversation key, not an agent id; use --key …`). If you are holding a key, use `--key`; if you know which project you are reading, use its id and let the table resolve it.
 
 `--id` is therefore the *first* command for "read this project's conversation", not a fallback after `--probe` fails. `--probe` is for finding a conversation whose id you do not know; a bound project always has one.
 
-**Then window it.** A bound conversation can be longer than anything you want in a context window. Rendering it whole is not "reading the context", it is filling the window with it. Always pair `--since/--until` with `--stamps`, land the file, and read *from the file*: `wc -l`, `grep -n` for the topic, `sed -n` for the span. Nothing about that file needs to pass through the conversation.
+**Then window it.** A bound conversation can be longer than anything you want in a context window. Rendering it whole is not "reading the context", it is filling the window with it. Always pair `--since/--until` with ``, land the file, and read *from the file*: `wc -l`, `grep -n` for the topic, `sed -n` for the span. Nothing about that file needs to pass through the conversation.
 
 **Say which window you read.** When you report, give the start and end of the range you used and the line count you landed; "I read the full context" without a range is a claim nobody can check, and it is indistinguishable from a grep.
 
@@ -827,7 +837,7 @@ The full cold-start order (bootstrap branch, global project pointer, agent id, c
 Errors print one line: `agent-ide: <what failed>`.
 
 - **Time is UTC.** Every `# rN` span prints full ISO with `Z`; the file header states the machine's local offset, so a local clock time has to be converted before it is quoted — never quote a bare `HH:MM` without saying which clock.
-- **`--stamps`** prefixes each message with its own UTC time (`@<HH:MM:SS>Z $ ...`), for when you must say *when* a specific message was said rather than when the round ran.
+- **Per-message UTC times** (`@<HH:MM:SS>Z $ ...`) are always on; there is no flag to add or drop them, for when you must say *when* a specific message was said rather than when the round ran.
 - **A `$ ` line is only the first line of the user message.** Real asks usually sit under it inside `<user_query>...</user_query>`; `<additional_data>` or `<user_info>` on the first line is a wrapper, not the question. Parse for `<user_query>`, never judge a message by its first line.
 
 ## A checker's exit status is computed from its findings
@@ -894,7 +904,7 @@ The cap exists because a **main** session grows past 2000 files. A **case** sess
 
 **The result table has five columns: `key`, `hits`, `msgs`, `bytes`, `last`.** `last` is the newest stored message's UTC time. **Rows sort by `hits`, then by `last`** — so when one needle hits several conversations, the newest one is the first tie you can break, and you can tell "the run I just finished" from "an older session that quotes the same words" without opening either.
 
-**Pick by key, not by needle.** A needle drifts: the same sentence gets quoted into later sessions, and a needle that hit one conversation yesterday can hit another today. **The key is the identity; the needle is only how you found it.** After the first probe, keep the key — re-read that conversation with `--key <key> --stamps`, and never re-probe a needle to answer "look at it again".
+**Pick by key, not by needle.** A needle drifts: the same sentence gets quoted into later sessions, and a needle that hit one conversation yesterday can hit another today. **The key is the identity; the needle is only how you found it.** After the first probe, keep the key — re-read that conversation with `--key <key>`, and never re-probe a needle to answer "look at it again".
 
 **If you have no key, say so.** No key means that conversation was never probed: write it down as missing context and ask the owner which one they mean (which unit, which round, roughly when). **Guessing a key costs more than asking for one.**
 

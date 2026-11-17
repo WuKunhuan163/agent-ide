@@ -50,21 +50,23 @@ button.p { background:#1a6b4a; color:#fff; border-color:#1a6b4a; }
 .e .m { font-size:11px; color:var(--dim); }
 .e .q { font-size:11px; color:#6b6b62; }
 .e .x { float:right; cursor:pointer; color:#bbb; }
+#box .q { cursor: move; }
+#box.moving { opacity: .97; box-shadow: 0 16px 36px rgba(0,0,0,.22); }
 </style>
 <div id="top"><b id="name"></b><span id="cnt"></span><span class="sp"></span>
   <button id="copy">复制全部</button><button id="clear">删除全部</button></div>
 <div id="doc"></div>
 <div id="list"></div>
-<div id="tip"><div class="t" id="tiptext"></div><div class="a"><button id="tcopy">复制</button><button id="tdel">删除</button></div></div>
+<div id="tip"><div class="t" id="tiptext"></div><div class="a"><button id="tcopy">复制</button><button id="tedit">编辑</button><button id="tdel">删除</button></div></div>
 <div id="box">
   <div class="q" id="quote"></div>
-  <textarea id="note" placeholder="这里怎么改（Enter 保存，Shift+Enter 换行，Esc 取消）"></textarea>
+  <textarea id="note" placeholder="这里怎么改（Enter 换行，⌘/Ctrl+Enter 保存，Esc 取消）"></textarea>
   <div class="r"><span id="pos"></span><span class="sp" style="flex:1"></span>
     <button id="cancel">取消</button><button class="p" id="ok">保存</button></div>
 </div>
 
 <script>
-let pages = [], items = [], target = null, tipI = -1, hideT = null, drag = null;
+let pages = [], items = [], target = null, tipI = -1, hideT = null, drag = null, editing = null;
 // 文本层只用来划选：true 才把 PDF 的文字用回退字体画出来（会出现第二套字形），false 只留透明空壳
 const SHOW_TEXT_LAYER = false;
 const PAGE_LINES = {};
@@ -73,9 +75,14 @@ const $ = s => document.querySelector(s);
 const ID = decodeURIComponent(location.pathname.split("/").filter(Boolean)[0] || "");
 const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
+let lastMtime = 0, changedSet = new Set(), changedBasis = "";
+
 async function boot() {
   const d = await (await fetch("/api/" + ID + "/doc")).json();
   pages = d.pages; items = d.items;
+  changedSet = new Set(d.changed_pages || []); changedBasis = d.changed_basis || "";
+  lastMtime = d.mtime || 0;
+  showChanged();
   $("#name").textContent = d.id + " · " + d.doc.split("/").pop();
   render();
   clearBands();
@@ -84,7 +91,7 @@ async function boot() {
 
 function render() {
   $("#doc").innerHTML = pages.map(p => `
-    <div class="pg" data-p="${p.n}" style="width:${Math.min(p.w, 1000)}px">
+    <div class="pg${changedSet.has(p.n) ? " chg" : ""}" data-p="${p.n}" style="width:${Math.min(p.w, 1000)}px">
       <div class="pno">${p.n}</div>
       <img src="/${ID}/p/${p.n}.png" width="${p.w}" height="${p.h}" alt="page ${p.n}">
       <div class="tl"></div>
@@ -111,9 +118,13 @@ function render() {
   });
   $("#cnt").textContent = items.length ? `${items.length} 条` : "";
   $("#list").innerHTML = items.length ? "<h3>已记下的反馈</h3>" + items.map((a, i) =>
-    `<div class="e"><span class="x" data-i="${i}">×</span>
+    `<div class="e" data-i="${i}"><span class="x" data-i="${i}">×</span>
      <div class="m">第 ${a.page} 页</div>
      <div class="q">«${esc(a.quote || "")}»</div><div>${esc(a.note)}</div></div>`).join("") : "";
+  $("#list").querySelectorAll(".e").forEach(e => e.onclick = ev => {
+    if (ev.target.classList.contains("x")) return;
+    openEdit(+e.dataset.i);
+  });
   $("#list").querySelectorAll(".x").forEach(x => x.onclick = async () => {
     await fetch("/api/" + ID + "/del", {method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({index: +x.dataset.i})});
@@ -147,6 +158,8 @@ function hexA(hex, a) {
 
 function openComposer(anchor, page, rects, quote, label) {
   target = {page, rects, quote};
+  editing = null;
+  $("#ok").textContent = "保存";
   $("#quote").textContent = label;
   $("#pos").textContent = "p" + page;
   $("#note").value = "";
@@ -252,21 +265,90 @@ document.addEventListener("mousemove", e => {
   drag.el.style.cssText = `left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px`;
 });
 
-$("#ok").onclick = async () => {
+async function submitNote() {
   const note = $("#note").value.trim();
   if (!note || !target) return;
   $("#box").style.display = "none";
   window.getSelection().removeAllRanges();
   clearBands();
-  await fetch("/api/" + ID + "/add", {method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({item: {page: target.page, rects: target.rects, quote: target.quote, note}})});
+  if (editing !== null) {
+    await fetch("/api/" + ID + "/upd", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({index: editing, note})});
+  } else {
+    await fetch("/api/" + ID + "/add", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({item: {page: target.page, rects: target.rects, quote: target.quote, note}})});
+  }
+  editing = null;
   target = null;
   await boot();
+  await copyAll(true);
+}
+
+$("#ok").onclick = submitNote;
+
+// 单击已有高亮的编号或列表条目：重新出框，框里填回原来的反馈
+function openEdit(i, el) {
+  const a = items[i];
+  if (!a) return;
+  editing = i;
+  target = {page: a.page, rects: a.rects, quote: a.quote};
+  $("#quote").textContent = `第 ${a.page} 页 · ${a.quote || "（图片区域）"}`;
+  $("#pos").textContent = "p" + a.page;
+  $("#note").value = a.note || "";
+  $("#ok").textContent = "更新";
+  const b = $("#box");
+  b.style.display = "block";
+  const rect = el ? el.getBoundingClientRect()
+                  : document.querySelector(`.pg[data-p="${a.page}"]`).getBoundingClientRect();
+  b.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 452)) + "px";
+  let top = rect.bottom + 10;
+  if (top + 220 > window.innerHeight) top = Math.max(8, rect.top - 230);
+  b.style.top = top + "px";
+  $("#note").focus();
+  $("#note").setSelectionRange($("#note").value.length, $("#note").value.length);
+}
+
+$("#doc").addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest(".bdg");
+  if (!b) return;
+  openEdit(+b.dataset.i, b);
+});
+
+// 编辑框可拖动：按住框内非输入区域拖走
+(function () {
+  const box = document.getElementById("box");
+  if (!box) return;
+  let mv = null;
+  box.addEventListener("mousedown", e => {
+    if (e.target.closest("textarea,button,input,a,select")) return;
+    const r = box.getBoundingClientRect();
+    mv = {dx: e.clientX - r.left, dy: e.clientY - r.top};
+    box.classList.add("moving");
+    e.preventDefault();
+  });
+  document.addEventListener("mousemove", e => {
+    if (!mv) return;
+    box.style.left = Math.max(0, Math.min(e.clientX - mv.dx, window.innerWidth - box.offsetWidth)) + "px";
+    box.style.top = Math.max(0, Math.min(e.clientY - mv.dy, window.innerHeight - box.offsetHeight)) + "px";
+  });
+  document.addEventListener("mouseup", () => {
+    if (!mv) return;
+    mv = null;
+    box.classList.remove("moving");
+  });
+})();
+
+$("#cancel").onclick = () => {
+  $("#box").style.display = "none";
+  $("#ok").textContent = "保存";
+  editing = null;
+  target = null;
+  window.getSelection().removeAllRanges();
+  clearBands();
 };
-$("#cancel").onclick = () => { $("#box").style.display = "none"; target = null; window.getSelection().removeAllRanges(); clearBands(); };
 $("#note").onkeydown = e => {
-  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("#ok").click(); }
-  if (e.key === "Escape") $("#cancel").click();
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submitNote(); }
+  else if (e.key === "Escape") $("#cancel").click();
 };
 $("#clear").onclick = () => { if (confirm("删除全部反馈？")) { items = []; sync(); } };
 
@@ -306,19 +388,67 @@ $("#tcopy").onclick = async () => {
   await navigator.clipboard.writeText(`p${a.page}  «${a.quote || ""}»\n${a.note}`);
   $("#tcopy").textContent = "已复制"; setTimeout(() => $("#tcopy").textContent = "复制", 1000);
 };
+$("#tedit").onclick = () => {
+  if (tipI < 0) return;
+  const i = tipI;
+  tipI = -1;
+  tip().style.display = "none";
+  const el = document.querySelector(`.bdg[data-i="${i}"]`);
+  openEdit(i, el || null);
+};
 $("#tdel").onclick = async () => {
   if (tipI < 0) return;
   const i = tipI; tipI = -1; tip().style.display = "none";
   await fetch("/api/" + ID + "/del", {method:"POST", headers:{"Content-Type":"application/json"},
     body: JSON.stringify({index: i})});
   await boot();
+  await copyAll(true);
 };
-$("#copy").onclick = async () => {
+async function copyAll(silent) {
+  // 任何一次编辑之后，把全部批注复制到剪贴板；失败不打断操作
   const t = items.map((a, i) => `${i+1}. p${a.page}  «${a.quote || ""}»\n   ${a.note}`).join("\n\n");
-  await navigator.clipboard.writeText(t);
-  $("#copy").textContent = "已复制";
-  setTimeout(() => $("#copy").textContent = "复制全部", 1200);
-};
+  try {
+    await navigator.clipboard.writeText(t);
+  } catch (e) {
+    return false;
+  }
+  if (!silent) {
+    $("#copy").textContent = "已复制";
+    setTimeout(() => $("#copy").textContent = "复制全部", 1200);
+  } else if (t) {
+    const b = $("#copy");
+    const old = b.textContent;
+    b.textContent = "已复制";
+    setTimeout(() => b.textContent = old, 900);
+  }
+  return true;
+}
+
+$("#copy").onclick = () => copyAll(false);
 boot();
 </script>
 </html>
+
+function showChanged() {
+  let el = document.getElementById("chgbar");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "chgbar";
+    el.style.cssText = "position:sticky;top:0;z-index:9;background:#fff7d6;border-bottom:1px solid #e8d48a;"
+      + "font:12px/2 ui-monospace,Menlo,monospace;padding:0 10px;color:#6b5a16";
+    document.body.insertBefore(el, document.body.firstChild);
+  }
+  el.textContent = changedSet.size
+    ? changedSet.size + " page(s) changed since " + (changedBasis || "open") + " — tinted pages are the diff"
+    : "no page changed since " + (changedBasis || "open");
+}
+
+setInterval(async () => {
+  try {
+    const d = await (await fetch("/api/" + ID + "/doc", {cache: "no-store"})).json();
+    if (d.mtime && lastMtime && d.mtime !== lastMtime) {
+      lastMtime = d.mtime;
+      location.reload();
+    }
+  } catch (e) {}
+}, 4000);

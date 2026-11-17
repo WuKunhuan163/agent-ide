@@ -277,7 +277,7 @@ def cmd_context(args: argparse.Namespace) -> None:
             f"Keys come from --probe or --bindings; pass one of those instead of guessing.")
     text = context.render_conversation(
         store, conv, last=args.last, since=args.since, until=args.until,
-        with_tools=not args.no_tools, stamps=args.stamps,
+        with_tools=not args.no_tools,
     )
     out = _export_path(args, conv.name)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -376,7 +376,6 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--until", metavar="WHEN", help="window end")
     p.add_argument("--top", type=int, metavar="N", help="probe: at most N keys")
     p.add_argument("--no-tools", action="store_true", help="render: omit tool calls/results")
-    p.add_argument("--stamps", action="store_true", help="render: prefix each message with its UTC time (@HH:MM:SSZ)")
     p.set_defaults(run=cmd_context)
 
     p = sub.add_parser("violations", help="record a judgement (catalogue is staging/ledger/violations.json)")
