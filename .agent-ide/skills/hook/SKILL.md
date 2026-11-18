@@ -64,7 +64,7 @@ A hook is a condition and a value: the value is context injected verbatim under 
 data/hooks.json            index: ide, ids, updated
 data/hooks/<id>/hook.json  the rule — id, ide, trigger, keywords | key + threshold, enabled, entry
 data/hooks/<id>/inject.md  the value injected when it fires
-data/hooks/<id>/*.py       optional: what `hook <id> ...` dispatches to (`entry` in hook.json)
+data/hooks/<id>/*.py       optional: `hook <id> ...` runs this (resolved in the package first, then beside hook.py)
 data/keys/<id>.md          the stored context for a similarity rule
 data/capture/<id>.txt      the last prompt that fired, for rules with `capture`
 data/hook.log              fire / error lines only
@@ -74,6 +74,10 @@ The older shape (`data/hooks/<id>.json` + `data/inject/<id>.md`) still reads, so
 existing rule keeps firing; `add --package` writes the package form. `hook <id> <args>`
 runs the package's own `entry` module, which is how a rule owns a state machine instead
 of a paragraph of advice.
+
+Code that must travel with the skill lives beside `hook.py` (`plan.py`), because `data/`
+is per-project state; a rule may still keep a module of its own inside its package when
+only that project should run it.
 
 **`plan` is the worked example**: `hook plan init → add → ready → start → done → ack →
 (next | replan → add|drop|move → resume) → close`. Instances live under the project's

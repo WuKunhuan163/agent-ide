@@ -515,6 +515,8 @@ def dispatch(hid: str, rest: list) -> int | None:
     d = pkg_dir(hid)
     mod_path = d / h["entry"]
     if not mod_path.exists():
+        mod_path = ROOT / h["entry"]      # shipped code lives beside hook.py
+    if not mod_path.exists():
         print("hook: %s: entry %s missing" % (hid, h["entry"]), file=sys.stderr)
         return 2
     import importlib.util
