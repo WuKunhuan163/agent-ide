@@ -763,7 +763,9 @@ def auto_start(data: Path, prompt: str, matched: str = "") -> str:
     save(d, t)
     tool_line = ("  同行命中的工具有：%s，拆解时一并考虑。\n" % matched) if matched.strip() else ""
     return (AWARE_ZH +
-            "【plan｜新实例 %s】根节点 n1 = 这条原话。**本轮先建子树，再谈回答。**\n%s"
+            "【plan｜新实例 %s】根节点 n1 = 这条原话。\n"
+            "**第一步就是建树，不是回答、不是解释、不是先看看再说**：回执之后的下一条命令必须是 `hook plan env`，"
+            "然后是 `add`（至少两条，挂 --parent n1），再 `ready`；这三步没走完，本轮不许产出任何别的东西。\n%s"
             "本轮唯一的合法顺序（照抄，不许自创）：\n"
             "  a. `hook plan env --note \"<读了哪几处、各是什么读数>\"` —— 先探环境，再谈拆解。\n"
             "  b. `hook plan add --parent n1 --title \"...\" --criterion \"...\" --context \"<path 或命令>\"` × 2–4 条，"

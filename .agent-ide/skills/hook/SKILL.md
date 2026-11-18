@@ -99,3 +99,10 @@ delete the plan, and the tree doubles as the trace.
 - One event only: `UserPromptSubmit`. Rules about stopping belong to `heartbeat`.
 - The keyword list is matched as substrings, so a one-character keyword fires on almost everything; `models` and `list` exist to be read before adding one.
 - A similarity threshold is per rule and is chosen from `test` output; copying another rule's number is guessing.
+
+**A wrong result is a plan-hook defect.** When the user says a result is wrong — a run
+went badly, a reproduction agent misbehaved, an answer missed the point — the first
+place to look is this rule's instruction, not the executor. The protocol must be strong
+enough that the first step of any prompt is to build the tree (`env` → `add` → `ready`)
+and only then act; if a run skipped that, the injection said too little and is to be
+tightened here.
