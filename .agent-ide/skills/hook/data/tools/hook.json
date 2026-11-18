@@ -4,8 +4,8 @@
  "trigger": "fn",
  "enabled": true,
  "created": "2026-11-18T08:48:05",
- "fired": 115,
- "last": "2026-11-18T13:22:30",
+ "fired": 116,
+ "last": "2026-11-18T13:23:15",
  "fn": "tools",
  "entry": "tools.py",
  "interface": "class Rule(data).inject(prompt) -> str"

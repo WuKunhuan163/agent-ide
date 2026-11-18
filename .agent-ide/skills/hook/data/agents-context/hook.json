@@ -4,7 +4,7 @@
  "trigger": "keyword",
  "enabled": true,
  "created": "2026-11-18T09:36:05",
- "fired": 40,
+ "fired": 41,
  "keywords": [
   "AGENT全量语境",
   "全量语境",
@@ -13,5 +13,5 @@
   "全量上下文"
  ],
  "match": "any",
- "last": "2026-11-18T13:22:35"
+ "last": "2026-11-18T13:26:06"
 }
