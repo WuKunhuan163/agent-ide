@@ -14,10 +14,11 @@
   "data/plan-auto/hook.json",
   "data/plan-next/hook.json",
   "data/plan/hook.json",
-  "data/plan/plan.py",
   "data/tools/hook.json",
-  "data/tools/tools.py",
+  "data/tools/inject.md",
   "hook.py",
+  "packages/plan/plan.py",
+  "packages/tools/tools.py",
   "scripts/hook-launcher.sh"
  ],
  "directories": []

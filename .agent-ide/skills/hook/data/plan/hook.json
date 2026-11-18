@@ -5,7 +5,7 @@
  "enabled": true,
  "created": "2026-11-18T11:48:22",
  "fired": 5,
- "entry": "plan.py",
+ "entry": "../../packages/plan/plan.py",
  "capture": true,
  "keywords": [
   "计划",
