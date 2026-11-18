@@ -80,8 +80,9 @@ is per-project state; a rule may still keep a module of its own inside its packa
 only that project should run it.
 
 **`plan` is the worked example**: `hook plan init → add → ready → start → done → ack →
-(next | replan → add|drop|move → resume) → close`. Instances live under the project's
-`tmp/plan/<project>-<stamp>-<summary>/tree.json`, so the tree doubles as the trace.
+(next | replan → add|drop|move → resume) → close`. Instances live in the rule's own data space,
+`data/plan/<project>-<stamp>-<summary>/tree.json`: deleting a project's `tmp` must not
+delete the plan, and the tree doubles as the trace.
 
 **Output is one line per fact, `+` added, `-` removed, `=` unchanged**: `add` prints `+ <id> <trigger> <condition>` and the value's path, `rm` prints `- <n>`, `list` is a fixed-width table, `test` prints the measured number, `doctor` prints `key value` rows. No sentences.
 

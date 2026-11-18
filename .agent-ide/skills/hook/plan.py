@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """plan — a task-tree state machine the agent maintains while it works.
 
-A tree is an instance under `<project>/tmp/plan/<instance>/tree.json`. The instance
+A tree is an instance in the hook's own data space: `data/plan/<instance>/tree.json`. The instance
 carries the prompt that fired the rule, the tree itself, and the round log, so the
 tree is both the plan and the trace of what was done with it.
 
@@ -27,15 +27,10 @@ def now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%S")
 
 
-def project_root(start: Path) -> Path:
-    for p in [start] + list(start.parents):
-        if (p / ".agent-ide").is_dir() or (p / ".git").is_dir():
-            return p
-    return start
-
-
 def root(data: Path) -> Path:
-    return project_root(data) / "tmp" / "plan"
+    """Instances live in the hook's own data space, beside the rules that read them:
+    `data/plan/<instance>/tree.json`. Deleting the project's tmp must not delete the plan."""
+    return data / "plan"
 
 
 def instance_dir(data: Path, name: str | None = None) -> Path | None:
@@ -170,7 +165,7 @@ def need(d: Path | None, command: str) -> int:
 
 
 def root_path_hint() -> str:
-    return "tmp/plan/"
+    return "data/plan/"
 
 
 # ---------- commands ----------
@@ -191,7 +186,7 @@ def cmd_init(d: Path | None, args: list) -> int:
             print("blocked   还有未收束的实例 %s（state %s）：先走完或 `--force` 另起一个"
                   % (live.name, t0["state"]))
             return 1
-    proj = project_root(data).name or "project"
+    proj = data.parents[3].name if len(data.parents) > 3 else data.parent.name
     name = "%s-%s-%s" % (proj, time.strftime("%Y%m%d-%H%M%S"), slug(summary or "task"))
     d = root(data) / name
     d.mkdir(parents=True, exist_ok=True)
