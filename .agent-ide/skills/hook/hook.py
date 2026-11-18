@@ -33,6 +33,7 @@ ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 RULES = DATA
 INJECT = DATA / "inject"
+KEYS = DATA / "keys"
 LOG = DATA / "hook.log"
 
 IDE_PATHS = {
@@ -140,7 +141,7 @@ def drop_rule(hid):
         for child in sorted(d.rglob("*"), reverse=True):
             child.unlink() if child.is_file() else child.rmdir()
         d.rmdir()
-    for p in (RULES / (hid + ".json"), INJECT / (hid + ".md")):
+    for p in (RULES / (hid + ".json"), INJECT / (hid + ".md"), KEYS / (hid + ".md")):
         if p.exists():
             p.unlink()
 
@@ -186,6 +187,27 @@ def capture_prompt(hid: str, prompt: str, matched: str = "") -> None:
     with (d / (hid + ".log")).open("a", encoding="utf-8") as f:
         f.write("%s\t%s\t%d\t%s\n" % (now(), sha[:16], len(prompt),
                                         prompt.strip().split("\n")[0][:60]))
+
+
+def tokens(text: str) -> set:
+    t = re.sub(r"[\s，。；：、！？（）()「」“”'\"/\\.,;:!?<>\[\]{}|_=+*#`~-]+", " ", text or "")
+    out = set()
+    for w in t.split():
+        w = w.strip().lower()
+        if len(w) >= 2 and w not in STOP:
+            out.add(w)
+    for ch in re.findall(r"[\u4e00-\u9fff]{2,}", text or ""):
+        for i in range(len(ch) - 1):
+            g = ch[i:i + 2]
+            if g not in STOP:
+                out.add(g)
+    return out
+
+
+def cosine(a: set, b: set) -> float:
+    if not a or not b:
+        return 0.0
+    return len(a & b) / math.sqrt(len(a) * len(b))
 
 
 def skills_dir() -> Path:
@@ -300,8 +322,18 @@ def evaluate(prompt: str, rules: list, verbose=False):
             continue
         if h["trigger"] == "keyword":
             found = [k for k in h.get("keywords", []) if k in prompt]
-            if found:
+            found = [k for k in h.get("keywords", []) if k in prompt]
+            ok = bool(found) if h.get("match", "any") == "any" else len(found) == len(h.get("keywords", []))
+            if ok:
                 hits.append((h, 1.0, "matched %s" % ",".join(found)))
+        else:
+            kp = KEYS / h.get("key", "")
+            if not kp.exists():
+                continue
+            sc = cosine(tokens(prompt), tokens(kp.read_text(encoding="utf-8")))
+            thr = float(h.get("threshold", 0.55))
+            if sc >= thr:
+                hits.append((h, sc, "cosine %.3f >= %.2f" % (sc, thr)))
     return hits
 
 
@@ -398,11 +430,23 @@ def cmd_add(a):
             print("hook: --keywords required", file=sys.stderr)
             return 2
         h["keywords"] = words
+    else:
+        if not a.key:
+            print("hook: --key required", file=sys.stderr)
+            return 2
+        KEYS.mkdir(parents=True, exist_ok=True)
+        src = Path(a.key)
+        if src.exists():
+            (KEYS / (hid + ".md")).write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+        elif not (KEYS / a.key).exists():
+            print("hook: no such key %s" % a.key, file=sys.stderr)
+            return 2
+        h["key"], h["threshold"] = hid + ".md", float(a.threshold)
     save_rule(h)
     ensure_registered(a.ide)
     where = "data/%s/inject.md" % hid
     print("+ %-16s %-3s %s\n  inject %s (%dB)" % (
-        hid, {"keyword": "kw", "fn": "fn"}[h["trigger"]],
+        hid, {"keyword": "kw", "sim": "sim", "fn": "fn"}[h["trigger"]],
         (",".join(h["keywords"]) if h["trigger"] == "keyword"
          else "fn=%s" % h.get("fn", "tools") if h["trigger"] == "fn"
          else "key=%s thr=%.2f" % (h["key"], h["threshold"])),
@@ -431,7 +475,7 @@ def cmd_list(a):
         cond = (",".join(h.get("keywords", [])) if h["trigger"] == "keyword"
                 else "fn=%s" % h.get("fn", "tools") if h["trigger"] == "fn"
                 else "key=%s thr=%.2f" % (h.get("key"), h.get("threshold", 0)))
-        print(pad(h["id"],18)+pad({"keyword":"kw","fn":"fn"}[h["trigger"]],6)+pad(cond[:34],36)
+        print(pad(h["id"],18)+pad({"keyword":"kw","sim":"sim","fn":"fn"}[h["trigger"]],6)+pad(cond[:34],36)
               +pad(len(h.get("inject","").encode()),7)+pad(h.get("fired",0),7)+("+" if h["enabled"] else "-"))
     return 0
 
@@ -518,9 +562,11 @@ def main(argv=None):
     sub = p.add_subparsers(dest="cmd")
     d = sub.add_parser("add")
     d.add_argument("--id", required=True); d.add_argument("--ide", default="codebuddy")
-    d.add_argument("--trigger", default="keyword", choices=["keyword", "fn"])
+    d.add_argument("--trigger", default="keyword", choices=["keyword", "sim", "fn"])
     d.add_argument("--fn", default="tools", help="predicate name, e.g. tools")
     d.add_argument("--keywords")
+    d.add_argument("--match", default="any", choices=["any", "all"])
+    d.add_argument("--key"); d.add_argument("--threshold", default=0.55)
     d.add_argument("--inject", default="")
     d.set_defaults(f=cmd_add)
     d = sub.add_parser("rm"); d.add_argument("id", nargs="+"); d.set_defaults(f=cmd_rm)
