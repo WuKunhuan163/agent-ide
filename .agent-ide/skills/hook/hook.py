@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
-"""hook — keyword or similarity triggered context injection for an IDE.
+"""hook — a condition and a value, injected into the IDE's prompt path.
 
-A rule is a condition and a value. The condition is "the prompt contains one of
-these keywords" or "the prompt is closer than a threshold to a stored context"
+Three trigger classes: `keyword` (the prompt contains one of these words, `--match
+any|all`), `sim` (the prompt is closer than `--threshold` to a stored context), and
+`fn` (the rule's own package decides, `class Rule.match/inject`).
 
-UserPromptSubmit.
+Layout under data/ — one package per rule, flat, nothing shared between rules:
 
-Layout under data/, one file per rule so every rule is readable on its own:
-
-    data/hooks/<id>.json   the rule: id, ide, trigger, keywords|key+threshold, enabled
-    data/inject/<id>.md    the value injected when it fires
-    data/keys/<id>.md      the stored context for a similarity rule
-    data/hook.log          fire / error lines only
+    data/<id>/hook.json    the rule: id, trigger, keywords | key+threshold | fn, entry
+    data/<id>/inject.md    the value injected when it fires (absent for rules that
+                           generate their text at call time)
+    data/<id>/<entry>.py   optional code: the rule's predicate and/or its state machine
+    data/<id>/key.md       the stored context for a similarity rule
+    data/<id>/data/        optional state the rule writes (plan: log.log, instance/)
+    data/hook.log          fire / error lines for the engine itself
 """
 
 from __future__ import annotations
@@ -33,7 +35,7 @@ ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 RULES = DATA
 INJECT = DATA / "inject"
-KEYS = DATA / "keys"
+
 LOG = DATA / "hook.log"
 
 IDE_PATHS = {
@@ -141,7 +143,7 @@ def drop_rule(hid):
         for child in sorted(d.rglob("*"), reverse=True):
             child.unlink() if child.is_file() else child.rmdir()
         d.rmdir()
-    for p in (RULES / (hid + ".json"), INJECT / (hid + ".md"), KEYS / (hid + ".md")):
+    for p in (RULES / (hid + ".json"), INJECT / (hid + ".md")):
         if p.exists():
             p.unlink()
 
@@ -326,7 +328,7 @@ def evaluate(prompt: str, rules: list, verbose=False):
             if ok:
                 hits.append((h, 1.0, "matched %s" % ",".join(found)))
         else:
-            kp = KEYS / h.get("key", "")
+            kp = RULES / h["id"] / h.get("key", "key.md")
             if not kp.exists():
                 continue
             sc = cosine(tokens(prompt), tokens(kp.read_text(encoding="utf-8")))
@@ -433,14 +435,15 @@ def cmd_add(a):
         if not a.key:
             print("hook: --key required", file=sys.stderr)
             return 2
-        KEYS.mkdir(parents=True, exist_ok=True)
+        d = pkg_dir(hid)
+        d.mkdir(parents=True, exist_ok=True)
         src = Path(a.key)
         if src.exists():
-            (KEYS / (hid + ".md")).write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
-        elif not (KEYS / a.key).exists():
+            (d / "key.md").write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+        elif not (d / a.key).exists():
             print("hook: no such key %s" % a.key, file=sys.stderr)
             return 2
-        h["key"], h["threshold"] = hid + ".md", float(a.threshold)
+        h["key"], h["threshold"] = "key.md", float(a.threshold)
     save_rule(h)
     ensure_registered(a.ide)
     where = "data/%s/inject.md" % hid
