@@ -389,10 +389,7 @@ def cmd_ready(d, args: list) -> int:
     if wrong:
         print("blocked   先易后难不成立（依赖指到了后面的项）：%s" % ", ".join(wrong))
         return 1
-    first = first_open(t)
-    if first is not None and first.get("judged") != "ok":
-        print("blocked   还没判语境：`hook plan judge %s --ok`（不够就 `--short \"<缺什么>\"` 继续获取）" % first["id"])
-        return 1
+    # ready 只做机械校验（env、具名语境、判据、根下≥2、先易后难），不再要求 agent 先表态
     t["state"] = "solve"
     save(d, t)
     print("state     solve\n")
@@ -493,7 +490,7 @@ def cmd_drift(d, args: list) -> int:
 def cmd_inject(d, args: list) -> int:
     print("plan: init / env / add / tree / judge / ready / start / done / ack / drift / "
           "next / review / replan / resume / drop / move / status / prompt / close")
-    print("  build:   env → add (many) → judge 第一项 → ready")
+    print("  build:   env → add (many) → ready")
     print("  solve:   start → done → ack --recheck → (drift --ok → rbuild → resume | replan)")
     print("  finish:  close when nothing is open")
     return 0
@@ -705,7 +702,7 @@ def cmd_close(d: Path | None, args: list) -> int:
 
 COMMANDS = {"init": cmd_init, "add": cmd_add, "tree": cmd_tree, "ready": cmd_ready,
             "start": cmd_start, "done": cmd_done, "ack": cmd_ack, "next": cmd_next,
-            "env": cmd_env, "judge": cmd_judge,
+            "env": cmd_env,
             "drift": cmd_drift, "help": cmd_inject,
             "replan": cmd_replan, "resume": cmd_resume, "drop": cmd_drop, "move": cmd_move,
             "status": cmd_status, "prompt": cmd_prompt, "close": cmd_close}
