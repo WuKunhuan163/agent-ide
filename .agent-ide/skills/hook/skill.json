@@ -12,7 +12,6 @@
  "files": [
   "SKILL.md",
   "hook.py",
-  "plan.py",
   "scripts/hook-launcher.sh"
  ],
  "directories": []

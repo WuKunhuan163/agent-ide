@@ -235,40 +235,6 @@ def skill_front(path: Path):
     return (name.group(1).strip() if name else path.parent.name), d
 
 
-def skill_hits(prompt: str):
-    """Every installed tool whose name appears in the prompt.
-
-    A tool is installed if it has a launcher under `.agent-tools/` or a
-    directory with SKILL.md under `.agent-ide/skills/`; the two sets overlap
-    and are merged by name.
-    """
-    out, seen = [], set()
-    base = skills_dir()
-    tools = project_root() / ".agent-tools"
-    names = set()
-    if base.exists():
-        names |= {d.name for d in base.iterdir() if (d / "SKILL.md").exists()}
-    if tools.exists():
-        names |= {p.name for p in tools.iterdir() if p.is_file()}
-    low = prompt.lower()
-    for name in sorted(names):
-        if name in seen:
-            continue
-        if not re.search(r"(?<![a-z0-9-])" + re.escape(name.lower()) + r"(?![a-z0-9-])", low):
-            continue
-        seen.add(name)
-        skill = base / name / "SKILL.md"
-        if skill.exists():
-            n, desc = skill_front(skill)
-            short = re.split(r"(?<=[.。])\s", desc)[0][:110].strip()
-            out.append("【%s】先读 %s（%d 行）%s" % (name, skill.relative_to(project_root()),
-                                                   len(skill.read_text(encoding="utf-8").split("\n")),
-                                                   ("：" + short) if short else ""))
-        else:
-            out.append("【%s】已安装：%s（无 SKILL.md）" % (name, tools / name))
-    return out
-
-
 def load_pkg(hid: str):
     h = find(hid)
     if not h or not h.get("entry"):
@@ -333,10 +299,18 @@ def evaluate(prompt: str, rules: list, verbose=False):
                 hits.append((dict(h, inject=text), 1.0, "open tree"))
             continue
         if h["trigger"] == "fn":
-            found = skill_hits(prompt) if h.get("fn", "tools") == "tools" else []
-            if found:
-                hits.append((dict(h, inject="\n".join(found)), 1.0,
-                             "tool " + ",".join(re.findall(r"【([^】]+)】", " ".join(found)))))
+            mod = load_pkg(h["id"])
+            text = ""
+            if mod is not None and hasattr(mod, "inject"):
+                try:
+                    text = mod.inject(prompt) or ""
+                except Exception as exc:
+                    log("fn error\t%s\t%s" % (h["id"], exc))
+            if text:
+                hits.append((dict(h, inject=text), 1.0, "fn " + h.get("fn", "")))
+                continue
+            if mod is None:
+                log("fn skipped\t%s\tpackage has no code" % h["id"])
             continue
         if h["trigger"] == "keyword":
             found = [k for k in h.get("keywords", []) if k in prompt]
