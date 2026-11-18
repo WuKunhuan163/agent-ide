@@ -311,14 +311,11 @@ def evaluate(prompt: str, rules: list, verbose=False):
         if h.get("auto_instance"):
             hits.append((dict(h, inject=""), 1.0, "every prompt"))
             continue
-        if h["trigger"] == "fn" and h.get("fn") == "plan":
-            text = plan_state_text(h["id"])
-            if text:
-                hits.append((dict(h, inject=text), 1.0, "open tree"))
-            continue
         if h["trigger"] == "fn":
             rule = instantiate(h["id"])
             text = ""
+            if rule is not None and hasattr(rule, "match") and not rule.match(prompt):
+                continue
             if rule is not None and hasattr(rule, "inject"):
                 try:
                     text = rule.inject(prompt) or ""

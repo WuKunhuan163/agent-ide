@@ -4,14 +4,12 @@
  "trigger": "fn",
  "enabled": true,
  "created": "2026-11-18T11:48:22",
- "fired": 5,
+ "fired": 9,
  "entry": "../../packages/plan/plan.py",
  "capture": true,
  "match": "any",
- "last": "2026-11-18T12:14:15",
+ "last": "2026-11-18T12:59:43",
  "capture_only": true,
- "inject": "",
  "interface": "class Rule(data).auto_start(prompt, matched) / next_text() / dispatch(argv)",
- "fn": "plan",
- "auto_instance": true
+ "fn": "plan"
 }

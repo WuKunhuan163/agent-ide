@@ -239,7 +239,7 @@ def newest_capture(data: Path):
     by the IDE's own call, never by hand.
     """
     best = None
-    for txt in sorted((data / "capture").glob("plan*.txt")):
+    for txt in sorted((data / "plan" / "data" / "capture").glob("plan*.txt")):
         rec = txt.with_suffix(".json")
         if not rec.exists():
             continue
@@ -261,8 +261,8 @@ def cmd_init(d, args: list) -> int:
     summary = args[args.index("--summary") + 1] if "--summary" in args else ""
     data = Path(globals()["HOOK_DATA"])
     cap = newest_capture(data)
-    cap_txt = cap[0] if cap else data / "capture" / "plan.txt"
-    cap_rec = cap[1] if cap else data / "capture" / "plan.json"
+    cap_txt = cap[0] if cap else data / "plan" / "data" / "capture" / "plan.txt"
+    cap_rec = cap[1] if cap else data / "plan" / "data" / "capture" / "plan.json"
     live = instance_dir(data)
     if live and "--force" not in args:
         t0 = load(live)
@@ -908,8 +908,14 @@ class Rule:
     def next_text(self) -> str:
         return next_text(self.data)
 
+    def match(self, prompt: str) -> bool:
+        """The fn predicate: this rule owns every prompt, so the tree always exists."""
+        return True
+
     def inject(self, prompt: str = "") -> str:
-        return next_text(self.data)
+        """One entry for both cases: allocate/resume the tree, else report what it wants next."""
+        text = auto_start(self.data, prompt, "every prompt")
+        return text or next_text(self.data)
 
     def dispatch(self, argv: list) -> int:
         return main(argv, self.data)
