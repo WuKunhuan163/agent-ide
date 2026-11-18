@@ -6,8 +6,8 @@
  "entry": "no_ledger.py",
  "enabled": true,
  "capture": false,
- "fired": 8,
+ "fired": 10,
  "created": "2026-11-18T13:50:00",
  "interface": "class Rule(data).match(prompt)->True / inject()->FAIL when an account exists",
- "last": "2026-11-18T13:46:06"
+ "last": "2026-11-18T13:50:24"
 }

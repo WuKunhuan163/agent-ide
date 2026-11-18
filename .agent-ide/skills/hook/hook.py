@@ -552,8 +552,51 @@ def dispatch(hid: str, rest: list) -> int | None:
     return mod.main(rest, DATA)
 
 
+# --- tool events -----------------------------------------------------------
+# The IDE hands the engine a payload per event. Prompt events carry `prompt`; tool
+# events carry a tool name and its arguments, and every package that defines
+# on_tool(tool_name, tool_input) gets a veto on that call.
+EVENTS = ("UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop", "SessionStart",
+          "SessionEnd", "PreCompact", "SubagentStop", "Notification", "PreLLMRequest")
+BLOCK_EVENTS = ("PreToolUse", "UserPromptSubmit", "SessionStart", "PreLLMRequest")
+
+
+def run_tool():
+    """Read a tool payload, ask every fn package for a decision, print the verdict."""
+    raw = sys.stdin.read()
+    try:
+        data = json.loads(raw)
+    except Exception:
+        print(json.dumps({"decision": "allow", "reason": "hook: payload is not json"}))
+        return 0
+    event = (data.get("hook_event_name") or data.get("event")
+             or data.get("hook_event") or data.get("type") or "")
+    tool_name = data.get("tool_name") or data.get("tool") or data.get("name") or ""
+    tool_input = data.get("tool_input") or data.get("arguments") or data.get("input") or {}
+    verdict = {"decision": "allow", "reason": ""}
+    for h in load_rules():
+        if h.get("trigger") != "fn" or not h.get("enabled", True):
+            continue
+        rule = instantiate(h["id"])
+        fn = getattr(rule, "on_tool", None) if rule is not None else None
+        if fn is None:
+            continue
+        try:
+            got = fn(tool_name, tool_input, event) or {}
+        except Exception as exc:                     # a broken veto must not fail open
+            got = {"decision": "block", "reason": "%s raised: %s" % (h["id"], exc)}
+        if got.get("decision") == "block":
+            log("tool veto\t%s\t%s" % (h["id"], tool_name))
+            verdict = got
+            break
+    print(json.dumps(verdict, ensure_ascii=False))
+    return 0
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] in ("tool", "events"):
+        return run_tool() if argv[0] == "tool" else print(" ".join(EVENTS)) or 0
     if argv and argv[0] not in ("add", "rm", "list", "-h", "--help"):
         rc = dispatch(argv[0], argv[1:])
         if rc is not None:
