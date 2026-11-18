@@ -58,15 +58,26 @@ A hook is a condition and a value: the value is context injected verbatim under 
 
 ## Data
 
-**One rule, one file**, so each rule can be read on its own:
+**One rule, one package**, so a rule can carry code as well as text:
 
 ```
-data/hooks.json        index: ide, ids, updated
-data/hooks/<id>.json   the rule — id, ide, trigger, keywords | key + threshold, enabled, fired, source
-data/inject/<id>.md    the value injected when it fires
-data/keys/<id>.md      the stored context for a similarity rule
-data/hook.log          fire / error lines only
+data/hooks.json            index: ide, ids, updated
+data/hooks/<id>/hook.json  the rule — id, ide, trigger, keywords | key + threshold, enabled, entry
+data/hooks/<id>/inject.md  the value injected when it fires
+data/hooks/<id>/*.py       optional: what `hook <id> ...` dispatches to (`entry` in hook.json)
+data/keys/<id>.md          the stored context for a similarity rule
+data/capture/<id>.txt      the last prompt that fired, for rules with `capture`
+data/hook.log              fire / error lines only
 ```
+
+The older shape (`data/hooks/<id>.json` + `data/inject/<id>.md`) still reads, so an
+existing rule keeps firing; `add --package` writes the package form. `hook <id> <args>`
+runs the package's own `entry` module, which is how a rule owns a state machine instead
+of a paragraph of advice.
+
+**`plan` is the worked example**: `hook plan init → add → ready → start → done → ack →
+(next | replan → add|drop|move → resume) → close`. Instances live under the project's
+`tmp/plan/<project>-<stamp>-<summary>/tree.json`, so the tree doubles as the trace.
 
 **Output is one line per fact, `+` added, `-` removed, `=` unchanged**: `add` prints `+ <id> <trigger> <condition>` and the value's path, `rm` prints `- <n>`, `list` is a fixed-width table, `test` prints the measured number, `doctor` prints `key value` rows. No sentences.
 

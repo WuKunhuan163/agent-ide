@@ -82,29 +82,52 @@ def log(line):
         f.write("%s\t%s\n" % (now(), line))
 
 
-# ---------- storage: one file per rule ----------
+# ---------- storage: one package per rule ----------
+
+def pkg_dir(hid):
+    return RULES / hid
+
 
 def _paths(hid):
+    """A rule is a package: data/hooks/<id>/hook.json + inject.md + whatever code it needs.
+
+    The older layout (data/hooks/<id>.json + data/inject/<id>.md) still reads, so an
+    existing rule keeps firing; `add --package` writes the package form.
+    """
+    d = pkg_dir(hid)
+    if d.is_dir():
+        return d / "hook.json", d / "inject.md"
     return RULES / (hid + ".json"), INJECT / (hid + ".md")
+
+
+def _read_rule(path: Path) -> dict:
+    h = json.loads(path.read_text(encoding="utf-8"))
+    d = pkg_dir(h["id"])
+    for cand in ((d / "inject.md") if d.is_dir() else None, INJECT / (h["id"] + ".md")):
+        if cand and cand.exists():
+            h["inject"] = cand.read_text(encoding="utf-8")
+            break
+    if d.is_dir():
+        h["package"] = str(d)
+    return h
 
 
 def load_rules() -> list:
     out = []
     if not RULES.exists():
         return out
-    for p in sorted(RULES.glob("*.json")):
-        h = json.loads(p.read_text(encoding="utf-8"))
-        inj = INJECT / (h["id"] + ".md")
-        h["inject"] = inj.read_text(encoding="utf-8") if inj.exists() else ""
-        out.append(h)
+    for p in sorted(RULES.iterdir()):
+        if p.is_dir() and (p / "hook.json").exists():
+            out.append(_read_rule(p / "hook.json"))
+        elif p.suffix == ".json" and p.name != "hooks.json":
+            out.append(_read_rule(p))
     return out
 
 
 def save_rule(h: dict):
-    for d in (RULES, INJECT):
-        d.mkdir(parents=True, exist_ok=True)
-    w = {k: v for k, v in h.items() if k != "inject"}
     rp, ip = _paths(h["id"])
+    rp.parent.mkdir(parents=True, exist_ok=True)
+    w = {k: v for k, v in h.items() if k not in ("inject", "package")}
     tmp = rp.with_suffix(".tmp")
     tmp.write_text(json.dumps(w, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     os.replace(tmp, rp)
@@ -112,7 +135,12 @@ def save_rule(h: dict):
 
 
 def drop_rule(hid):
-    for p in _paths(hid) + (KEYS / (hid + ".md"),):
+    d = pkg_dir(hid)
+    if d.is_dir():
+        for child in sorted(d.rglob("*"), reverse=True):
+            child.unlink() if child.is_file() else child.rmdir()
+        d.rmdir()
+    for p in (RULES / (hid + ".json"), INJECT / (hid + ".md"), KEYS / (hid + ".md")):
         if p.exists():
             p.unlink()
     if INDEX.exists():
@@ -133,17 +161,27 @@ def save_index(idx: dict):
 def load_index() -> dict:
     if INDEX.exists():
         return json.loads(INDEX.read_text(encoding="utf-8"))
-    return {"ide": "codebuddy", "ids": [], "note": "one file per rule under data/hooks/, values under data/inject/"}
+    return {"ide": "codebuddy", "ids": [], "note": "one package per rule under data/hooks/<id>/"}
 
 
 def find(hid):
+    d = pkg_dir(hid)
+    if d.is_dir() and (d / "hook.json").exists():
+        return _read_rule(d / "hook.json")
     p = RULES / (hid + ".json")
-    if not p.exists():
-        return None
-    h = json.loads(p.read_text(encoding="utf-8"))
-    ip = INJECT / (hid + ".md")
-    h["inject"] = ip.read_text(encoding="utf-8") if ip.exists() else ""
-    return h
+    return _read_rule(p) if p.exists() else None
+
+
+def capture_prompt(hid: str, prompt: str) -> None:
+    """A rule that needs the prompt later keeps the last one it fired on."""
+    d = DATA / "capture"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / (hid + ".txt")).write_text(prompt, encoding="utf-8")
+
+
+def stored_prompt(hid: str) -> str:
+    p = DATA / "capture" / (hid + ".txt")
+    return p.read_text(encoding="utf-8") if p.exists() else ""
 
 
 # ---------- triggers ----------
@@ -334,6 +372,12 @@ def cmd_add(a):
         print("hook: empty --inject", file=sys.stderr)
         return 2
     h = {"id": hid, "ide": a.ide, "trigger": a.trigger, "enabled": True, "created": now(), "fired": 0, "inject": inject}
+    if a.package:
+        pkg_dir(hid).mkdir(parents=True, exist_ok=True)
+    if a.entry:
+        h["entry"] = a.entry
+    if a.capture:
+        h["capture"] = True
     if (a.cmd or "").strip():
         h["cmd"] = a.cmd.strip()
     if a.trigger == "fn":
@@ -359,12 +403,13 @@ def cmd_add(a):
     save_rule(h)
     save_index(load_index())
     ensure_registered(a.ide)
-    print("+ %-16s %-3s %s\n  inject data/inject/%s.md (%dB)" % (
+    where = "data/hooks/%s/inject.md" % hid if a.package else "data/inject/%s.md" % hid
+    print("+ %-16s %-3s %s\n  inject %s (%dB)" % (
         hid, {"keyword": "kw", "sim": "sim", "fn": "fn"}[h["trigger"]],
         (",".join(h["keywords"]) if h["trigger"] == "keyword"
          else "fn=%s" % h.get("fn", "tools") if h["trigger"] == "fn"
          else "key=%s thr=%.2f" % (h["key"], h["threshold"])),
-        hid, len(inject.encode())))
+        where, len(inject.encode())))
     return 0
 
 
@@ -449,6 +494,8 @@ def run_prompt():
             return 0
         blocks = []
         for h, s, why in hits:
+            if h.get("capture"):
+                capture_prompt(h["id"], prompt)
             blocks.append(cmd_block(h["id"], why, h["inject"]))
             h["fired"] = h.get("fired", 0) + 1
             h["last"] = now()
@@ -460,8 +507,30 @@ def run_prompt():
     return 0
 
 
+def dispatch(hid: str, rest: list) -> int | None:
+    """`hook <id> <args>` runs the package's own module, so a rule can own a state machine."""
+    h = find(hid)
+    if not h or not h.get("entry"):
+        return None
+    d = pkg_dir(hid)
+    mod_path = d / h["entry"]
+    if not mod_path.exists():
+        print("hook: %s: entry %s missing" % (hid, h["entry"]), file=sys.stderr)
+        return 2
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("hook_pkg_%s" % hid, mod_path)
+    mod = importlib.util.module_from_spec(spec)
+    mod.__dict__["HOOK_DATA"] = DATA
+    spec.loader.exec_module(mod)
+    return mod.main(rest, DATA)
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] not in ("add", "set", "rm", "on", "off", "list", "-h", "--help"):
+        rc = dispatch(argv[0], argv[1:])
+        if rc is not None:
+            return rc
     if not argv or argv[0] not in ("add", "set", "rm", "on", "off", "list", "-h", "--help"):
         return run_prompt()          # bare `hook`: the IDE calls this with the payload
 
@@ -474,6 +543,9 @@ def main(argv=None):
     d.add_argument("--keywords"); d.add_argument("--match", default="any", choices=["any", "all"])
     d.add_argument("--key"); d.add_argument("--threshold", default=0.55)
     d.add_argument("--inject", default=""); d.add_argument("--cmd")
+    d.add_argument("--package", action="store_true", help="write data/hooks/<id>/ (hook.json + inject.md + code)")
+    d.add_argument("--entry", default="", help="module in the package that `hook <id> ...` dispatches to")
+    d.add_argument("--capture", action="store_true", help="keep the last prompt that fired")
     d.set_defaults(f=cmd_add)
     d = sub.add_parser("set"); d.add_argument("id"); d.add_argument("--inject"); d.add_argument("--cmd"); d.add_argument("--keywords"); d.add_argument("--threshold"); d.set_defaults(f=cmd_set)
     d = sub.add_parser("rm"); d.add_argument("id", nargs="+"); d.set_defaults(f=cmd_rm)
