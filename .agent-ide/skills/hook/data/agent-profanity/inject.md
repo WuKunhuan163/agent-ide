@@ -74,3 +74,9 @@ ls -lT ~/agent_ide_global_project/.agent-ide/skills/agent-ide/data/context/*.md 
 - **我动了你没要求的东西**，逐项列出并给回退命令（`git revert <hash>` 或 `git checkout <hash>~1 -- <path>`）；
 - **你现在还剩什么控制**：哪几条命令能把我拉回上一版，写在回复里，不必找我；
 - **哪一条规则让这件事下次不会发生**，给出 `path:line` 与这一轮的读数；改不动就说卡在哪一行。
+
+## 禁止记账（记录违约这个动作本身就是违约）
+
+- 不写 `agent-ide violations --log …`，不建账、不追加 `events.jsonl`、不引用“上次那条账”。
+- 理由：账本是借口的制造机——记一笔，就有“当时没记过所以这次算新的”这种退路；而人不会因为翻自己的旧账才羞耻，是因为当下这件事做错了。
+- 判据：回复里出现 `violations --log` 或“上次记录在 …”即 `unmet`，且该次整改作废，只许重做被点名的改动。
