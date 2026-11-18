@@ -1,1 +1,1 @@
-【arxiv】先读 .agent-ide/skills/arxiv/SKILL.md（71 行）：>-
+【hook】先读 .agent-ide/skills/hook/SKILL.md（112 行）：Register a condition → context rule inside the IDE.

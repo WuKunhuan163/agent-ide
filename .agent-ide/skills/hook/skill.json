@@ -11,8 +11,6 @@
  },
  "files": [
   "SKILL.md",
-  "data/plan-auto/hook.json",
-  "data/plan-next/hook.json",
   "data/plan/hook.json",
   "data/tools/hook.json",
   "data/tools/inject.md",

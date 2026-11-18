@@ -279,6 +279,16 @@ def cmd_init(d, args: list) -> int:
     if hashlib.sha256(prompt.encode("utf-8")).hexdigest() != rec.get("sha256"):
         print("blocked   capture 与来源记录对不上（被改过）：拒绝建实例")
         return 1
+    # 建新的之前，把其它“只建了根、从未拆解”的空壳清掉：空壳不是工作记录
+    try:
+        for other in root(data).glob("*/tree.json"):
+            ot = json.loads(other.read_text(encoding="utf-8"))
+            obare = bool([x for x in ot["nodes"] if x.get("root") and not children(ot, x["id"])])
+            if ot.get("state") in ("build", "solve") and len(ot.get("nodes", [])) == 1 and obare:
+                import shutil
+                shutil.rmtree(other.parent, ignore_errors=True)
+    except Exception:
+        pass
     name = "%s-%s-%s" % (proj_name(data), time.strftime("%Y%m%d-%H%M%S"), slug(summary or "task"))
     d = root(data) / name
     d.mkdir(parents=True, exist_ok=True)
@@ -736,6 +746,24 @@ COMMANDS = {"init": cmd_init, "add": cmd_add, "tree": cmd_tree, "ready": cmd_rea
             "status": cmd_status, "prompt": cmd_prompt, "close": cmd_close}
 
 
+def sweep_bare(data: Path, keep: Path | None = None) -> int:
+    """Delete instances that are nothing but an undecomposed root: they are not work."""
+    n = 0
+    try:
+        for other in root(data).glob("*/tree.json"):
+            if keep is not None and other.parent == keep:
+                continue
+            t = json.loads(other.read_text(encoding="utf-8"))
+            bare = bool([x for x in t["nodes"] if x.get("root") and not children(t, x["id"])])
+            if len(t.get("nodes", [])) == 1 and bare:
+                import shutil
+                shutil.rmtree(other.parent, ignore_errors=True)
+                n += 1
+    except Exception:
+        pass
+    return n
+
+
 def auto_start(data: Path, prompt: str, matched: str = "") -> str:
     """Called by the hook on every prompt, after the prompt has been stored.
 
@@ -751,6 +779,10 @@ def auto_start(data: Path, prompt: str, matched: str = "") -> str:
         bare = bool([x for x in t["nodes"] if x.get("root") and not children(t, x["id"])])
         if (t["state"] != "done" and t.get("prompt", "").strip() != prompt.strip()
                 and (first_open(t) is None or bare)):
+            # 上一棵若是“只建了根、从未拆解”的空壳，直接收掉：留着只会越积越多
+            if bare:
+                import shutil
+                shutil.rmtree(d, ignore_errors=True)
             d = None
         if d is not None and t["state"] != "done":
             if t["state"] == "drift":
@@ -781,6 +813,7 @@ def auto_start(data: Path, prompt: str, matched: str = "") -> str:
                        n["id"], n["title"], n.get("context") or "（缺，先补）",
                        n.get("criterion") or "（缺，先补）", n["id"], n["id"]))
     head = next((l.strip() for l in prompt.split("\n") if l.strip()), "原话")
+    sweep_bare(data)
     name = "%s-%s-%s" % (proj_name(data), time.strftime("%Y%m%d-%H%M%S"), slug(head))
     d = root(data) / name
     d.mkdir(parents=True, exist_ok=True)
