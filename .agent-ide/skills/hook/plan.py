@@ -443,6 +443,9 @@ def cmd_ack(d, args: list) -> int:
         print("blocked   没有复查句：`ack %s --recheck \"<复查了哪一处、看到什么>\"`；"
               "系统不替你评估，但要你报出复查依据" % n["id"])
         return 1
+    if n["state"] != "done":
+        print("blocked   %s 当前 %s：只有 done 过的项才能 ack（start → done → ack）" % (n["id"], n["state"]))
+        return 1
     recheck = args[args.index("--recheck") + 1]
     n["state"] = "ack"
     n["acked"] = now()
@@ -532,6 +535,12 @@ def cmd_done(d: Path | None, args: list) -> int:
     note = ""
     if "--note" in args:
         note = args[args.index("--note") + 1]
+    if n["state"] == "pending":
+        print("blocked   %s 还没 start：先 `hook plan start %s`，不许跳过动作直接标完成" % (n["id"], n["id"]))
+        return 1
+    if n["state"] not in ("active",):
+        print("blocked   %s 当前 %s，不能 done" % (n["id"], n["state"]))
+        return 1
     if n.get("root") and not children(t, n["id"]):
         print("blocked   根节点还没拆：先把这条原话拆成子节点（`hook plan add --parent %s ...`），"
               "根节点要等子节点全部 ack 之后才轮到自己" % n["id"])
@@ -715,7 +724,7 @@ def cmd_close(d: Path | None, args: list) -> int:
 
 COMMANDS = {"init": cmd_init, "add": cmd_add, "tree": cmd_tree, "ready": cmd_ready,
             "start": cmd_start, "done": cmd_done, "ack": cmd_ack, "next": cmd_next,
-            "env": cmd_env, "review": cmd_review, "judge": cmd_judge,
+            "env": cmd_env, "judge": cmd_judge,
             "drift": cmd_drift, "help": cmd_inject,
             "replan": cmd_replan, "resume": cmd_resume, "drop": cmd_drop, "move": cmd_move,
             "status": cmd_status, "prompt": cmd_prompt, "close": cmd_close}
