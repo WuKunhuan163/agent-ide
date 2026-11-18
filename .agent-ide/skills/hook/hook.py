@@ -132,7 +132,10 @@ def save_rule(h: dict):
     tmp = rp.with_suffix(".tmp")
     tmp.write_text(json.dumps(w, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     os.replace(tmp, rp)
-    ip.write_text(h.get("inject", ""), encoding="utf-8")
+    if h.get("trigger") != "fn":
+        # a fn rule's text is produced at call time; writing it back would freeze one
+        # run's output into the package as if it were the rule's value
+        ip.write_text(h.get("inject", ""), encoding="utf-8")
 
 
 def drop_rule(hid):
@@ -476,7 +479,7 @@ def cmd_list(a):
                 else "fn=%s" % h.get("fn", "tools") if h["trigger"] == "fn"
                 else "key=%s thr=%.2f" % (h.get("key"), h.get("threshold", 0)))
         print(pad(h["id"],18)+pad({"keyword":"kw","sim":"sim","fn":"fn"}[h["trigger"]],6)+pad(cond[:34],36)
-              +pad(len(h.get("inject","").encode()),7)+pad(h.get("fired",0),7)+("+" if h["enabled"] else "-"))
+              +pad(len(h.get("inject","").encode()),7)+pad(h.get("fired",0),7)+("+" if h.get("enabled", True) else "-"))
     return 0
 
 

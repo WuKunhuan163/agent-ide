@@ -15,7 +15,6 @@
   "data/plan/plan.py",
   "data/plan/tree.py",
   "data/tools/hook.json",
-  "data/tools/inject.md",
   "data/tools/tools.py",
   "hook.py",
   "scripts/hook-launcher.sh"
