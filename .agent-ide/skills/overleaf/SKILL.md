@@ -81,6 +81,22 @@ The syntax is a stdlib-only JSONPath subset: `$`, `.name`, `['name']`, `[i]` (ne
 
 **Before adding a block type, look for the one that already exists.** The catalog is in `src/template/instances/<id>/docs/blocks.md`, the contract in `docs/blocks.md`; a near-duplicate type splits the same content across two plugins, and the next session renders half a section with the other half invisible.
 
+## Citation keys: one shape, and it is not a suggestion
+
+A key is the address of a paper in three places at once — the shelf directory, the `references.bib` entry, and every `\cite` in the prose. When the three disagree the draft compiles and the reference silently points at the wrong paper, so the shape below is enforced rather than recommended.
+
+**`<first-author surname>_<one to three words that best stand for the paper>_<year>`** — lower-case ASCII, underscore-separated, four-digit year, forty characters at most.
+
+```
+kerbl_3d_gaussian_2023      barron_mipnerf_2022      zhang_perceptual_2018
+wang_garment_texture_2024   chen_uv_atlas_2025
+```
+
+- The middle segment carries the meaning: pick the words a reader would search for, not the whole title.
+- A collision is resolved **only in the middle segment** — add a distinguishing word or drop one (`wang_garment_texture_2024` vs `wang_garment_geometry_2024`). Never touch the surname or the year, and never append an ordinal (`_2`, `_b`): an ordinal says nothing about the paper and is what a later reader will trip over.
+- No findable year: keep the old name and record it as undecided rather than inventing a year.
+- `references.bib` uses the identical string. Renaming is one action across three places — `keys_map.tsv`, `git mv` the directory, rewrite the bib key, rewrite the prose citation — and the round ends when the two-way difference between shelf and bib is empty.
+
 ## Rules that will bite
 
 1. **`content` is validated against the template manifest.** A missing required field or an unrecognised field is `CONTENT_INVALID`, both when you write a block (`edit add`, `edit set` on a `content` field) and when `build` renders it. Run `show-block` on a sibling of the type you want if you are unsure of the field names — never invent one.
