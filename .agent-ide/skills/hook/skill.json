@@ -11,6 +11,12 @@
  },
  "files": [
   "SKILL.md",
+  "data/plan-auto/hook.json",
+  "data/plan-next/hook.json",
+  "data/plan/hook.json",
+  "data/plan/plan.py",
+  "data/tools/hook.json",
+  "data/tools/tools.py",
   "hook.py",
   "scripts/hook-launcher.sh"
  ],

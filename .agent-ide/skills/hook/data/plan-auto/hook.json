@@ -1,0 +1,12 @@
+{
+ "id": "plan-auto",
+ "ide": "codebuddy",
+ "trigger": "fn",
+ "enabled": true,
+ "created": "2026-11-18T12:04:29",
+ "fired": 0,
+ "entry": "../plan/plan.py",
+ "capture": true,
+ "fn": "always",
+ "auto_instance": true
+}

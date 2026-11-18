@@ -1,0 +1,20 @@
+{
+ "id": "plan",
+ "ide": "codebuddy",
+ "trigger": "keyword",
+ "enabled": true,
+ "created": "2026-11-18T11:48:22",
+ "fired": 5,
+ "entry": "plan.py",
+ "capture": true,
+ "keywords": [
+  "计划",
+  "规划",
+  "行动计划"
+ ],
+ "match": "any",
+ "last": "2026-11-18T12:14:15",
+ "capture_only": true,
+ "inject": "",
+ "interface": "class Rule(data).auto_start(prompt, matched) / next_text() / dispatch(argv)"
+}

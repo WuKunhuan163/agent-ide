@@ -1,0 +1,12 @@
+{
+ "id": "tools",
+ "ide": "codebuddy",
+ "trigger": "fn",
+ "enabled": true,
+ "created": "2026-11-18T08:48:05",
+ "fired": 97,
+ "last": "2026-11-18T12:54:48",
+ "fn": "tools",
+ "entry": "tools.py",
+ "interface": "class Rule(data).inject(prompt) -> str"
+}
