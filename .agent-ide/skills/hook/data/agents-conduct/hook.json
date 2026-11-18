@@ -1,16 +1,12 @@
 {
  "id": "agents-conduct",
  "ide": "codebuddy",
- "trigger": "keyword",
+ "trigger": "fn",
  "enabled": true,
  "created": "2026-11-18T09:36:01",
- "fired": 13,
- "keywords": [
-  "AGENT基本守则",
-  "行为准则",
-  "越界即停",
-  "只做要求做的"
- ],
- "match": "any",
- "last": "2026-11-18T13:33:21"
+ "fired": 20,
+ "last": "2026-11-18T13:35:21",
+ "fn": "conduct",
+ "entry": "conduct.py",
+ "interface": "class Rule(data).match(prompt)->True / inject(prompt)->the conduct text"
 }

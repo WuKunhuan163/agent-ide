@@ -3,6 +3,7 @@
   "SKILL.md",
   "data/agent-profanity/hook.json",
   "data/agent-profanity/inject.md",
+  "data/agents-conduct/conduct.py",
   "data/agents-conduct/hook.json",
   "data/agents-conduct/inject.md",
   "data/agents-context/hook.json",
