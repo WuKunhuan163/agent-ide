@@ -85,6 +85,8 @@ def first_open(t: dict) -> dict | None:
             continue
         if has_open_descendant(t, n):
             continue
+        if n.get("root") and not children(t, n["id"]):
+            continue          # 根还没拆：下一步是拆，不是 start
         return n
     return None
 
@@ -573,12 +575,26 @@ def auto_start(data: Path, prompt: str) -> str:
         if t["state"] != "done":
             n = first_open(t)
             if not n:
-                return ("【plan｜%s 已分配给这条原话】state %s\n下一项：无（缺前置），`hook plan status` 看谁在等谁。"
-                        % (t["instance"], t["state"]))
-            return ("【plan｜%s 已分配给这条原话】state %s\n接下来这一项：%s  %s\ndone when %s\n"
-                    "→ 语境够就 `hook plan start %s`；结果变了就 `hook plan replan --reason \"...\"`"
-                    % (t["instance"], t["state"], n["id"], n["title"],
-                       n.get("criterion") or "（缺）", n["id"]))
+                bare = [x["id"] for x in t["nodes"] if x.get("root") and not children(t, x["id"])]
+                if bare:
+                    return ("【plan｜%s】根节点 %s 还没拆子节点——本轮先拆，不许作答：\n"
+                            "  `hook plan add --parent %s --title \"...\" --criterion \"...\" --context \"...\"` × 2–4 条，"
+                            "然后 `hook plan ready`。" % (t["instance"], ",".join(bare), bare[0]))
+                return ("【plan｜%s】state %s；下一项：无（缺前置）。先 `hook plan status` 看谁在等谁，"
+                        "再 `replan` 或补 --after。" % (t["instance"], t["state"]))
+            c = counts(t)
+            return ("【plan｜%s】state %s  pending %d active %d ack %d\n"
+                    "本轮照这个顺序跑，不许先作答：\n"
+                    "  1. `hook plan start %s`\n"
+                    "  2. 做：%s\n"
+                    "     context %s\n"
+                    "     判据   %s\n"
+                    "  3. `hook plan done %s --note \"<一条命令或一处路径>\"`\n"
+                    "  4. `hook plan ack %s`（之后重放原话，再放下一项）\n"
+                    "自检：note 里没有可指的读数，本轮按空转计。"
+                    % (t["instance"], t["state"], c["pending"], c["active"], c["ack"],
+                       n["id"], n["title"], n.get("context") or "（缺，先补）",
+                       n.get("criterion") or "（缺，先补）", n["id"], n["id"]))
     head = next((l.strip() for l in prompt.split("\n") if l.strip()), "原话")
     name = "%s-%s-%s" % (proj_name(data), time.strftime("%Y%m%d-%H%M%S"), slug(head))
     d = root(data) / name
@@ -594,12 +610,14 @@ def auto_start(data: Path, prompt: str) -> str:
                     "state": "pending", "note": "", "added": now(), "root": True}],
          "rounds": [{"n": 1, "opened": now()}], "closed": None}
     save(d, t)
-    return ("【plan｜新实例 %s】这条原话已存成根节点 n1。**本轮不许直接作答**：\n"
-            "1. 先探环境（只读与它相关的那几处），把具名依据写进 --context；\n"
-            "2. `hook plan add --parent n1 --title \"...\" --criterion \"...\" --context \"...\" [--after n2]`，"
-            "先易后难、能拆就递归拆；\n"
-            "3. `hook plan ready` 之后按 DFS 逐项 start → done → ack；根节点 n1 只有在子节点全部 ack 后才能 done，"
-            "`close` 会拒绝没有子节点的根。" % name)
+    return ("【plan｜新实例 %s】根节点 n1 = 这条原话。**本轮先建子树，再谈回答。**\n"
+            "本轮唯一的合法顺序（照抄，不许自创）：\n"
+            "  a. 探环境：只读与这条原话相关的那几处，把具名依据记下来（`ls`/`sed -n`/`grep -n`）。\n"
+            "  b. `hook plan add --parent n1 --title \"...\" --criterion \"...\" --context \"...\"` × 2–4 条，"
+            "先易后难；能拆的再挂 --parent 往下拆。\n"
+            "  c. `hook plan ready` → 对 DFS 放出的每一项 `start` → 真做 → `done --note \"<命令或路径>\"` → `ack`。\n"
+            "  d. 子节点全部 ack 后，才 `hook plan done n1` → `ack n1` → `close`。\n"
+            "自检：本轮回复里没有新的 path:line 改动或命令输出，就是空转；`close` 会拒绝没有子节点的根。" % name)
 
 
 def next_text(data: Path) -> str:
