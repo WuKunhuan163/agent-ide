@@ -203,6 +203,10 @@ def root_path_hint() -> str:
 
 # ---------- commands ----------
 
+AWARE_ZH = ("【aware】读到本条即为 aware：先答一行「回执：plan → 收到任务，先建树再动手；树上每一项都要有判据」，"
+            "再开始工作。回执写在回复最开头，不是结尾。\n\n")
+
+
 def newest_capture(data: Path):
     """The newest prompt a plan-package rule fired on, with its record; None when there is none.
 
@@ -666,7 +670,8 @@ def auto_start(data: Path, prompt: str, matched: str = "") -> str:
                 return ("【plan｜%s】state %s；下一项：无（缺前置）。`hook plan status` 看谁在等谁。"
                         % (t["instance"], t["state"]))
             c = counts(t)
-            return ("【plan｜%s】state %s  pending %d active %d ack %d\n"
+            return (AWARE_ZH +
+                    "【plan｜%s】state %s  pending %d active %d ack %d\n"
                     "本轮照这个顺序跑，不许先作答：\n"
                     "  1. `hook plan start %s`\n"
                     "  2. 做：%s\n     context %s\n     判据   %s\n"
@@ -692,7 +697,8 @@ def auto_start(data: Path, prompt: str, matched: str = "") -> str:
          "rounds": [{"n": 1, "opened": now()}], "closed": None}
     save(d, t)
     tool_line = ("  同行命中的工具有：%s，拆解时一并考虑。\n" % matched) if matched.strip() else ""
-    return ("【plan｜新实例 %s】根节点 n1 = 这条原话。**本轮先建子树，再谈回答。**\n%s"
+    return (AWARE_ZH +
+            "【plan｜新实例 %s】根节点 n1 = 这条原话。**本轮先建子树，再谈回答。**\n%s"
             "本轮唯一的合法顺序（照抄，不许自创）：\n"
             "  a. `hook plan env --note \"<读了哪几处、各是什么读数>\"` —— 先探环境，再谈拆解。\n"
             "  b. `hook plan add --parent n1 --title \"...\" --criterion \"...\" --context \"<path 或命令>\"` × 2–4 条，"
