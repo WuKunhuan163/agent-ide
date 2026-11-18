@@ -318,6 +318,40 @@ def cmd_tree(d: Path | None, args: list) -> int:
     return 0
 
 
+def named_context(ctx: str) -> bool:
+    """A context line counts only if it points at something: a path, a command, a file."""
+    if not ctx or not ctx.strip():
+        return False
+    return bool(re.search(r"[\w./-]+\.(md|py|json|tsv|csv|tex|db|log)|\b(grep|sed|ls|cat|python3?|git|wc)\b", ctx))
+
+
+def order_ok(t: dict) -> list:
+    """先易后难: an `after` may only point at an earlier item."""
+    bad = []
+    index = {n["id"]: i for i, n in enumerate(t["nodes"])}
+    for n in t["nodes"]:
+        for a in n.get("after", []):
+            if a in index and index[a] > index[n["id"]]:
+                bad.append("%s after %s" % (n["id"], a))
+    return bad
+
+
+def cmd_env(d, args: list) -> int:
+    """构建阶段第一步：把探到的环境语境记下来，ready 会检查它非空。"""
+    if need(d, "env"):
+        return 3
+    t = load(d)
+    note = args[args.index("--note") + 1] if "--note" in args else ""
+    if not note.strip():
+        print("plan: env needs --note \"<读了哪几处、各是什么读数>\"")
+        return 2
+    t["env"] = note
+    t.setdefault("env_log", []).append({"at": now(), "note": note})
+    save(d, t)
+    print("env       %s" % note[:120])
+    return 0
+
+
 def cmd_ready(d, args: list) -> int:
     if need(d, "ready"):
         return 3
@@ -326,13 +360,30 @@ def cmd_ready(d, args: list) -> int:
     if len(t["nodes"]) == 1 and roots:
         print("blocked   树只有一个根节点：先把这条原话拆成子节点（--parent %s）" % roots[0]["id"])
         return 1
+    if len(roots) != 1:
+        print("blocked   顶层只许一个根，现在 %d 个" % len(roots))
+        return 1
+    if len(children(t, roots[0]["id"])) < 2:
+        print("blocked   根节点下只有 1 项：能拆成子任务的必须递归拆，至少两项")
+        return 1
+    if not t.get("env"):
+        print("blocked   还没记环境语境：先 `hook plan env --note \"<读了哪几处、读数是什么>\"`")
+        return 1
     bad = [n for n in t["nodes"] if not n.get("root") and n["state"] == "pending"
-           and (not n.get("context") or not n.get("criterion"))]
+           and (not named_context(n.get("context") or "") or not (n.get("criterion") or "").strip())]
     if bad:
-        print("blocked   %d 个节点语境或判据没写全，补完再执行：" % len(bad))
+        print("blocked   %d 个节点的语境不是具名依据或缺判据：" % len(bad))
         for n in bad:
-            miss = [k for k in ("context", "criterion") if not n.get(k)]
-            print("  %-4s %-28s 缺 %s" % (n["id"], n["title"][:28], "/".join(miss)))
+            miss = []
+            if not named_context(n.get("context") or ""):
+                miss.append("context 里没有路径或命令")
+            if not (n.get("criterion") or "").strip():
+                miss.append("缺 criterion")
+            print("  %-4s %-30s %s" % (n["id"], n["title"][:30], "；".join(miss)))
+        return 1
+    wrong = order_ok(t)
+    if wrong:
+        print("blocked   先易后难不成立（依赖指到了后面的项）：%s" % ", ".join(wrong))
         return 1
     t["state"] = "solve"
     save(d, t)
@@ -398,7 +449,7 @@ def cmd_done(d: Path | None, args: list) -> int:
     return 0
 
 
-def cmd_ack(d: Path | None, args: list) -> int:
+def cmd_ack(d, args: list) -> int:
     if need(d, "ack"):
         return 3
     if not args:
@@ -411,6 +462,8 @@ def cmd_ack(d: Path | None, args: list) -> int:
         return 3
     n["state"] = "ack"
     n["acked"] = now()
+    if t["state"] != "done":
+        t["state"] = "review"        # 完成一项后先进再规划：看清单是否还成立，再继续
     save(d, t)
     prompt = (t.get("prompt") or "").strip()
     print("v %s\n" % n["id"])
@@ -418,18 +471,40 @@ def cmd_ack(d: Path | None, args: list) -> int:
     print("-" * 60)
     print(prompt or "（没有存到 prompt）")
     print("-" * 60)
-    print("\n【对树】基于现在的视野看这棵树有没有走偏：")
-    print("  - 已完成的路径是否还指向 prompt 要的东西；")
-    print("  - 剩下的节点是否还有人负责，谁先谁后是否仍然成立；")
-    print("  - 语境是否掉了：掉了就用 `--context` 给自己补，不要凭记忆往下走。")
-    print("  - 走偏或需要改：`hook plan replan --reason \"...\"`；没走偏：`hook plan next`。")
-    return 0
+    print("\n【再规划审视】这一步做完，清单还成立吗：")
+    print("  1. 已完成的这一项，是否改变了后面某项的前提（依赖、数量级、可用材料）？")
+    print("  2. 剩下的项里，有没有已经不必做、或必须拆小的？")
+    print("  3. 语境是否掉了：掉了就 `--context` 补，不许凭记忆往下走。")
+    print("  - 要改：`hook plan replan --reason \"...\"`；不改：`hook plan review --ok` 再 `next`。")
 
+
+def cmd_review(d, args: list) -> int:
+    if need(d, "review"):
+        return 3
+    t = load(d)
+    if t["state"] != "review":
+        print("plan: review only after ack (state is %s)" % t["state"])
+        return 3
+    ok = "--ok" in args
+    note = args[args.index("--note") + 1] if "--note" in args else ""
+    if not ok:
+        print("blocked   再规划没确认：`hook plan review --ok [--note \"...\"]`，或 `replan --reason \"...\"`")
+        return 1
+    t["state"] = "solve"
+    t.setdefault("reviews", []).append({"at": now(), "note": note})
+    save(d, t)
+    print("state     solve%s\n" % ("  (" + note + ")" if note else ""))
+    print(next_block(t, d))
+    return 0
 
 def cmd_next(d: Path | None, args: list) -> int:
     if need(d, "next"):
         return 3
     t = load(d)
+    if t["state"] == "review":
+        print("blocked   上一项刚 ack：先 `hook plan review --ok` 或 `hook plan replan --reason \"...\"`，"
+              "不许直接要下一项")
+        return 1
     if t["state"] == "build":
         print("state     build：先把树长完，再 `hook plan ready`")
         print(render(t, d, brief=True))
@@ -559,38 +634,44 @@ def cmd_close(d: Path | None, args: list) -> int:
 
 COMMANDS = {"init": cmd_init, "add": cmd_add, "tree": cmd_tree, "ready": cmd_ready,
             "start": cmd_start, "done": cmd_done, "ack": cmd_ack, "next": cmd_next,
+            "env": cmd_env, "review": cmd_review,
             "replan": cmd_replan, "resume": cmd_resume, "drop": cmd_drop, "move": cmd_move,
             "status": cmd_status, "prompt": cmd_prompt, "close": cmd_close}
 
 
-def auto_start(data: Path, prompt: str) -> str:
+def auto_start(data: Path, prompt: str, matched: str = "") -> str:
     """Called by the hook on every prompt, after the prompt has been stored.
 
     An open tree is continued; otherwise one is allocated now, named
-    <project>-<stamp>-<summary>, with the prompt itself as the single root node.
+    <project>-<stamp>-<summary>, with the prompt itself as the single root node and the
+    tool requirements that fired beside it recorded in `tools`.
     """
     d = instance_dir(data)
     if d is not None:
         t = load(d)
         if t["state"] != "done":
+            if t["state"] == "review":
+                return ("【plan｜%s】上一项已 ack，现在在再规划：`hook plan review --ok` 继续，"
+                        "或 `hook plan replan --reason \"...\"` 改未行动的项。" % t["instance"])
+            if t["state"] == "replan":
+                return ("【plan｜%s】state replan：只改未行动项，改完 `hook plan resume`。" % t["instance"])
             n = first_open(t)
             if not n:
                 bare = [x["id"] for x in t["nodes"] if x.get("root") and not children(t, x["id"])]
                 if bare:
                     return ("【plan｜%s】根节点 %s 还没拆子节点——本轮先拆，不许作答：\n"
                             "  `hook plan add --parent %s --title \"...\" --criterion \"...\" --context \"...\"` × 2–4 条，"
-                            "然后 `hook plan ready`。" % (t["instance"], ",".join(bare), bare[0]))
-                return ("【plan｜%s】state %s；下一项：无（缺前置）。先 `hook plan status` 看谁在等谁，"
-                        "再 `replan` 或补 --after。" % (t["instance"], t["state"]))
+                            "然后 `hook plan env --note \"...\"` → `hook plan ready`。"
+                            % (t["instance"], ",".join(bare), bare[0]))
+                return ("【plan｜%s】state %s；下一项：无（缺前置）。`hook plan status` 看谁在等谁。"
+                        % (t["instance"], t["state"]))
             c = counts(t)
             return ("【plan｜%s】state %s  pending %d active %d ack %d\n"
                     "本轮照这个顺序跑，不许先作答：\n"
                     "  1. `hook plan start %s`\n"
-                    "  2. 做：%s\n"
-                    "     context %s\n"
-                    "     判据   %s\n"
+                    "  2. 做：%s\n     context %s\n     判据   %s\n"
                     "  3. `hook plan done %s --note \"<一条命令或一处路径>\"`\n"
-                    "  4. `hook plan ack %s`（之后重放原话，再放下一项）\n"
+                    "  4. `hook plan ack %s`（随后进入再规划：`review --ok` 或 `replan`）\n"
                     "自检：note 里没有可指的读数，本轮按空转计。"
                     % (t["instance"], t["state"], c["pending"], c["active"], c["ack"],
                        n["id"], n["title"], n.get("context") or "（缺，先补）",
@@ -601,7 +682,7 @@ def auto_start(data: Path, prompt: str) -> str:
     d.mkdir(parents=True, exist_ok=True)
     import hashlib
     t = {"instance": name, "created": now(), "state": "build", "summary": head[:60],
-         "prompt": prompt,
+         "prompt": prompt, "tools": matched,
          "provenance": {"at": now(), "matched": "every prompt",
                         "sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest()},
          "nodes": [{"id": "n1", "title": head[:60], "parent": None, "after": [],
@@ -610,15 +691,15 @@ def auto_start(data: Path, prompt: str) -> str:
                     "state": "pending", "note": "", "added": now(), "root": True}],
          "rounds": [{"n": 1, "opened": now()}], "closed": None}
     save(d, t)
-    return ("【plan｜新实例 %s】根节点 n1 = 这条原话。**本轮先建子树，再谈回答。**\n"
+    tool_line = ("  同行命中的工具有：%s，拆解时一并考虑。\n" % matched) if matched.strip() else ""
+    return ("【plan｜新实例 %s】根节点 n1 = 这条原话。**本轮先建子树，再谈回答。**\n%s"
             "本轮唯一的合法顺序（照抄，不许自创）：\n"
-            "  a. 探环境：只读与这条原话相关的那几处，把具名依据记下来（`ls`/`sed -n`/`grep -n`）。\n"
-            "  b. `hook plan add --parent n1 --title \"...\" --criterion \"...\" --context \"...\"` × 2–4 条，"
+            "  a. `hook plan env --note \"<读了哪几处、各是什么读数>\"` —— 先探环境，再谈拆解。\n"
+            "  b. `hook plan add --parent n1 --title \"...\" --criterion \"...\" --context \"<path 或命令>\"` × 2–4 条，"
             "先易后难；能拆的再挂 --parent 往下拆。\n"
             "  c. `hook plan ready` → 对 DFS 放出的每一项 `start` → 真做 → `done --note \"<命令或路径>\"` → `ack`。\n"
-            "  d. 子节点全部 ack 后，才 `hook plan done n1` → `ack n1` → `close`。\n"
-            "自检：本轮回复里没有新的 path:line 改动或命令输出，就是空转；`close` 会拒绝没有子节点的根。" % name)
-
+            "  d. 每次 `ack` 后进入再规划：`review --ok` 或 `replan`；子节点全部 ack 后才 `done n1` → `ack n1` → `close`。\n"
+            "自检：本轮回复里没有新的 path:line 改动或命令输出，就是空转；`close` 会拒绝没有子节点的根。" % (name, tool_line))
 
 def next_text(data: Path) -> str:
     """What the open tree wants next, for the hook to inject on any prompt."""
@@ -645,8 +726,8 @@ def main(argv: list, data: Path) -> int:
     globals()["HOOK_DATA"] = data
     if not argv or argv[0] in ("-h", "--help"):
         print("plan: " + " / ".join(COMMANDS))
-        print("  phase build:  init → add (many) → ready")
-        print("  phase solve:  start → done → ack → (next | replan → (add|drop|move) → resume)")
+        print("  phase build:  env → add (many) → ready")
+        print("  phase solve:  start → done → ack → (review --ok → next | replan → (add|drop|move) → resume)")
         print("  finish:       close when nothing is open")
         return 0
     cmd = argv[0]

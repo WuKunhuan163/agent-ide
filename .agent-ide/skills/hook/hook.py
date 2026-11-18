@@ -291,13 +291,13 @@ def load_pkg(hid: str):
     return mod
 
 
-def auto_instance_text(hid: str, prompt: str) -> str:
+def auto_instance_text(hid: str, prompt: str, matched: str = "") -> str:
     """Store happens already; here the rule's package allocates or resumes the tree."""
     mod = load_pkg(hid)
     if mod is None or not hasattr(mod, "auto_start"):
         return ""
     try:
-        return mod.auto_start(DATA, prompt) or ""
+        return mod.auto_start(DATA, prompt, matched) or ""
     except Exception as exc:
         log("auto_instance error\t%s" % exc)
         return ""
@@ -572,7 +572,8 @@ def run_prompt():
             if h.get("capture"):
                 capture_prompt(h["id"], prompt, why)
             if h.get("auto_instance"):
-                text = auto_instance_text(h["id"], prompt)
+                text = auto_instance_text(h["id"], prompt,
+                                          ", ".join(x["id"] for x, _, _ in hits))
                 if text:
                     blocks.append(cmd_block(h["id"], "instance " + h.get("instance_name", ""), text))
                 continue
