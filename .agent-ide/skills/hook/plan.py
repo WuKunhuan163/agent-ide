@@ -133,18 +133,23 @@ def render(t: dict, d: Path, brief: bool = False) -> str:
     return "\n".join(lines)
 
 def next_block(t: dict, d: Path) -> str:
-    if t["state"] == "replan":
-        return replan_block(t, d, "")
+    c = counts(t)
+    head = "plan=%s state=%s p=%d a=%d k=%d" % (
+        t["instance"], t["state"], c["pending"], c["active"], c["ack"])
+    if t["state"] == "drift":
+        return head + "\nfix: hook plan drift --ok \"<tree ok?>\" | hook plan replan --reason \"...\""
+    if t["state"] == "rbuild":
+        return head + "\nfix: edit un-acted items, then hook plan resume"
     n = first_open(t)
     if not n:
-        return close_block(t, d)
-    return ("next      %s  %s\n"
-            "context   %s\n"
-            "done when %s\n\n%s"
-            % (n["id"], n["title"], n.get("context") or "（未写，先补：读哪几处具名依据）",
-               n.get("criterion") or "（未写，先补）",
-               "→ 语境够就走 `hook plan start %s`；不够就先把语境补全，补完再用 `add --context` 或直接改这份树的这一项。" % n["id"]))
-
+        return head + "\nnext: none (deps)"
+    after = [x for x in children(t, n.get("parent")) if x["id"] != n["id"] and x["state"] in OPEN]
+    lines = [head, "now  %s  %s" % (n["id"], n["title"])]
+    if after:
+        lines.append("next %s  %s" % (after[0]["id"], after[0]["title"]))
+    lines.append("when %s" % (n.get("criterion") or "-"))
+    lines.append("do   hook plan start %s" % n["id"])
+    return "\n".join(lines)
 
 def close_block(t: dict, d: Path) -> str:
     bare = [n["id"] for n in t["nodes"] if n.get("root") and not children(t, n["id"])]
@@ -191,6 +196,19 @@ def need(d: Path | None, command: str) -> int:
         print("plan: instance is done; `hook plan init` starts a new one")
         return 3
     return 0
+
+
+def log_op(data: Path, op: str, argv: list, rc: int) -> None:
+    """Every call lands in <project>/tmp/plan-hook.json as one more line of {"ops": [...]}."""
+    try:
+        proj = data.parents[3]
+        f = proj / "tmp" / "plan-hook.json"
+        f.parent.mkdir(parents=True, exist_ok=True)
+        box = json.loads(f.read_text(encoding="utf-8")) if f.exists() else {"ops": []}
+        box.setdefault("ops", []).append({"at": now(), "op": op, "args": " ".join(argv), "rc": rc})
+        f.write_text(json.dumps(box, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    except Exception:
+        pass          # logging must never break the command
 
 
 def proj_name(data: Path) -> str:
@@ -513,8 +531,11 @@ def cmd_start(d: Path | None, args: list) -> int:
     n["state"] = "active"
     n["started"] = now()
     save(d, t)
-    print("state     %s active\ncriterion %s\n\n→ 做这一项；做完 `hook plan done %s --note \"<一句话>\"`"
-          % (n["id"], n.get("criterion") or "-", n["id"]))
+    after = [x for x in children(t, n.get("parent")) if x["id"] != n["id"] and x["state"] in OPEN]
+    tail = ("（下一项是 %s %s）" % (after[0]["id"], after[0]["title"])) if after else ""
+    print("当前任务是 %s %s%s" % (n["id"], n["title"], tail))
+    print("when %s" % (n.get("criterion") or "-"))
+    print("do   hook plan done %s --note \"<一句话>\"" % n["id"])
     return 0
 
 
@@ -574,8 +595,9 @@ def cmd_next(d: Path | None, args: list) -> int:
         print("blocked   上一项刚 ack：先 `hook plan drift --ok \"<树偏没偏>\"`（或 replan），不许直接要下一项")
         return 1
     if t["state"] == "build":
-        print("state     build：先把树长完，再 `hook plan ready`")
-        print(render(t, d, brief=True))
+        c = counts(t)
+        print("plan=%s state=build p=%d a=%d k=%d" % (t["instance"], c["pending"], c["active"], c["ack"]))
+        print("do   hook plan add --parent n1 ... ; hook plan ready")
         return 1
     save(d, t)
     print(next_block(t, d))
@@ -811,11 +833,17 @@ def main(argv: list, data: Path) -> int:
         print("  finish:       close when nothing is open")
         return 0
     cmd = argv[0]
+    rc = _dispatch(cmd, argv[1:], data)
+    log_op(data, cmd, argv[1:], rc)
+    return rc
+
+
+def _dispatch(cmd: str, rest: list, data: Path) -> int:
     if cmd not in COMMANDS:
         print("plan: unknown command %r; one of %s" % (cmd, ", ".join(COMMANDS)))
         return 2
     d = instance_dir(data)
-    return COMMANDS[cmd](d, argv[1:])
+    return COMMANDS[cmd](d, rest)
 
 
 if __name__ == "__main__":
