@@ -4,8 +4,8 @@
  "trigger": "fn",
  "enabled": true,
  "created": "2026-11-18T09:36:01",
- "fired": 30,
- "last": "2026-11-18T13:40:41",
+ "fired": 32,
+ "last": "2026-11-18T13:41:20",
  "fn": "conduct",
  "entry": "conduct.py",
  "interface": "class Rule(data).match(prompt)->True / inject(prompt)->the conduct text"
