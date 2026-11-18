@@ -322,7 +322,6 @@ def evaluate(prompt: str, rules: list, verbose=False):
             continue
         if h["trigger"] == "keyword":
             found = [k for k in h.get("keywords", []) if k in prompt]
-            found = [k for k in h.get("keywords", []) if k in prompt]
             ok = bool(found) if h.get("match", "any") == "any" else len(found) == len(h.get("keywords", []))
             if ok:
                 hits.append((h, 1.0, "matched %s" % ",".join(found)))
@@ -429,7 +428,7 @@ def cmd_add(a):
         if not words:
             print("hook: --keywords required", file=sys.stderr)
             return 2
-        h["keywords"] = words
+        h["keywords"], h["match"] = words, a.match
     else:
         if not a.key:
             print("hook: --key required", file=sys.stderr)
