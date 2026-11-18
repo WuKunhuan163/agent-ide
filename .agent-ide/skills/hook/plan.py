@@ -718,7 +718,12 @@ def auto_start(data: Path, prompt: str, matched: str = "") -> str:
     d = instance_dir(data)
     if d is not None:
         t = load(d)
-        if t["state"] != "done":
+        # 开着的树若不是这条原话、且已经没有可放的下一项，就为这条原话另建一棵：
+        # 注入“下一项：无”等于什么指令都没给，行为就退回自由发挥。
+        if (t["state"] != "done" and t.get("prompt", "").strip() != prompt.strip()
+                and first_open(t) is None):
+            d = None
+        if d is not None and t["state"] != "done":
             if t["state"] == "drift":
                 return ("【plan｜%s】上一项已 ack：先 `hook plan drift --ok \"<树偏没偏>\"` 再走下一项，"
                         "或 `replan --reason \"...\"` 改未行动的项。" % t["instance"])
