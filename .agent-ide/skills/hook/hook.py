@@ -252,13 +252,24 @@ def load_pkg(hid: str):
     return mod
 
 
+def instantiate(hid: str):
+    """The package interface: `class Rule` built with the data root; None if absent."""
+    mod = load_pkg(hid)
+    if mod is None:
+        return None
+    cls = getattr(mod, "Rule", None)
+    if cls is None:
+        return None
+    return cls(DATA)
+
+
 def auto_instance_text(hid: str, prompt: str, matched: str = "") -> str:
     """Store happens already; here the rule's package allocates or resumes the tree."""
-    mod = load_pkg(hid)
-    if mod is None or not hasattr(mod, "auto_start"):
+    rule = instantiate(hid)
+    if rule is None or not hasattr(rule, "auto_start"):
         return ""
     try:
-        return mod.auto_start(DATA, prompt, matched) or ""
+        return rule.auto_start(prompt, matched) or ""
     except Exception as exc:
         log("auto_instance error\t%s" % exc)
         return ""
@@ -266,6 +277,13 @@ def auto_instance_text(hid: str, prompt: str, matched: str = "") -> str:
 
 def plan_state_text(hid: str) -> str:
     """Ask the rule's package what the open tree wants next; empty when nothing is open."""
+    rule = instantiate(hid)
+    if rule is not None and hasattr(rule, "next_text"):
+        try:
+            return rule.next_text() or ""
+        except Exception as exc:
+            log("plan_state error\t%s" % exc)
+            return ""
     h = find(hid)
     if not h or not h.get("entry"):
         return ""
@@ -299,18 +317,18 @@ def evaluate(prompt: str, rules: list, verbose=False):
                 hits.append((dict(h, inject=text), 1.0, "open tree"))
             continue
         if h["trigger"] == "fn":
-            mod = load_pkg(h["id"])
+            rule = instantiate(h["id"])
             text = ""
-            if mod is not None and hasattr(mod, "inject"):
+            if rule is not None and hasattr(rule, "inject"):
                 try:
-                    text = mod.inject(prompt) or ""
+                    text = rule.inject(prompt) or ""
                 except Exception as exc:
                     log("fn error\t%s\t%s" % (h["id"], exc))
             if text:
                 hits.append((dict(h, inject=text), 1.0, "fn " + h.get("fn", "")))
                 continue
-            if mod is None:
-                log("fn skipped\t%s\tpackage has no code" % h["id"])
+            if rule is None:
+                log("fn skipped\t%s\tpackage has no class Rule" % h["id"])
             continue
         if h["trigger"] == "keyword":
             found = [k for k in h.get("keywords", []) if k in prompt]
@@ -576,6 +594,9 @@ def dispatch(hid: str, rest: list) -> int | None:
     mod = importlib.util.module_from_spec(spec)
     mod.__dict__["HOOK_DATA"] = DATA
     spec.loader.exec_module(mod)
+    cls = getattr(mod, "Rule", None)
+    if cls is not None and hasattr(cls(DATA), "dispatch"):
+        return cls(DATA).dispatch(rest)
     return mod.main(rest, DATA)
 
 
