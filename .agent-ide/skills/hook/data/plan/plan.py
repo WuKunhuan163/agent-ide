@@ -931,7 +931,7 @@ class Rule:
         n = tree.first_open()
         if n is None:
             if tree.bare_root():
-                return ("【plan｜%s】根节点还没拆子节点——本轮先拆，不许作答：\n"
+                return ("【plan｜%s】根节点还没拆子节点——本轮第一条命令只能是 `hook plan add`，不许作答：\n"
                         "  `hook plan add --parent n1 --title \"...\" --criterion \"...\" --context \"...\"` × 2–4 条，"
                         "然后 `hook plan env --note \"...\"` → `hook plan ready`。" % tree.instance)
             return "【plan｜%s】state %s；没有可放的下一项。" % (tree.instance, tree.state)
@@ -948,9 +948,10 @@ class Rule:
         tool_line = ("  同行命中的工具有：%s，拆解时一并考虑。\n" % matched) if matched.strip() else ""
         return (AWARE_ZH
                 + "【plan｜新实例 %s】根节点 n1 = 这条原话。\n" % name
-                + "**第一步就是建树，不是回答、不是解释、不是先看看再说**：回执之后的下一条命令必须是 "
-                  "`hook plan env`，然后是 `hook plan add`（至少两条，挂 --parent n1），再 `hook plan ready`；"
-                  "这三步没走完，本轮不许产出任何别的东西。\n"
+                + "**闸门：本条回复的第一条命令只能是 `hook plan env`。**在任何 `ls`/`cat`/读文件/写文件/改代码/"
+                  "跑测试之前，env → add（≥2 条，挂 --parent n1）→ ready 三条必须已经跑完并把输出贴出来。\n"
+                  "先做别的一律作废：不是“稍后补树”，是这一轮已经违规——停手，回车建树，再从头做任务。\n"
+                  "回执的第一行必须同时给出：`回执：plan → 树 <实例名> 已建（env/add/ready 三条已跑）`。\n"
                 + tool_line
                 + "本轮唯一的合法顺序（照抄，不许自创）：\n"
                   "  a. `hook plan env --note \"<读了哪几处、各是什么读数>\"` —— 先探环境，再谈拆解。\n"

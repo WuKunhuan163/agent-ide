@@ -4,7 +4,7 @@
  "trigger": "keyword",
  "enabled": true,
  "created": "2026-11-18T09:36:05",
- "fired": 31,
+ "fired": 34,
  "keywords": [
   "AGENT编辑文档",
   "编辑文档",
@@ -16,5 +16,5 @@
   "同轮改本体"
  ],
  "match": "any",
- "last": "2026-11-18T13:14:44"
+ "last": "2026-11-18T13:28:15"
 }
