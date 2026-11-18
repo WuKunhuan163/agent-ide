@@ -18,6 +18,22 @@ import subprocess
 import time
 from pathlib import Path
 
+import importlib.util as _ilu
+
+
+def _load_model():
+    p = Path(__file__).with_name("tree.py")
+    spec = _ilu.spec_from_file_location("plan_tree", p)
+    m = _ilu.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
+
+
+_model = _load_model()
+Store = _model.Store
+Tree = _model.Tree
+Node = _model.Node
+
 STATES = ("build", "solve", "replan", "done")
 OPEN = ("pending", "active")
 GOOD = ("done", "ack", "dropped")
@@ -239,7 +255,7 @@ def newest_capture(data: Path):
     by the IDE's own call, never by hand.
     """
     best = None
-    for txt in sorted((data / "capture").glob("plan*.txt")):
+    for txt in sorted((data / "plan" / "data" / "capture").glob("plan*.txt")):
         rec = txt.with_suffix(".json")
         if not rec.exists():
             continue
@@ -261,8 +277,8 @@ def cmd_init(d, args: list) -> int:
     summary = args[args.index("--summary") + 1] if "--summary" in args else ""
     data = Path(globals()["HOOK_DATA"])
     cap = newest_capture(data)
-    cap_txt = cap[0] if cap else data / "capture" / "plan.txt"
-    cap_rec = cap[1] if cap else data / "capture" / "plan.json"
+    cap_txt = cap[0] if cap else data / "plan" / "data" / "capture" / "plan.txt"
+    cap_rec = cap[1] if cap else data / "plan" / "data" / "capture" / "plan.json"
     live = instance_dir(data)
     if live and "--force" not in args:
         t0 = load(live)
@@ -279,6 +295,16 @@ def cmd_init(d, args: list) -> int:
     if hashlib.sha256(prompt.encode("utf-8")).hexdigest() != rec.get("sha256"):
         print("blocked   capture 与来源记录对不上（被改过）：拒绝建实例")
         return 1
+    # 建新的之前，把其它“只建了根、从未拆解”的空壳清掉：空壳不是工作记录
+    try:
+        for other in root(data).glob("*/tree.json"):
+            ot = json.loads(other.read_text(encoding="utf-8"))
+            obare = bool([x for x in ot["nodes"] if x.get("root") and not children(ot, x["id"])])
+            if ot.get("state") in ("build", "solve") and len(ot.get("nodes", [])) == 1 and obare:
+                import shutil
+                shutil.rmtree(other.parent, ignore_errors=True)
+    except Exception:
+        pass
     name = "%s-%s-%s" % (proj_name(data), time.strftime("%Y%m%d-%H%M%S"), slug(summary or "task"))
     d = root(data) / name
     d.mkdir(parents=True, exist_ok=True)
@@ -420,73 +446,27 @@ def cmd_ready(d, args: list) -> int:
     print(next_block(t, d))
     return 0
 
-def cmd_judge(d, args: list) -> int:
-    """构建之后：认定 DFS 第一项的语境够不够；不够就继续获取，不许带着模糊点开工。"""
-    if need(d, "judge"):
-        return 3
-    t = load(d)
-    nid = args[0] if args and not args[0].startswith("-") else ""
-    n = node(t, nid) if nid else first_open(t)
-    if not n:
-        print("plan: judge needs a node id (or an open item to judge)")
-        return 2
-    short = args[args.index("--short") + 1] if "--short" in args else ""
-    if short:
-        n["judged"] = "short"
-        n["judge_note"] = short
-        save(d, t)
-        print("judged    %s 语境不够：%s" % (n["id"], short))
-        print("         继续获取语境（`add --context` 或补充这一项的 --context），补完再 `judge --ok`；不许带着模糊点开工。")
-        return 0
-    if "--ok" not in args:
-        print("plan: judge <id> --ok | --short \"<缺什么>\"")
-        return 2
-    n["judged"] = "ok"
-    n["judged_at"] = now()
-    save(d, t)
-    print("judged    %s 语境够，可以执行：`hook plan start %s`" % (n["id"], n["id"]))
-    return 0
-
-
-def cmd_ack(d, args: list) -> int:
-    """系统 acknowledge：不评估，但要 agent 报一句自己复查了什么，然后重放原话。"""
+def cmd_ack(d: Path | None, args: list) -> int:
     if need(d, "ack"):
         return 3
-    if not args:
-        print("plan: ack <id> --recheck \"<我复查了哪一处、看到什么>\"")
-        return 2
     t = load(d)
-    n = node(t, args[0])
+    n = node(t, args[0]) if args else None
     if not n:
-        print("plan: no node %s" % args[0])
-        return 3
+        print("plan: ack <id> --recheck \"<复查了哪一处、看到什么>\"")
+        return 2
     if "--recheck" not in args:
-        print("blocked   没有复查句：`ack %s --recheck \"<复查了哪一处、看到什么>\"`；"
-              "系统不替你评估，但要你报出复查依据" % n["id"])
-        return 1
-    if n["state"] != "done":
-        print("blocked   %s 当前 %s：只有 done 过的项才能 ack（start → done → ack）" % (n["id"], n["state"]))
+        print("blocked   没有复查句：`ack %s --recheck \"<复查了哪一处、看到什么>\"`" % n["id"])
         return 1
     recheck = args[args.index("--recheck") + 1]
-    n["state"] = "ack"
-    n["acked"] = now()
-    n["recheck"] = recheck
-    if t["state"] != "done":
-        t["state"] = "drift"
+    try:
+        Node(n).ack(recheck)
+    except ValueError as exc:
+        print("blocked   %s" % exc)
+        return 1
+    t["state"] = "drift"
     save(d, t)
-    prompt = (t.get("prompt") or "").strip()
-    print("v %s" % n["id"])
-    print("recheck   %s\n" % recheck)
-    print("【重放 prompt】以下是这次计划最初要的东西，从头再读一遍：")
-    print("-" * 60)
-    print(prompt or "（没有存到 prompt）")
-    print("-" * 60)
-    print("\n【走偏审视】拿新的视野看这棵树：")
-    print("  1. 已完成的这一项，把后面哪一项的前提改掉了（依赖、数量级、材料）？")
-    print("  2. 剩下未行动的项里，哪些已经不必做、哪些必须拆小、哪些顺序错了？")
-    print("  3. 语境是否掉了：掉了就在这里补，不许凭记忆往下走。")
-    print("  - 都不必改：`hook plan drift --ok \"<一句话：树没偏，因为…>\"`")
-    print("  - 要改：`hook plan replan --reason \"...\"`（只动未行动项）")
+    print("ack       %s（state=drift：先 `hook plan drift --ok \"<树偏没偏>\"`）" % n["id"])
+    print("\n【重放原话】\n%s" % (t.get("prompt") or "")[:400])
     return 0
 
 
@@ -512,8 +492,7 @@ def cmd_drift(d, args: list) -> int:
 
 
 def cmd_inject(d, args: list) -> int:
-    print("plan: init / env / add / tree / judge / ready / start / done / ack / drift / "
-          "next / review / replan / resume / drop / move / status / prompt / close")
+    print("plan: " + " / ".join(sorted(COMMANDS)))
     print("  build:   env → add (many) → ready")
     print("  solve:   start → done → ack --recheck → (drift --ok → rbuild → resume | replan)")
     print("  finish:  close when nothing is open")
@@ -597,7 +576,7 @@ def cmd_next(d: Path | None, args: list) -> int:
     if t["state"] == "rbuild":
         print("blocked   state rbuild：只改未行动项，改完 `hook plan resume`")
         return 1
-    if t["state"] == "review":
+    if t["state"] == "drift":
         print("blocked   上一项刚 ack：先 `hook plan drift --ok \"<树偏没偏>\"`（或 replan），不许直接要下一项")
         return 1
     if t["state"] == "build":
@@ -736,6 +715,24 @@ COMMANDS = {"init": cmd_init, "add": cmd_add, "tree": cmd_tree, "ready": cmd_rea
             "status": cmd_status, "prompt": cmd_prompt, "close": cmd_close}
 
 
+def sweep_bare(data: Path, keep: Path | None = None) -> int:
+    """Delete instances that are nothing but an undecomposed root: they are not work."""
+    n = 0
+    try:
+        for other in root(data).glob("*/tree.json"):
+            if keep is not None and other.parent == keep:
+                continue
+            t = json.loads(other.read_text(encoding="utf-8"))
+            bare = bool([x for x in t["nodes"] if x.get("root") and not children(t, x["id"])])
+            if len(t.get("nodes", [])) == 1 and bare:
+                import shutil
+                shutil.rmtree(other.parent, ignore_errors=True)
+                n += 1
+    except Exception:
+        pass
+    return n
+
+
 def auto_start(data: Path, prompt: str, matched: str = "") -> str:
     """Called by the hook on every prompt, after the prompt has been stored.
 
@@ -751,6 +748,10 @@ def auto_start(data: Path, prompt: str, matched: str = "") -> str:
         bare = bool([x for x in t["nodes"] if x.get("root") and not children(t, x["id"])])
         if (t["state"] != "done" and t.get("prompt", "").strip() != prompt.strip()
                 and (first_open(t) is None or bare)):
+            # 上一棵若是“只建了根、从未拆解”的空壳，直接收掉：留着只会越积越多
+            if bare:
+                import shutil
+                shutil.rmtree(d, ignore_errors=True)
             d = None
         if d is not None and t["state"] != "done":
             if t["state"] == "drift":
@@ -775,12 +776,13 @@ def auto_start(data: Path, prompt: str, matched: str = "") -> str:
                     "  1. `hook plan start %s`\n"
                     "  2. 做：%s\n     context %s\n     判据   %s\n"
                     "  3. `hook plan done %s --note \"<一条命令或一处路径>\"`\n"
-                    "  4. `hook plan ack %s`（随后进入再规划：`review --ok` 或 `replan`）\n"
+                    "  4. `hook plan ack %s --recheck \"<复查了什么>\"`（随后 `drift --ok` → `resume`）\n"
                     "自检：note 里没有可指的读数，本轮按空转计。"
                     % (t["instance"], t["state"], c["pending"], c["active"], c["ack"],
                        n["id"], n["title"], n.get("context") or "（缺，先补）",
                        n.get("criterion") or "（缺，先补）", n["id"], n["id"]))
     head = next((l.strip() for l in prompt.split("\n") if l.strip()), "原话")
+    sweep_bare(data)
     name = "%s-%s-%s" % (proj_name(data), time.strftime("%Y%m%d-%H%M%S"), slug(head))
     d = root(data) / name
     d.mkdir(parents=True, exist_ok=True)
@@ -804,7 +806,7 @@ def auto_start(data: Path, prompt: str, matched: str = "") -> str:
             "  a. `hook plan env --note \"<读了哪几处、各是什么读数>\"` —— 先探环境，再谈拆解。\n"
             "  b. `hook plan add --parent n1 --title \"...\" --criterion \"...\" --context \"<path 或命令>\"` × 2–4 条，"
             "先易后难；能拆的再挂 --parent 往下拆。\n"
-            "  c. `hook plan judge n2 --ok`（不够就 `--short \"<缺什么>\"` 继续获取）→ `hook plan ready`。\n"
+            "  c. `hook plan ready` —— 语境不够会被逐条列出（缺 env、context 没点名路径/命令、缺 criterion、根下不足两项）。\n"
             "  d. 对 DFS 放出的每一项 `start` → 真做 → `done --note \"<命令或路径>\"` → `ack --recheck \"<复查了什么>\"`。\n"
             "     ack 之后必须 `drift --ok \"<树偏没偏>\"` → rbuild → `resume`，才允许 `next`。\n"
             "  e. 子节点全部 ack 后才 `done n1` → `ack n1 --recheck \"...\"` → `close`。\n"
@@ -836,7 +838,7 @@ def main(argv: list, data: Path) -> int:
     if not argv or argv[0] in ("-h", "--help"):
         print("plan: " + " / ".join(COMMANDS))
         print("  phase build:  env → add (many) → ready")
-        print("  phase solve:  start → done → ack → (review --ok → next | replan → (add|drop|move) → resume)")
+        print("  phase solve:  start → done → ack --recheck → (drift --ok → rbuild → resume | replan → (add|drop|move)ume)")
         print("  finish:       close when nothing is open")
         return 0
     cmd = argv[0]
@@ -863,20 +865,99 @@ class Rule:
     """The plan package's interface: one class the engine constructs with the data root."""
 
     id = "plan"
-    trigger = "keyword"
+    trigger = "fn"
 
     def __init__(self, data=None):
         self.data = Path(data) if data else None
+        self.store = Store(self.data)
+
+    # ---- predicate ------------------------------------------------------
+    def match(self, prompt: str) -> bool:
+        """This rule owns every prompt: the tree exists before any other work."""
+        return True
+
+    # ---- injection ------------------------------------------------------
+    def inject(self, prompt: str = "") -> str:
+        return self.auto_start(prompt) or self.next_text()
 
     def auto_start(self, prompt: str, matched: str = "") -> str:
-        """Every prompt: store-side already done, here the tree is allocated or resumed."""
-        return auto_start(self.data, prompt, matched)
+        tree = self.store.open_tree()
+        if tree is not None and tree.state != "done":
+            stale = (tree.prompt.strip() != prompt.strip()
+                     and (tree.first_open() is None or tree.bare_root()))
+            if stale:
+                if tree.bare_root():
+                    import shutil
+                    shutil.rmtree(tree.path, ignore_errors=True)
+                tree = None
+            if tree is not None:
+                return self._resume_text(tree)
+        self.store.sweep_bare()
+        head = next((l.strip() for l in prompt.split("\n") if l.strip()), "原话")
+        name = "%s-%s-%s" % (self.data.parents[3].name,
+                             __import__("time").strftime("%Y%m%d-%H%M%S"),
+                             slug(head))
+        self.store.allocate(name, prompt, matched or "every prompt")
+        return self._new_text(name, head, matched)
 
     def next_text(self) -> str:
-        return next_text(self.data)
-
-    def inject(self, prompt: str = "") -> str:
-        return next_text(self.data)
+        tree = self.store.open_tree()
+        if tree is None or tree.state == "done":
+            return ""
+        n = tree.first_open()
+        c = tree.counts()
+        head = ("【plan｜树还开着】%s  state %s  pending %d active %d ack %d"
+                % (tree.instance, tree.state, c["pending"], c["active"], c["ack"]))
+        if n is None:
+            return head + "\nnext: none — 先拆或先收；`hook plan status` 看树"
+        sib = tree.after(n)
+        lines = [head, "now  %s  %s" % (n.id, n.title)]
+        if sib:
+            lines.append("next %s  %s" % (sib[0]["id"], sib[0]["title"]))
+        lines.append("when %s" % (n.criterion or "-"))
+        lines.append("do   hook plan start %s" % n.id)
+        return "\n".join(lines)
 
     def dispatch(self, argv: list) -> int:
         return main(argv, self.data)
+
+    # ---- text -----------------------------------------------------------
+    def _resume_text(self, tree: "Tree") -> str:
+        if tree.state == "drift":
+            return ("【plan｜%s】上一项已 ack：先 `hook plan drift --ok \"<树偏没偏>\"` 再走下一项。"
+                    % tree.instance)
+        if tree.state == "replan":
+            return "【plan｜%s】state replan：只改未行动项，改完 `hook plan resume`。" % tree.instance
+        n = tree.first_open()
+        if n is None:
+            if tree.bare_root():
+                return ("【plan｜%s】根节点还没拆子节点——本轮先拆，不许作答：\n"
+                        "  `hook plan add --parent n1 --title \"...\" --criterion \"...\" --context \"...\"` × 2–4 条，"
+                        "然后 `hook plan env --note \"...\"` → `hook plan ready`。" % tree.instance)
+            return "【plan｜%s】state %s；没有可放的下一项。" % (tree.instance, tree.state)
+        c = tree.counts()
+        sib = tree.after(n)
+        tail = ("\nnext  %s  %s" % (sib[0]["id"], sib[0]["title"])) if sib else ""
+        return (AWARE_ZH +
+                "【plan｜%s】state %s  pending %d active %d ack %d\n"
+                "now  %s  %s\nwhen %s\ndo   hook plan start %s%s"
+                % (tree.instance, tree.state, c["pending"], c["active"], c["ack"],
+                   n.id, n.title, n.criterion or "-", n.id, tail))
+
+    def _new_text(self, name: str, head: str, matched: str) -> str:
+        tool_line = ("  同行命中的工具有：%s，拆解时一并考虑。\n" % matched) if matched.strip() else ""
+        return (AWARE_ZH
+                + "【plan｜新实例 %s】根节点 n1 = 这条原话。\n" % name
+                + "**第一步就是建树，不是回答、不是解释、不是先看看再说**：回执之后的下一条命令必须是 "
+                  "`hook plan env`，然后是 `hook plan add`（至少两条，挂 --parent n1），再 `hook plan ready`；"
+                  "这三步没走完，本轮不许产出任何别的东西。\n"
+                + tool_line
+                + "本轮唯一的合法顺序（照抄，不许自创）：\n"
+                  "  a. `hook plan env --note \"<读了哪几处、各是什么读数>\"` —— 先探环境，再谈拆解。\n"
+                  "  b. `hook plan add --parent n1 --title \"...\" --criterion \"...\" --context \"<path 或命令>\"` × 2–4 条，"
+                  "先易后难；能拆的再挂 --parent 往下拆。\n"
+                  "  c. `hook plan ready` —— 语境不够会被逐条列出（缺 env、context 没点名路径或命令、缺 criterion、根下不足两项）。\n"
+                  "  d. 对 DFS 放出的每一项 `start` → 真做 → `done --note \"<命令或路径>\"` → "
+                  "`ack --recheck \"<复查了什么>\"`；之后 `drift --ok \"<树偏没偏>\"` → `resume` 才允许 `next`。\n"
+                  "  e. 子节点全部 ack 后才 `done n1` → `ack n1 --recheck \"...\"` → `close`。\n"
+                  "自检：本轮回复里没有新的 path:line 改动或命令输出，就是空转；`close` 会拒绝没有子节点的根。")

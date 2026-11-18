@@ -12,12 +12,12 @@
  "files": [
   "SKILL.md",
   "data/plan/hook.json",
+  "data/plan/plan.py",
+  "data/plan/tree.py",
   "data/tools/hook.json",
   "data/tools/inject.md",
+  "data/tools/tools.py",
   "hook.py",
-  "packages/plan/plan.py",
-  "packages/plan/tree.py",
-  "packages/tools/tools.py",
   "scripts/hook-launcher.sh"
  ],
  "directories": []

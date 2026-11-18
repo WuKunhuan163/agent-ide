@@ -1,1 +1,1 @@
-【hook】先读 .agent-ide/skills/hook/SKILL.md（112 行）：Register a condition → context rule inside the IDE.
+【overleaf】先读 .agent-ide/skills/overleaf/SKILL.md（201 行）：Compile LaTeX documents from a block tree with template instances, automatic linting and single-pass tectonic

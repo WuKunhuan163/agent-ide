@@ -95,7 +95,7 @@ def _paths(hid):
     """A rule is a package: data/hooks/<id>/hook.json + inject.md + whatever code it needs.
 
     The older layout (data/hooks/<id>.json + data/inject/<id>.md) still reads, so an
-    existing rule keeps firing; `add --package` writes the package form.
+    existing rule keeps firing; `add` always writes the package form.
     """
     d = RULES / hid
     return d / "hook.json", d / "inject.md"
@@ -425,18 +425,11 @@ def cmd_add(a):
     inject = Path(a.inject[1:]).read_text(encoding="utf-8") if a.inject.startswith("@") else a.inject
     if a.trigger == "fn":
         inject = inject or "（由判定函数生成，不含静态文本）"
-    if not inject.strip() and not a.capture_only:
+    if not inject.strip():
         print("hook: empty --inject", file=sys.stderr)
         return 2
     h = {"id": hid, "ide": a.ide, "trigger": a.trigger, "enabled": True, "created": now(), "fired": 0, "inject": inject}
-    if a.package:
-        pkg_dir(hid).mkdir(parents=True, exist_ok=True)
-    if a.entry:
-        h["entry"] = a.entry
-    if a.capture or a.capture_only:
-        h["capture"] = True
-    if a.capture_only:
-        h["capture_only"] = True
+    pkg_dir(hid).mkdir(parents=True, exist_ok=True)
     if (a.cmd or "").strip():
         h["cmd"] = a.cmd.strip()
     if a.trigger == "fn":
@@ -461,7 +454,7 @@ def cmd_add(a):
         h["key"], h["threshold"] = hid + ".md", float(a.threshold)
     save_rule(h)
     ensure_registered(a.ide)
-    where = "data/hooks/%s/inject.md" % hid if a.package else "data/inject/%s.md" % hid
+    where = "data/%s/inject.md" % hid
     print("+ %-16s %-3s %s\n  inject %s (%dB)" % (
         hid, {"keyword": "kw", "sim": "sim", "fn": "fn"}[h["trigger"]],
         (",".join(h["keywords"]) if h["trigger"] == "keyword"
@@ -615,10 +608,6 @@ def main(argv=None):
     d.add_argument("--keywords"); d.add_argument("--match", default="any", choices=["any", "all"])
     d.add_argument("--key"); d.add_argument("--threshold", default=0.55)
     d.add_argument("--inject", default=""); d.add_argument("--cmd")
-    d.add_argument("--package", action="store_true", help="write data/hooks/<id>/ (hook.json + inject.md + code)")
-    d.add_argument("--entry", default="", help="module in the package that `hook <id> ...` dispatches to")
-    d.add_argument("--capture", action="store_true", help="keep the last prompt that fired")
-    d.add_argument("--capture-only", action="store_true", help="capture the prompt and inject nothing")
     d.set_defaults(f=cmd_add)
     d = sub.add_parser("set"); d.add_argument("id"); d.add_argument("--inject"); d.add_argument("--cmd"); d.add_argument("--keywords"); d.add_argument("--threshold"); d.set_defaults(f=cmd_set)
     d = sub.add_parser("rm"); d.add_argument("id", nargs="+"); d.set_defaults(f=cmd_rm)
