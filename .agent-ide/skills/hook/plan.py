@@ -79,11 +79,14 @@ def deps_done(t: dict, n: dict) -> bool:
 
 
 def first_open(t: dict) -> dict | None:
+    """DFS: the first pending leaf whose deps are done; a parent waits for its children."""
     for n in t["nodes"]:
-        if n["state"] == "pending" and deps_done(t, n):
-            return n
+        if n["state"] != "pending" or not deps_done(t, n):
+            continue
+        if has_open_descendant(t, n):
+            continue
+        return n
     return None
-
 
 def counts(t: dict) -> dict:
     out = {k: 0 for k in ("pending", "active", "done", "ack", "dropped")}
@@ -92,26 +95,40 @@ def counts(t: dict) -> dict:
     return out
 
 
+def children(t: dict, nid):
+    return [n for n in t["nodes"] if (n.get("parent") or None) == nid]
+
+
+def has_open_descendant(t: dict, n: dict) -> bool:
+    for k in children(t, n["id"]):
+        if k["state"] in OPEN or has_open_descendant(t, k):
+            return True
+    return False
+
+
 def render(t: dict, d: Path, brief: bool = False) -> str:
+    """One root, everything else under it. Indentation is the parent chain."""
     c = counts(t)
+    roots = children(t, None)
     lines = ["instance  %s" % t["instance"], "state     %s" % t["state"],
              "nodes     %d  pending %d  active %d  done %d  ack %d  dropped %d"
-             % (len(t["nodes"]), c["pending"], c["active"], c["done"], c["ack"], c["dropped"])]
+             % (len(t["nodes"]), c["pending"], c["active"], c["done"], c["ack"], c["dropped"]),
+             "roots     %d%s" % (len(roots), "" if len(roots) == 1 else "  <- 顶层只许有一个（原话那个节点）")]
     if t.get("summary"):
         lines.append("summary   %s" % t["summary"])
     if not brief:
         lines.append("")
-        seen = set()
-        for i, n in enumerate(t["nodes"], 1):
-            mark = {"pending": " ", "active": ">", "done": "x", "ack": "v", "dropped": "-"}[n["state"]]
-            lines.append("%2d [%s] %-6s %s" % (i, mark, n["id"], n["title"]))
-            seen.add(n["id"])
-            if n.get("after"):
-                lines.append("         after %s" % ",".join(n["after"]))
-            if n.get("criterion"):
-                lines.append("         done when: %s" % n["criterion"])
-    return "\n".join(lines)
 
+        def walk(parent, depth):
+            for n in [x for x in t["nodes"] if (x.get("parent") or None) == parent]:
+                mark = {"pending": " ", "active": ">", "done": "x", "ack": "v", "dropped": "-"}[n["state"]]
+                lines.append("%s[%s] %-4s %s" % ("   " * depth, mark, n["id"], n["title"]))
+                if n.get("criterion"):
+                    lines.append("%sdone when: %s" % ("   " * depth, n["criterion"]))
+                walk(n["id"], depth + 1)
+
+        walk(None, 1)
+    return "\n".join(lines)
 
 def next_block(t: dict, d: Path) -> str:
     if t["state"] == "replan":
@@ -170,21 +187,23 @@ def need(d: Path | None, command: str) -> int:
     return 0
 
 
+def proj_name(data: Path) -> str:
+    return data.parents[3].name if len(data.parents) > 3 else data.parent.name
+
+
 def root_path_hint() -> str:
     return "data/plan/"
 
 
 # ---------- commands ----------
 
-def cmd_init(d: Path | None, args: list) -> int:
-    summary = ""
-    if "--summary" in args:
-        summary = args[args.index("--summary") + 1]
+def cmd_init(d, args: list) -> int:
+    """The prompt is the root: one node for the prompt, its decomposition below."""
+    import hashlib
+    summary = args[args.index("--summary") + 1] if "--summary" in args else ""
     data = Path(globals()["HOOK_DATA"])
-    prompt = ""
-    cap = data / "capture" / "plan.txt"
-    if cap.exists():
-        prompt = cap.read_text(encoding="utf-8")
+    cap_txt = data / "capture" / "plan.txt"
+    cap_rec = data / "capture" / "plan.json"
     live = instance_dir(data)
     if live and "--force" not in args:
         t0 = load(live)
@@ -192,25 +211,39 @@ def cmd_init(d: Path | None, args: list) -> int:
             print("blocked   还有未收束的实例 %s（state %s）：先走完或 `--force` 另起一个"
                   % (live.name, t0["state"]))
             return 1
-    proj = data.parents[3].name if len(data.parents) > 3 else data.parent.name
-    name = "%s-%s-%s" % (proj, time.strftime("%Y%m%d-%H%M%S"), slug(summary or "task"))
+    if not cap_txt.exists() or not cap_rec.exists():
+        print("blocked   capture 没有来源记录：原话只能来自一次真实命中（IDE 的 payload 写 plan.txt 与 plan.json）")
+        print("          缺 %s，拒绝建实例。" % ("plan.json" if cap_txt.exists() else "plan.txt"))
+        return 1
+    prompt = cap_txt.read_text(encoding="utf-8")
+    rec = json.loads(cap_rec.read_text(encoding="utf-8"))
+    if hashlib.sha256(prompt.encode("utf-8")).hexdigest() != rec.get("sha256"):
+        print("blocked   capture 与来源记录对不上（被改过）：拒绝建实例")
+        return 1
+    name = "%s-%s-%s" % (proj_name(data), time.strftime("%Y%m%d-%H%M%S"), slug(summary or "task"))
     d = root(data) / name
     d.mkdir(parents=True, exist_ok=True)
+    head = next((l.strip() for l in prompt.split("\n") if l.strip()), "原话")
     t = {"instance": name, "created": now(), "state": "build", "summary": summary,
-         "prompt": prompt, "nodes": [], "rounds": [{"n": 1, "opened": now()}], "closed": None}
+         "prompt": prompt,
+         "provenance": {"at": rec.get("at"), "matched": rec.get("matched"), "sha256": rec.get("sha256")},
+         "nodes": [{"id": "n1", "title": head[:60], "parent": None, "after": [],
+                    "context": "原话全文见 tree.json 的 prompt；这一项就是它",
+                    "criterion": "这条 prompt 的每条要求都有子节点，且子节点全部 done/ack/dropped",
+                    "state": "pending", "note": "", "added": now(), "root": True}],
+         "rounds": [{"n": 1, "opened": now()}], "closed": None}
     save(d, t)
-    first = (prompt or "").strip().split("\n")[0][:160]
     print("+ %s\n  tree %s/tree.json\n" % (name, d))
-    print("prompt    %s" % (first or "（没有捕获到 prompt：hook 未带 capture，请把原话写进 --summary）"))
-    print("\n【构建阶段】先把环境语境拿到手，再按行动顺序长树，先易后难：")
-    print("  1. 有针对性地探环境：`ls`、读已有的读数/占位/日志，只读与这条 prompt 相关的那几处；把读到的东西写进节点的 --context。")
-    print("  2. 加节点：`hook plan add --title \"...\" --criterion \"...\" [--context \"...\"] [--after n1,n2] [--parent n0]`")
-    print("     没有依赖、能立刻做完的在前；还要语境或依赖前项的在后；能拆成子任务的必须递归拆，每棵子树同样先易后难。")
-    print("  3. 认为第一项语境够了：`hook plan ready` —— 缺 context 或 criterion 的节点会被点出来，补完才放行。")
+    print("prompt    %s" % head[:120])
+    print("provenance  at %s  matched %s" % (rec.get("at"), rec.get("matched")))
+    print("\n【构建阶段】n1 就是这条原话，已建好；往下只加它的子节点：")
+    print("  1. 探环境：只读与这条原话相关的那几处，把具名依据写进 --context。")
+    print("  2. `hook plan add --parent n1 --title \"...\" --criterion \"...\" --context \"...\" [--after n2]`")
+    print("     没有 --parent 的 add 会被拒；能拆的递归拆，子节点同样挂 --parent，先易后难。")
+    print("  3. `hook plan ready`：子节点缺 context/criterion 会被点出；n1 要等子节点全部走完才轮到自己。")
     return 0
 
-
-def cmd_add(d: Path | None, args: list) -> int:
+def cmd_add(d, args: list) -> int:
     if need(d, "add"):
         return 3
     t = load(d)
@@ -223,21 +256,27 @@ def cmd_add(d: Path | None, args: list) -> int:
     if t["state"] not in ("build", "replan"):
         print("blocked   树只在 build 或 replan 期间能加节点（当前 %s）" % t["state"])
         return 1
+    parent = val("--parent")
+    if not parent:
+        print("blocked   顶层只许有根节点（原话那个）：加子节点要给 --parent <id>")
+        return 1
+    if not node(t, parent):
+        print("plan: --parent %s does not exist" % parent)
+        return 2
     nid = "n%d" % (len(t["nodes"]) + 1)
     after = [x for x in re.split(r"[,，\s]+", val("--after")) if x]
     for a in after:
         if not node(t, a):
             print("plan: --after %s does not exist" % a)
             return 2
-    n = {"id": nid, "title": title, "parent": val("--parent") or None, "after": after,
+    n = {"id": nid, "title": title, "parent": parent, "after": after,
          "context": val("--context"), "criterion": val("--criterion"),
          "state": "pending", "note": "", "added": now()}
     t["nodes"].append(n)
     save(d, t)
-    print("+ %s  %s" % (nid, title))
+    print("+ %s  %s  (parent %s)" % (nid, title, parent))
     print(render(t, d))
     return 0
-
 
 def cmd_tree(d: Path | None, args: list) -> int:
     if need(d, "tree"):
@@ -248,26 +287,27 @@ def cmd_tree(d: Path | None, args: list) -> int:
     return 0
 
 
-def cmd_ready(d: Path | None, args: list) -> int:
+def cmd_ready(d, args: list) -> int:
     if need(d, "ready"):
         return 3
     t = load(d)
-    bad = [n for n in t["nodes"] if n["state"] == "pending" and (not n.get("context") or not n.get("criterion"))]
+    roots = children(t, None)
+    if len(t["nodes"]) == 1 and roots:
+        print("blocked   树只有一个根节点：先把这条原话拆成子节点（--parent %s）" % roots[0]["id"])
+        return 1
+    bad = [n for n in t["nodes"] if not n.get("root") and n["state"] == "pending"
+           and (not n.get("context") or not n.get("criterion"))]
     if bad:
         print("blocked   %d 个节点语境或判据没写全，补完再执行：" % len(bad))
         for n in bad:
             miss = [k for k in ("context", "criterion") if not n.get(k)]
             print("  %-4s %-28s 缺 %s" % (n["id"], n["title"][:28], "/".join(miss)))
         return 1
-    if not t["nodes"]:
-        print("blocked   树是空的：先 `add`")
-        return 1
     t["state"] = "solve"
     save(d, t)
     print("state     solve\n")
     print(next_block(t, d))
     return 0
-
 
 def cmd_start(d: Path | None, args: list) -> int:
     if need(d, "start"):
@@ -501,5 +541,5 @@ def main(argv: list, data: Path) -> int:
 
 if __name__ == "__main__":
     import sys
-    d = Path(__file__).resolve().parents[1]
-    raise SystemExit(main(sys.argv[1:], d))
+    data = Path(__file__).resolve().parents[1] / "data"
+    raise SystemExit(main(sys.argv[1:], data))

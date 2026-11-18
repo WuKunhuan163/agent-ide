@@ -10,9 +10,10 @@
   "stdlib": []
  },
  "files": [
-  "plan.py",
+  "SKILL.md",
   "hook.py",
-  "SKILL.md"
+  "plan.py",
+  "scripts/hook-launcher.sh"
  ],
  "directories": []
 }

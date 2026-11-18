@@ -172,11 +172,26 @@ def find(hid):
     return _read_rule(p) if p.exists() else None
 
 
-def capture_prompt(hid: str, prompt: str) -> None:
-    """A rule that needs the prompt later keeps the last one it fired on."""
+def capture_prompt(hid: str, prompt: str, matched: str = "") -> None:
+    """Keep the prompt a rule fired on, with provenance.
+
+    The text is only ever written here, from the IDE's payload, together with a record
+    carrying its hash: a consumer (e.g. `hook plan init`) can then refuse a prompt that
+    was typed or copied by hand. Every firing also appends a line to the log, so an
+    overwritten text never erases that a different prompt once fired.
+    """
+    import hashlib
     d = DATA / "capture"
     d.mkdir(parents=True, exist_ok=True)
     (d / (hid + ".txt")).write_text(prompt, encoding="utf-8")
+    sha = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+    (d / (hid + ".json")).write_text(json.dumps(
+        {"sha256": sha, "chars": len(prompt), "at": now(), "matched": matched,
+         "first": prompt.strip().split("\n")[0][:80]}, ensure_ascii=False, indent=1) + "\n",
+        encoding="utf-8")
+    with (d / (hid + ".log")).open("a", encoding="utf-8") as f:
+        f.write("%s\t%s\t%d\t%s\n" % (now(), sha[:16], len(prompt),
+                                        prompt.strip().split("\n")[0][:60]))
 
 
 def stored_prompt(hid: str) -> str:
@@ -495,7 +510,7 @@ def run_prompt():
         blocks = []
         for h, s, why in hits:
             if h.get("capture"):
-                capture_prompt(h["id"], prompt)
+                capture_prompt(h["id"], prompt, why)
             blocks.append(cmd_block(h["id"], why, h["inject"]))
             h["fired"] = h.get("fired", 0) + 1
             h["last"] = now()
