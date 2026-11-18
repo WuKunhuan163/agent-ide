@@ -4,7 +4,7 @@
  "trigger": "keyword",
  "enabled": true,
  "created": "2026-11-18T09:36:01",
- "fired": 12,
+ "fired": 13,
  "keywords": [
   "AGENT基本守则",
   "行为准则",
@@ -12,5 +12,5 @@
   "只做要求做的"
  ],
  "match": "any",
- "last": "2026-11-18T13:31:01"
+ "last": "2026-11-18T13:33:21"
 }
