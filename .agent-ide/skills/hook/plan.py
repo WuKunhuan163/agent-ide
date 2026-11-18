@@ -474,7 +474,7 @@ def cmd_drift(d, args: list) -> int:
     if need(d, "drift"):
         return 3
     t = load(d)
-    if t["state"] not in ("drift", "review"):
+    if t["state"] != "drift":
         print("plan: drift only after ack (state is %s)" % t["state"])
         return 3
     if "--ok" not in args:
@@ -562,25 +562,6 @@ def cmd_done(d: Path | None, args: list) -> int:
           % (n["id"], n["id"]))
     return 0
 
-
-def cmd_review(d, args: list) -> int:
-    if need(d, "review"):
-        return 3
-    t = load(d)
-    if t["state"] != "review":
-        print("plan: review only after ack (state is %s)" % t["state"])
-        return 3
-    ok = "--ok" in args
-    note = args[args.index("--note") + 1] if "--note" in args else ""
-    if not ok:
-        print("blocked   再规划没确认：`hook plan review --ok [--note \"...\"]`，或 `replan --reason \"...\"`")
-        return 1
-    t["state"] = "solve"
-    t.setdefault("reviews", []).append({"at": now(), "note": note})
-    save(d, t)
-    print("state     solve%s\n" % ("  (" + note + ")" if note else ""))
-    print(next_block(t, d))
-    return 0
 
 def cmd_next(d: Path | None, args: list) -> int:
     if need(d, "next"):
@@ -741,9 +722,9 @@ def auto_start(data: Path, prompt: str, matched: str = "") -> str:
     if d is not None:
         t = load(d)
         if t["state"] != "done":
-            if t["state"] == "review":
-                return ("【plan｜%s】上一项已 ack，现在在再规划：`hook plan review --ok` 继续，"
-                        "或 `hook plan replan --reason \"...\"` 改未行动的项。" % t["instance"])
+            if t["state"] == "drift":
+                return ("【plan｜%s】上一项已 ack：先 `hook plan drift --ok \"<树偏没偏>\"` 再走下一项，"
+                        "或 `replan --reason \"...\"` 改未行动的项。" % t["instance"])
             if t["state"] == "replan":
                 return ("【plan｜%s】state replan：只改未行动项，改完 `hook plan resume`。" % t["instance"])
             n = first_open(t)
