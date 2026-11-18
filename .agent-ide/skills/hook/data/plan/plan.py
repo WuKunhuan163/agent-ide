@@ -748,8 +748,9 @@ def auto_start(data: Path, prompt: str, matched: str = "") -> str:
         t = load(d)
         # 开着的树若不是这条原话、且已经没有可放的下一项，就为这条原话另建一棵：
         # 注入“下一项：无”等于什么指令都没给，行为就退回自由发挥。
+        bare = bool([x for x in t["nodes"] if x.get("root") and not children(t, x["id"])])
         if (t["state"] != "done" and t.get("prompt", "").strip() != prompt.strip()
-                and first_open(t) is None):
+                and (first_open(t) is None or bare)):
             d = None
         if d is not None and t["state"] != "done":
             if t["state"] == "drift":
