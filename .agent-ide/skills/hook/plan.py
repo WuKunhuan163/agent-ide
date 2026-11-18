@@ -29,8 +29,9 @@ def now() -> str:
 
 def root(data: Path) -> Path:
     """Instances live in the hook's own data space, beside the rules that read them:
-    `data/plan/<instance>/tree.json`. Deleting the project's tmp must not delete the plan."""
-    return data / "plan"
+    `data/plan/data/instance/<instance>/tree.json`. Deleting the project's tmp must not
+    delete the plan."""
+    return data / "plan" / "data" / "instance"
 
 
 def instance_dir(data: Path, name: str | None = None) -> Path | None:
@@ -198,15 +199,20 @@ def need(d: Path | None, command: str) -> int:
     return 0
 
 
-def log_op(data: Path, op: str, argv: list, rc: int) -> None:
-    """Every call lands in <project>/tmp/plan-hook.json as one more line of {"ops": [...]}."""
+def log_op(data: Path, op: str, argv: list, rc: int, inject: str = "") -> None:
+    """One line per call: data/plan/data/log.log, plus the same line in the open instance's
+    data/plan/data/instance/<name>/log.log. `inject` is what the agent was fed, empty if nothing."""
     try:
-        proj = data.parents[3]
-        f = proj / "tmp" / "plan-hook.json"
-        f.parent.mkdir(parents=True, exist_ok=True)
-        box = json.loads(f.read_text(encoding="utf-8")) if f.exists() else {"ops": []}
-        box.setdefault("ops", []).append({"at": now(), "op": op, "args": " ".join(argv), "rc": rc})
-        f.write_text(json.dumps(box, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        line = ("%s\top=%s\targs=%s\trc=%d\tinject=%s"
+                % (now(), op, " ".join(argv), rc, inject.replace("\n", "\\n") or "-"))
+        glob_log = data / "plan" / "data" / "log.log"
+        glob_log.parent.mkdir(parents=True, exist_ok=True)
+        with glob_log.open("a", encoding="utf-8") as f:
+            f.write(line + "\n")
+        d = instance_dir(data)
+        if d is not None:
+            with (d / "log.log").open("a", encoding="utf-8") as f:
+                f.write(line + "\n")
     except Exception:
         pass          # logging must never break the command
 

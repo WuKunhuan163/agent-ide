@@ -33,7 +33,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 INDEX = DATA / "hooks.json"
-RULES = DATA / "hooks"
+RULES = DATA
 INJECT = DATA / "inject"
 KEYS = DATA / "keys"
 LOG = DATA / "hook.log"
@@ -85,7 +85,12 @@ def log(line):
 # ---------- storage: one package per rule ----------
 
 def pkg_dir(hid):
-    return RULES / hid
+    """A rule is data/<id>/ (hook.json + inject.md + optional code); data/hooks/<id>/ still reads."""
+    flat = DATA / hid
+    if (flat / "hook.json").exists():
+        return flat
+    old = DATA / "hooks" / hid
+    return old if (old / "hook.json").exists() else flat
 
 
 def _paths(hid):
@@ -170,6 +175,19 @@ def find(hid):
         return _read_rule(d / "hook.json")
     p = RULES / (hid + ".json")
     return _read_rule(p) if p.exists() else None
+
+
+def log_inject(matched: str, inject: str) -> None:
+    """The full context handed to the agent this turn, one line in data/plan/data/log.log."""
+    try:
+        f = DATA / "plan" / "data" / "log.log"
+        f.parent.mkdir(parents=True, exist_ok=True)
+        with f.open("a", encoding="utf-8") as fh:
+            fh.write("%s\top=inject\tmatched=%s\tchars=%d\tinject=%s\n"
+                     % (now(), matched.replace("\t", " "), len(inject),
+                        inject.replace("\n", "\\n") if inject else "-"))
+    except Exception:
+        pass
 
 
 def capture_prompt(hid: str, prompt: str, matched: str = "") -> None:
