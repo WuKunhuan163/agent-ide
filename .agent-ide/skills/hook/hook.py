@@ -34,7 +34,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 RULES = DATA
-INJECT = DATA / "inject"
 
 LOG = DATA / "hook.log"
 
@@ -106,10 +105,9 @@ def _paths(hid):
 def _read_rule(path: Path) -> dict:
     h = json.loads(path.read_text(encoding="utf-8"))
     d = pkg_dir(h["id"])
-    for cand in ((d / "inject.md") if d.is_dir() else None, INJECT / (h["id"] + ".md")):
-        if cand and cand.exists():
-            h["inject"] = cand.read_text(encoding="utf-8")
-            break
+    cand = d / "inject.md"
+    if cand.exists():
+        h["inject"] = cand.read_text(encoding="utf-8")
     if d.is_dir():
         h["package"] = str(d)
     return h
@@ -143,7 +141,7 @@ def drop_rule(hid):
         for child in sorted(d.rglob("*"), reverse=True):
             child.unlink() if child.is_file() else child.rmdir()
         d.rmdir()
-    for p in (RULES / (hid + ".json"), INJECT / (hid + ".md")):
+    for p in (RULES / (hid + ".json"), RULES / hid / "inject.md"):
         if p.exists():
             p.unlink()
 

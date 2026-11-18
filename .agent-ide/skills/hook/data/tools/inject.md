@@ -1,1 +1,1 @@
-【arxiv】先读 .agent-ide/skills/arxiv/SKILL.md（71 行）：>-
+【overleaf】先读 .agent-ide/skills/overleaf/SKILL.md（201 行）：Compile LaTeX documents from a block tree with template instances, automatic linting and single-pass tectonic
