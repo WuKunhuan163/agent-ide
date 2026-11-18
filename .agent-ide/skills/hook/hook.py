@@ -8,7 +8,6 @@ UserPromptSubmit.
 
 Layout under data/, one file per rule so every rule is readable on its own:
 
-    data/hooks.json        index: ide, ids, updated
     data/hooks/<id>.json   the rule: id, ide, trigger, keywords|key+threshold, enabled
     data/inject/<id>.md    the value injected when it fires
     data/keys/<id>.md      the stored context for a similarity rule
@@ -32,7 +31,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
-INDEX = DATA / "hooks.json"
 RULES = DATA
 INJECT = DATA / "inject"
 KEYS = DATA / "keys"
@@ -99,10 +97,8 @@ def _paths(hid):
     The older layout (data/hooks/<id>.json + data/inject/<id>.md) still reads, so an
     existing rule keeps firing; `add --package` writes the package form.
     """
-    d = pkg_dir(hid)
-    if d.is_dir():
-        return d / "hook.json", d / "inject.md"
-    return RULES / (hid + ".json"), INJECT / (hid + ".md")
+    d = RULES / hid
+    return d / "hook.json", d / "inject.md"
 
 
 def _read_rule(path: Path) -> dict:
@@ -148,25 +144,6 @@ def drop_rule(hid):
     for p in (RULES / (hid + ".json"), INJECT / (hid + ".md"), KEYS / (hid + ".md")):
         if p.exists():
             p.unlink()
-    if INDEX.exists():
-        idx = json.loads(INDEX.read_text(encoding="utf-8"))
-        idx["ids"] = [i for i in idx.get("ids", []) if i != hid]
-        save_index(idx)
-
-
-def save_index(idx: dict):
-    DATA.mkdir(parents=True, exist_ok=True)
-    idx["ids"] = [h["id"] for h in load_rules()]
-    idx["updated"] = now()
-    tmp = INDEX.with_suffix(".tmp")
-    tmp.write_text(json.dumps(idx, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-    os.replace(tmp, INDEX)
-
-
-def load_index() -> dict:
-    if INDEX.exists():
-        return json.loads(INDEX.read_text(encoding="utf-8"))
-    return {"ide": "codebuddy", "ids": [], "note": "one package per rule under data/hooks/<id>/"}
 
 
 def find(hid):
@@ -199,7 +176,7 @@ def capture_prompt(hid: str, prompt: str, matched: str = "") -> None:
     overwritten text never erases that a different prompt once fired.
     """
     import hashlib
-    d = DATA / "capture"
+    d = pkg_dir(hid) / "data" / "capture"
     d.mkdir(parents=True, exist_ok=True)
     (d / (hid + ".txt")).write_text(prompt, encoding="utf-8")
     sha = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
@@ -494,7 +471,6 @@ def cmd_add(a):
             return 2
         h["key"], h["threshold"] = hid + ".md", float(a.threshold)
     save_rule(h)
-    save_index(load_index())
     ensure_registered(a.ide)
     where = "data/hooks/%s/inject.md" % hid if a.package else "data/inject/%s.md" % hid
     print("+ %-16s %-3s %s\n  inject %s (%dB)" % (
@@ -532,7 +508,6 @@ def cmd_rm(a):
         if find(hid):
             drop_rule(hid)
             n += 1
-    save_index(load_index())
     drop_entry_when_empty()
     print("- %d" % n)
     return 0
