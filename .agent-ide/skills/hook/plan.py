@@ -197,13 +197,38 @@ def root_path_hint() -> str:
 
 # ---------- commands ----------
 
+def newest_capture(data: Path):
+    """The newest prompt a plan-package rule fired on, with its record; None when there is none.
+
+    Any rule whose id starts with `plan` may supply it (`plan` when the keyword matched,
+    `plan-armed` when the prompt merely arrived while a tree was open) — both are written
+    by the IDE's own call, never by hand.
+    """
+    best = None
+    for txt in sorted((data / "capture").glob("plan*.txt")):
+        rec = txt.with_suffix(".json")
+        if not rec.exists():
+            continue
+        try:
+            r = json.loads(rec.read_text(encoding="utf-8"))
+            if r.get("sha256") != __import__("hashlib").sha256(txt.read_text(encoding="utf-8").encode("utf-8")).hexdigest():
+                continue
+        except Exception:
+            continue
+        stamp = r.get("at") or ""
+        if best is None or stamp > best[0]:
+            best = (stamp, txt, rec)
+    return (best[1], best[2]) if best else None
+
+
 def cmd_init(d, args: list) -> int:
     """The prompt is the root: one node for the prompt, its decomposition below."""
     import hashlib
     summary = args[args.index("--summary") + 1] if "--summary" in args else ""
     data = Path(globals()["HOOK_DATA"])
-    cap_txt = data / "capture" / "plan.txt"
-    cap_rec = data / "capture" / "plan.json"
+    cap = newest_capture(data)
+    cap_txt = cap[0] if cap else data / "capture" / "plan.txt"
+    cap_rec = cap[1] if cap else data / "capture" / "plan.json"
     live = instance_dir(data)
     if live and "--force" not in args:
         t0 = load(live)
@@ -521,6 +546,27 @@ COMMANDS = {"init": cmd_init, "add": cmd_add, "tree": cmd_tree, "ready": cmd_rea
             "start": cmd_start, "done": cmd_done, "ack": cmd_ack, "next": cmd_next,
             "replan": cmd_replan, "resume": cmd_resume, "drop": cmd_drop, "move": cmd_move,
             "status": cmd_status, "prompt": cmd_prompt, "close": cmd_close}
+
+
+def next_text(data: Path) -> str:
+    """What the open tree wants next, for the hook to inject on any prompt."""
+    d = instance_dir(data)
+    if d is None:
+        return ""
+    t = load(d)
+    if t["state"] == "done":
+        return ""
+    n = first_open(t)
+    c = counts(t)
+    head = ("【plan｜树还开着】%s  state %s  pending %d active %d ack %d"
+            % (t["instance"], t["state"], c["pending"], c["active"], c["ack"]))
+    if not n:
+        return head + "\n下一项：无（缺前置）。`hook plan status` 看谁在等谁。"
+    body = ["next      %s  %s" % (n["id"], n["title"]),
+            "context   %s" % (n.get("context") or "（缺）"),
+            "done when %s" % (n.get("criterion") or "（缺）"),
+            "→ 语境够就 `hook plan start %s`；不够先补语境；结果变了就 `hook plan replan --reason \"...\"`" % n["id"]]
+    return head + "\n" + "\n".join(body)
 
 
 def main(argv: list, data: Path) -> int:

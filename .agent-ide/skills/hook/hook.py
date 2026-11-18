@@ -274,10 +274,36 @@ def skill_hits(prompt: str):
     return out
 
 
+def plan_state_text(hid: str) -> str:
+    """Ask the rule's package what the open tree wants next; empty when nothing is open."""
+    h = find(hid)
+    if not h or not h.get("entry"):
+        return ""
+    d = pkg_dir(hid)
+    mod_path = d / h["entry"]
+    if not mod_path.exists():
+        mod_path = ROOT / h["entry"]
+    if not mod_path.exists():
+        return ""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("hook_state_%s" % hid, mod_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    try:
+        return mod.next_text(DATA) or ""
+    except Exception:
+        return ""
+
+
 def evaluate(prompt: str, rules: list, verbose=False):
     hits = []
     for h in rules:
         if not h.get("enabled", True):
+            continue
+        if h["trigger"] == "fn" and h.get("fn") == "plan":
+            text = plan_state_text(h["id"])
+            if text:
+                hits.append((dict(h, inject=text), 1.0, "open tree"))
             continue
         if h["trigger"] == "fn":
             found = skill_hits(prompt) if h.get("fn", "tools") == "tools" else []
@@ -383,7 +409,7 @@ def cmd_add(a):
     inject = Path(a.inject[1:]).read_text(encoding="utf-8") if a.inject.startswith("@") else a.inject
     if a.trigger == "fn":
         inject = inject or "（由判定函数生成，不含静态文本）"
-    if not inject.strip():
+    if not inject.strip() and not a.capture_only:
         print("hook: empty --inject", file=sys.stderr)
         return 2
     h = {"id": hid, "ide": a.ide, "trigger": a.trigger, "enabled": True, "created": now(), "fired": 0, "inject": inject}
@@ -391,8 +417,10 @@ def cmd_add(a):
         pkg_dir(hid).mkdir(parents=True, exist_ok=True)
     if a.entry:
         h["entry"] = a.entry
-    if a.capture:
+    if a.capture or a.capture_only:
         h["capture"] = True
+    if a.capture_only:
+        h["capture_only"] = True
     if (a.cmd or "").strip():
         h["cmd"] = a.cmd.strip()
     if a.trigger == "fn":
@@ -511,6 +539,8 @@ def run_prompt():
         for h, s, why in hits:
             if h.get("capture"):
                 capture_prompt(h["id"], prompt, why)
+            if not str(h.get("inject", "")).strip():
+                continue          # capture-only rule: the prompt is kept, nothing is injected
             blocks.append(cmd_block(h["id"], why, h["inject"]))
             h["fired"] = h.get("fired", 0) + 1
             h["last"] = now()
@@ -563,6 +593,7 @@ def main(argv=None):
     d.add_argument("--package", action="store_true", help="write data/hooks/<id>/ (hook.json + inject.md + code)")
     d.add_argument("--entry", default="", help="module in the package that `hook <id> ...` dispatches to")
     d.add_argument("--capture", action="store_true", help="keep the last prompt that fired")
+    d.add_argument("--capture-only", action="store_true", help="capture the prompt and inject nothing")
     d.set_defaults(f=cmd_add)
     d = sub.add_parser("set"); d.add_argument("id"); d.add_argument("--inject"); d.add_argument("--cmd"); d.add_argument("--keywords"); d.add_argument("--threshold"); d.set_defaults(f=cmd_set)
     d = sub.add_parser("rm"); d.add_argument("id", nargs="+"); d.set_defaults(f=cmd_rm)
