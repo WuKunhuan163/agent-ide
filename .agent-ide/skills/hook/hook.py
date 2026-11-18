@@ -602,7 +602,9 @@ def run_prompt():
             h["last"] = now()
             save_rule(h)
         log("fire\t%s" % ",".join(h["id"] for h, _, _ in hits))
-        sys.stdout.write("\n\n".join(blocks) + "\n")
+        text = "\n\n".join(blocks)
+        log_inject(",".join(h["id"] for h, _, _ in hits), text)
+        sys.stdout.write(text + "\n")
     except Exception as exc:
         log("error\t%s" % exc)
     return 0

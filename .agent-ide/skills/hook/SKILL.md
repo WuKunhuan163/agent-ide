@@ -61,16 +61,19 @@ A hook is a condition and a value: the value is context injected verbatim under 
 **One rule, one package**, so a rule can carry code as well as text:
 
 ```
-data/hooks.json            index: ide, ids, updated
-data/hooks/<id>/hook.json  the rule — id, ide, trigger, keywords | key + threshold, enabled, entry
-data/hooks/<id>/inject.md  the value injected when it fires
-data/hooks/<id>/*.py       optional: `hook <id> ...` runs this (resolved in the package first, then beside hook.py)
+data/hooks.json       index: ide, ids, updated
+data/<id>/hook.json   the rule — id, ide, trigger, keywords | key + threshold, enabled, entry
+data/<id>/inject.md   the value injected when it fires
+data/<id>/*.py        optional: `hook <id> ...` runs this (package first, then beside hook.py)
+data/plan/data/       the plan rule's own state: log.log + instance/<name>/{tree.json,log.log}
 data/keys/<id>.md          the stored context for a similarity rule
 data/capture/<id>.txt      the last prompt that fired, for rules with `capture`
 data/hook.log              fire / error lines only
 ```
 
-The older shape (`data/hooks/<id>.json` + `data/inject/<id>.md`) still reads, so an
+Every rule is one flat package under `data/`: nothing nests two rules together, so an
+instance can be cut per rule. The older shapes (`data/hooks/<id>/`, `data/<id>.json` +
+`data/inject/<id>.md`) still read, so an
 existing rule keeps firing; `add --package` writes the package form. `hook <id> <args>`
 runs the package's own `entry` module, which is how a rule owns a state machine instead
 of a paragraph of advice.
