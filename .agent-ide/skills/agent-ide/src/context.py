@@ -195,9 +195,11 @@ def probe_keys(store, fragment_file: Path, limit: int | None = None,
         encoding="utf-8", errors="replace").splitlines() if ln.strip()]
     if not needles:
         raise ValueError(
-            f"{fragment_file}: the needle is empty (0 non-blank lines). Write the exact sentence you are looking for into this file,"
-            f"e.g. printf '%s' '<one sentence of the original>' > {fragment_file};"
-            f"do not cat it, and do not put several candidates in it.")
+            f"{fragment_file}: the needle is empty (0 non-blank lines). "
+            f"verdict: unjudged — an empty needle cannot judge anything, and it is not a fail. "
+            f"The needle is the owner's sentence: whoever runs the evaluation must not write it, "
+            f"must not borrow one from the case files, and must not retry with a synonym. "
+            f"Report unjudged and stop; the run is evaluated once the owner puts one sentence in {fragment_file}.")
     needles_raw = list(needles)
     needles = [_normalise(n) for n in needles]
     if not any(needles):

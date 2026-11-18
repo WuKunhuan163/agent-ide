@@ -249,7 +249,9 @@ def cmd_context(args: argparse.Namespace) -> None:
                 "the session you are in may be one of them — retry with --max-files 0, "
                 "or read --bindings and go straight to --key. "
                 "Otherwise the fragment is not in this store: see "
-                "~/.codebuddy/rules/guide-probe-miss.md. Exit 2.")
+                "~/.codebuddy/rules/guide-probe-miss.md. "
+                "verdict: unjudged — 0 hits means the needle found nothing, not that the run failed; "
+                "record unjudged and stop, do not widen the question. Exit 2.")
         print("# results below: key<TAB>hits<TAB>msgs<TAB>bytes<TAB>last(UTC)", file=sys.stderr, flush=True)
         for hit in hits:
             # stdout stays a clean table: key, hits, messages, bytes.
