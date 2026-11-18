@@ -446,34 +446,6 @@ def cmd_ready(d, args: list) -> int:
     print(next_block(t, d))
     return 0
 
-def cmd_judge(d, args: list) -> int:
-    """构建之后：认定 DFS 第一项的语境够不够；不够就继续获取，不许带着模糊点开工。"""
-    if need(d, "judge"):
-        return 3
-    t = load(d)
-    nid = args[0] if args and not args[0].startswith("-") else ""
-    n = node(t, nid) if nid else first_open(t)
-    if not n:
-        print("plan: judge needs a node id (or an open item to judge)")
-        return 2
-    short = args[args.index("--short") + 1] if "--short" in args else ""
-    if short:
-        n["judged"] = "short"
-        n["judge_note"] = short
-        save(d, t)
-        print("judged    %s 语境不够：%s" % (n["id"], short))
-        print("         继续获取语境（`add --context` 或补充这一项的 --context），补完再 `judge --ok`；不许带着模糊点开工。")
-        return 0
-    if "--ok" not in args:
-        print("plan: judge <id> --ok | --short \"<缺什么>\"")
-        return 2
-    n["judged"] = "ok"
-    n["judged_at"] = now()
-    save(d, t)
-    print("judged    %s 语境够，可以执行：`hook plan start %s`" % (n["id"], n["id"]))
-    return 0
-
-
 def cmd_ack(d: Path | None, args: list) -> int:
     if need(d, "ack"):
         return 3
@@ -520,8 +492,7 @@ def cmd_drift(d, args: list) -> int:
 
 
 def cmd_inject(d, args: list) -> int:
-    print("plan: init / env / add / tree / judge / ready / start / done / ack / drift / "
-          "next / review / replan / resume / drop / move / status / prompt / close")
+    print("plan: " + " / ".join(sorted(COMMANDS)))
     print("  build:   env → add (many) → ready")
     print("  solve:   start → done → ack --recheck → (drift --ok → rbuild → resume | replan)")
     print("  finish:  close when nothing is open")
@@ -605,7 +576,7 @@ def cmd_next(d: Path | None, args: list) -> int:
     if t["state"] == "rbuild":
         print("blocked   state rbuild：只改未行动项，改完 `hook plan resume`")
         return 1
-    if t["state"] == "review":
+    if t["state"] == "drift":
         print("blocked   上一项刚 ack：先 `hook plan drift --ok \"<树偏没偏>\"`（或 replan），不许直接要下一项")
         return 1
     if t["state"] == "build":
@@ -805,7 +776,7 @@ def auto_start(data: Path, prompt: str, matched: str = "") -> str:
                     "  1. `hook plan start %s`\n"
                     "  2. 做：%s\n     context %s\n     判据   %s\n"
                     "  3. `hook plan done %s --note \"<一条命令或一处路径>\"`\n"
-                    "  4. `hook plan ack %s`（随后进入再规划：`review --ok` 或 `replan`）\n"
+                    "  4. `hook plan ack %s --recheck \"<复查了什么>\"`（随后 `drift --ok` → `resume`）\n"
                     "自检：note 里没有可指的读数，本轮按空转计。"
                     % (t["instance"], t["state"], c["pending"], c["active"], c["ack"],
                        n["id"], n["title"], n.get("context") or "（缺，先补）",
@@ -835,7 +806,7 @@ def auto_start(data: Path, prompt: str, matched: str = "") -> str:
             "  a. `hook plan env --note \"<读了哪几处、各是什么读数>\"` —— 先探环境，再谈拆解。\n"
             "  b. `hook plan add --parent n1 --title \"...\" --criterion \"...\" --context \"<path 或命令>\"` × 2–4 条，"
             "先易后难；能拆的再挂 --parent 往下拆。\n"
-            "  c. `hook plan judge n2 --ok`（不够就 `--short \"<缺什么>\"` 继续获取）→ `hook plan ready`。\n"
+            "  c. `hook plan ready` —— 语境不够会被逐条列出（缺 env、context 没点名路径/命令、缺 criterion、根下不足两项）。\n"
             "  d. 对 DFS 放出的每一项 `start` → 真做 → `done --note \"<命令或路径>\"` → `ack --recheck \"<复查了什么>\"`。\n"
             "     ack 之后必须 `drift --ok \"<树偏没偏>\"` → rbuild → `resume`，才允许 `next`。\n"
             "  e. 子节点全部 ack 后才 `done n1` → `ack n1 --recheck \"...\"` → `close`。\n"
@@ -867,7 +838,7 @@ def main(argv: list, data: Path) -> int:
     if not argv or argv[0] in ("-h", "--help"):
         print("plan: " + " / ".join(COMMANDS))
         print("  phase build:  env → add (many) → ready")
-        print("  phase solve:  start → done → ack → (review --ok → next | replan → (add|drop|move) → resume)")
+        print("  phase solve:  start → done → ack --recheck → (drift --ok → rbuild → resume | replan → (add|drop|move)ume)")
         print("  finish:       close when nothing is open")
         return 0
     cmd = argv[0]
@@ -975,9 +946,18 @@ class Rule:
 
     def _new_text(self, name: str, head: str, matched: str) -> str:
         tool_line = ("  同行命中的工具有：%s，拆解时一并考虑。\n" % matched) if matched.strip() else ""
-        return (AWARE_ZH +
-                "【plan｜新实例 %s】根节点 n1 = 这条原话。\n"
-                "**第一步就是建树，不是回答、不是解释、不是先看看再说**：回执之后的下一条命令必须是 "
-                "`hook plan env`，然后是 `add`（至少两条，挂 --parent n1），再 `ready`。\n%s"
-                "自检：note 里没有可指的读数，本轮按空转计；`close` 会拒绝没有子节点的根。"
-                % (name, tool_line))
+        return (AWARE_ZH
+                + "【plan｜新实例 %s】根节点 n1 = 这条原话。\n" % name
+                + "**第一步就是建树，不是回答、不是解释、不是先看看再说**：回执之后的下一条命令必须是 "
+                  "`hook plan env`，然后是 `hook plan add`（至少两条，挂 --parent n1），再 `hook plan ready`；"
+                  "这三步没走完，本轮不许产出任何别的东西。\n"
+                + tool_line
+                + "本轮唯一的合法顺序（照抄，不许自创）：\n"
+                  "  a. `hook plan env --note \"<读了哪几处、各是什么读数>\"` —— 先探环境，再谈拆解。\n"
+                  "  b. `hook plan add --parent n1 --title \"...\" --criterion \"...\" --context \"<path 或命令>\"` × 2–4 条，"
+                  "先易后难；能拆的再挂 --parent 往下拆。\n"
+                  "  c. `hook plan ready` —— 语境不够会被逐条列出（缺 env、context 没点名路径或命令、缺 criterion、根下不足两项）。\n"
+                  "  d. 对 DFS 放出的每一项 `start` → 真做 → `done --note \"<命令或路径>\"` → "
+                  "`ack --recheck \"<复查了什么>\"`；之后 `drift --ok \"<树偏没偏>\"` → `resume` 才允许 `next`。\n"
+                  "  e. 子节点全部 ack 后才 `done n1` → `ack n1 --recheck \"...\"` → `close`。\n"
+                  "自检：本轮回复里没有新的 path:line 改动或命令输出，就是空转；`close` 会拒绝没有子节点的根。")
