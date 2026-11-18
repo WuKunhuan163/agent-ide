@@ -145,6 +145,10 @@ def next_block(t: dict, d: Path) -> str:
 
 
 def close_block(t: dict, d: Path) -> str:
+    bare = [n["id"] for n in t["nodes"] if n.get("root") and not children(t, n["id"])]
+    if bare:
+        return ("blocked   根节点 %s 还没拆子节点：注入不是规制，拆解才是。先 add 再 close。"
+                % ",".join(bare))
     left = [n for n in t["nodes"] if n["state"] in OPEN]
     if left:
         return "blocked   %d 个未完成节点缺前置：%s" % (
@@ -370,6 +374,15 @@ def cmd_done(d: Path | None, args: list) -> int:
     note = ""
     if "--note" in args:
         note = args[args.index("--note") + 1]
+    if n.get("root") and not children(t, n["id"]):
+        print("blocked   根节点还没拆：先把这条原话拆成子节点（`hook plan add --parent %s ...`），"
+              "根节点要等子节点全部 ack 之后才轮到自己" % n["id"])
+        return 1
+    if n.get("root"):
+        left = [k["id"] for k in children(t, n["id"]) if k["state"] in OPEN]
+        if left:
+            print("blocked   子节点还没走完：%s" % ",".join(left))
+            return 1
     n["state"] = "done"
     n["note"] = note
     n["finished"] = now()
@@ -581,11 +594,12 @@ def auto_start(data: Path, prompt: str) -> str:
                     "state": "pending", "note": "", "added": now(), "root": True}],
          "rounds": [{"n": 1, "opened": now()}], "closed": None}
     save(d, t)
-    return ("【plan｜新实例 %s】这条原话已存成根节点 n1，没有第二条顶层节点。\n"
+    return ("【plan｜新实例 %s】这条原话已存成根节点 n1。**本轮不许直接作答**：\n"
             "1. 先探环境（只读与它相关的那几处），把具名依据写进 --context；\n"
             "2. `hook plan add --parent n1 --title \"...\" --criterion \"...\" --context \"...\" [--after n2]`，"
             "先易后难、能拆就递归拆；\n"
-            "3. `hook plan ready` 之后按 DFS 逐项 start → done → ack。" % name)
+            "3. `hook plan ready` 之后按 DFS 逐项 start → done → ack；根节点 n1 只有在子节点全部 ack 后才能 done，"
+            "`close` 会拒绝没有子节点的根。" % name)
 
 
 def next_text(data: Path) -> str:
