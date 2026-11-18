@@ -1,0 +1,19 @@
+{
+ "id": "agents-repro",
+ "ide": "codebuddy",
+ "trigger": "keyword",
+ "enabled": true,
+ "created": "2026-11-18T09:36:01",
+ "fired": 23,
+ "keywords": [
+  "AGENT复现测试",
+  "复现测试",
+  "复现案例",
+  "PROMPT",
+  "默认针",
+  "复现测试结果",
+  "评估复现"
+ ],
+ "match": "any",
+ "last": "2026-11-18T13:22:35"
+}

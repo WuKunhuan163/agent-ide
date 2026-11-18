@@ -1,0 +1,17 @@
+{
+ "id": "agents-context",
+ "ide": "codebuddy",
+ "trigger": "keyword",
+ "enabled": true,
+ "created": "2026-11-18T09:36:05",
+ "fired": 40,
+ "keywords": [
+  "AGENT全量语境",
+  "全量语境",
+  "语境导出",
+  "probe",
+  "全量上下文"
+ ],
+ "match": "any",
+ "last": "2026-11-18T13:22:35"
+}

@@ -1,0 +1,15 @@
+{
+ "id": "contrast",
+ "ide": "codebuddy",
+ "trigger": "keyword",
+ "keywords": [
+  "对比行文",
+  "行文闭环"
+ ],
+ "match": "any",
+ "enabled": true,
+ "created": "2026-11-18T08:45:44",
+ "fired": 24,
+ "source": "python3 \"/Users/wukunhuan/.codebuddy/plugins/local-hooks/plugins/contrast-guard/hooks/guard.py\"",
+ "last": "2026-11-18T11:19:00"
+}

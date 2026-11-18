@@ -1,23 +1,30 @@
 {
- "install": {
-  "kind": "python"
- },
- "python": {
-  "runtime": {
-   "version": "3.11.9"
-  },
-  "requirements": [],
-  "stdlib": []
- },
  "files": [
   "SKILL.md",
+  "data/agent-profanity/hook.json",
+  "data/agent-profanity/inject.md",
+  "data/agents-conduct/hook.json",
+  "data/agents-conduct/inject.md",
+  "data/agents-context/hook.json",
+  "data/agents-context/inject.md",
+  "data/agents-doc/hook.json",
+  "data/agents-doc/inject.md",
+  "data/agents-repro/hook.json",
+  "data/agents-repro/inject.md",
+  "data/contrast/hook.json",
+  "data/contrast/inject.md",
+  "data/hook-action/hook.json",
+  "data/hook-action/inject.md",
   "data/plan/hook.json",
   "data/plan/plan.py",
   "data/plan/tree.py",
+  "data/temp-corpus/hook.json",
+  "data/temp-corpus/inject.md",
+  "data/temp-idea/hook.json",
+  "data/temp-idea/inject.md",
   "data/tools/hook.json",
   "data/tools/tools.py",
   "hook.py",
   "scripts/hook-launcher.sh"
- ],
- "directories": []
+ ]
 }

@@ -1,0 +1,14 @@
+{
+ "id": "temp-idea",
+ "ide": "codebuddy",
+ "trigger": "keyword",
+ "enabled": true,
+ "created": "2026-11-18T10:00:38",
+ "fired": 8,
+ "keywords": [
+  "毕设立意",
+  "HealthClaim立意"
+ ],
+ "match": "any",
+ "last": "2026-11-18T13:09:59"
+}
