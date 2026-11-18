@@ -1,0 +1,13 @@
+{
+ "id": "no-ledger",
+ "ide": "codebuddy",
+ "trigger": "fn",
+ "fn": "no-ledger",
+ "entry": "no_ledger.py",
+ "enabled": true,
+ "capture": false,
+ "fired": 5,
+ "created": "2026-11-18T13:50:00",
+ "interface": "class Rule(data).match(prompt)->True / inject()->FAIL when an account exists",
+ "last": "2026-11-18T13:45:12"
+}

@@ -16,6 +16,8 @@
   "data/contrast/inject.md",
   "data/hook-action/hook.json",
   "data/hook-action/inject.md",
+  "data/no-ledger/hook.json",
+  "data/no-ledger/no_ledger.py",
   "data/plan/hook.json",
   "data/plan/plan.py",
   "data/plan/tree.py",
