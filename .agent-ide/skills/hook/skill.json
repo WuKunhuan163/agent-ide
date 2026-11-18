@@ -9,6 +9,10 @@
   "requirements": [],
   "stdlib": []
  },
- "files": [],
+ "files": [
+  "plan.py",
+  "hook.py",
+  "SKILL.md"
+ ],
  "directories": []
 }
