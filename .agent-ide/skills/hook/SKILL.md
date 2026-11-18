@@ -29,7 +29,14 @@ One rule is a condition and a value. The condition is checked against the prompt
 
 `fn` is the predicate class: a function decides, not a word list. The one predicate today is `tools` — it answers "does the prompt name an installed tool". `tools` merges the launchers under `.agent-tools/` with the directories under `.agent-ide/skills/` by name, and injects one line per name that appears — `【name】先读 <path>（<lines> 行）：<first sentence of description>`, or `【name】已安装：<launcher>` when the tool has no SKILL.md. A new skill needs no registration, and this tool is a skill like any other, so mentioning `hook` injects its own SKILL.
 
-Two triggers, two meanings. A keyword trigger is a gate: the word appears or it does not. A similarity trigger is a measure: the prompt and the stored context are reduced to token sets (words ≥2 characters, plus Chinese bigrams), and cosine is compared with the threshold. 
+Three triggers, three meanings — all three are registered the same way, only the decision differs.
+
+- `keyword` — a gate: the word appears in the prompt or it does not; `--match any|all` decides whether one word or every word must appear.
+- `sim` — a measure: the prompt and the stored context (`data/keys/<id>.md`, copied from `--key`) are reduced to token sets (words ≥2 chars plus Chinese bigrams) and compared by cosine; it fires at or above `--threshold` (default 0.55). This is for "the prompt is about the same thing", not "the prompt says this word".
+- `fn` — a predicate: the rule's package decides (`class Rule.match(prompt)`), for conditions a word list cannot express. `tools` is one such predicate (does the prompt name an installed tool); `plan` is another (every prompt owns a tree).
+
+A rule's code lives in its own package: `data/<id>/<entry>.py`, with `class Rule(data)` exposing `match` / `inject` (and, for rules with state, `auto_start`, `next_text`, `dispatch`).
+
 ## Registering
 
 ```bash
