@@ -41,7 +41,13 @@ def instance_dir(data: Path, name: str | None = None) -> Path | None:
     live = [p for p in base.glob("*/tree.json") if p.exists()] if base.exists() else []
     if not live:
         return None
-    return max((p.parent for p in live), key=lambda p: p.stat().st_mtime)
+    def stamp(p: Path) -> float:
+        try:
+            return json.loads(p.read_text(encoding="utf-8")).get("state") != "done"
+        except Exception:
+            return 0
+    # prefer a live (not done) instance, then the newest; a directory touch must not steal the pointer
+    return max(live, key=lambda p: (stamp(p), p.stat().st_mtime)).parent
 
 
 def load(d: Path) -> dict:
