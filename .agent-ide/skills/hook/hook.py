@@ -3,7 +3,7 @@
 
 A rule is a condition and a value. The condition is "the prompt contains one of
 these keywords" or "the prompt is closer than a threshold to a stored context"
-(token cosine). The value is text injected into the model's context on
+
 UserPromptSubmit.
 
 Layout under data/, one file per rule so every rule is readable on its own:
@@ -33,7 +33,6 @@ ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 RULES = DATA
 INJECT = DATA / "inject"
-KEYS = DATA / "keys"
 LOG = DATA / "hook.log"
 
 IDE_PATHS = {
@@ -141,7 +140,7 @@ def drop_rule(hid):
         for child in sorted(d.rglob("*"), reverse=True):
             child.unlink() if child.is_file() else child.rmdir()
         d.rmdir()
-    for p in (RULES / (hid + ".json"), INJECT / (hid + ".md"), KEYS / (hid + ".md")):
+    for p in (RULES / (hid + ".json"), INJECT / (hid + ".md")):
         if p.exists():
             p.unlink()
 
@@ -187,34 +186,6 @@ def capture_prompt(hid: str, prompt: str, matched: str = "") -> None:
     with (d / (hid + ".log")).open("a", encoding="utf-8") as f:
         f.write("%s\t%s\t%d\t%s\n" % (now(), sha[:16], len(prompt),
                                         prompt.strip().split("\n")[0][:60]))
-
-
-def stored_prompt(hid: str) -> str:
-    p = DATA / "capture" / (hid + ".txt")
-    return p.read_text(encoding="utf-8") if p.exists() else ""
-
-
-# ---------- triggers ----------
-
-def tokens(text: str) -> set:
-    t = re.sub(r"[\s，。；：、！？（）()「」“”'\"/\\.,;:!?<>\[\]{}|_=+*#`~-]+", " ", text or "")
-    out = set()
-    for w in t.split():
-        w = w.strip().lower()
-        if len(w) >= 2 and w not in STOP:
-            out.add(w)
-    for ch in re.findall(r"[\u4e00-\u9fff]{2,}", text or ""):
-        for i in range(len(ch) - 1):
-            g = ch[i:i + 2]
-            if g not in STOP:
-                out.add(g)
-    return out
-
-
-def cosine(a: set, b: set) -> float:
-    if not a or not b:
-        return 0.0
-    return len(a & b) / math.sqrt(len(a) * len(b))
 
 
 def skills_dir() -> Path:
@@ -329,19 +300,8 @@ def evaluate(prompt: str, rules: list, verbose=False):
             continue
         if h["trigger"] == "keyword":
             found = [k for k in h.get("keywords", []) if k in prompt]
-            ok = bool(found) if h.get("match", "any") == "any" else len(found) == len(h.get("keywords", []))
-            if ok:
+            if found:
                 hits.append((h, 1.0, "matched %s" % ",".join(found)))
-        else:
-            kp = KEYS / h.get("key", "")
-            if not kp.exists():
-                continue
-            s = cosine(tokens(prompt), tokens(kp.read_text(encoding="utf-8")))
-            thr = h.get("threshold", 0.55)
-            if s >= thr:
-                hits.append((h, s, "cosine %.3f >= %.2f" % (s, thr)))
-            elif verbose:
-                print(pad(h["id"],18)+"%.3f < %.2f" % (s, thr))
     return hits
 
 
@@ -430,8 +390,6 @@ def cmd_add(a):
         return 2
     h = {"id": hid, "ide": a.ide, "trigger": a.trigger, "enabled": True, "created": now(), "fired": 0, "inject": inject}
     pkg_dir(hid).mkdir(parents=True, exist_ok=True)
-    if (a.cmd or "").strip():
-        h["cmd"] = a.cmd.strip()
     if a.trigger == "fn":
         h["fn"] = a.fn
     elif a.trigger == "keyword":
@@ -439,48 +397,16 @@ def cmd_add(a):
         if not words:
             print("hook: --keywords required", file=sys.stderr)
             return 2
-        h["keywords"], h["match"] = words, a.match
-    else:
-        if not a.key:
-            print("hook: --key required", file=sys.stderr)
-            return 2
-        KEYS.mkdir(parents=True, exist_ok=True)
-        src = Path(a.key)
-        if src.exists():
-            (KEYS / (hid + ".md")).write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
-        elif not (KEYS / a.key).exists():
-            print("hook: no such key %s" % a.key, file=sys.stderr)
-            return 2
-        h["key"], h["threshold"] = hid + ".md", float(a.threshold)
+        h["keywords"] = words
     save_rule(h)
     ensure_registered(a.ide)
     where = "data/%s/inject.md" % hid
     print("+ %-16s %-3s %s\n  inject %s (%dB)" % (
-        hid, {"keyword": "kw", "sim": "sim", "fn": "fn"}[h["trigger"]],
+        hid, {"keyword": "kw", "fn": "fn"}[h["trigger"]],
         (",".join(h["keywords"]) if h["trigger"] == "keyword"
          else "fn=%s" % h.get("fn", "tools") if h["trigger"] == "fn"
          else "key=%s thr=%.2f" % (h["key"], h["threshold"])),
         where, len(inject.encode())))
-    return 0
-
-
-def cmd_set(a):
-    h = find(a.id)
-    if not h:
-        print("hook: no such id %s" % a.id, file=sys.stderr)
-        return 3
-    if a.inject:
-        h["inject"] = Path(a.inject[1:]).read_text(encoding="utf-8") if a.inject.startswith("@") else a.inject
-    if a.cmd is not None:
-        h["cmd"] = a.cmd.strip()
-    if a.keywords is not None:
-        h["keywords"] = [w.strip() for w in re.split(r"[,，\s]+", a.keywords) if w.strip()]
-        h["trigger"] = "keyword"
-    if a.threshold is not None:
-        h["threshold"] = float(a.threshold)
-        h["trigger"] = "sim"
-    save_rule(h)
-    print("= %s" % a.id)
     return 0
 
 
@@ -495,17 +421,6 @@ def cmd_rm(a):
     return 0
 
 
-def cmd_onoff(a, state):
-    n = 0
-    for h in load_rules():
-        if not a.id or h["id"] in a.id:
-            h["enabled"] = state
-            save_rule(h)
-            n += 1
-    print("%s %d" % ("on" if state else "off", n))
-    return 0
-
-
 def cmd_list(a):
     rules = load_rules()
     if not rules:
@@ -516,7 +431,7 @@ def cmd_list(a):
         cond = (",".join(h.get("keywords", [])) if h["trigger"] == "keyword"
                 else "fn=%s" % h.get("fn", "tools") if h["trigger"] == "fn"
                 else "key=%s thr=%.2f" % (h.get("key"), h.get("threshold", 0)))
-        print(pad(h["id"],18)+pad({"keyword":"kw","sim":"sim","fn":"fn"}[h["trigger"]],6)+pad(cond[:34],36)
+        print(pad(h["id"],18)+pad({"keyword":"kw","fn":"fn"}[h["trigger"]],6)+pad(cond[:34],36)
               +pad(len(h.get("inject","").encode()),7)+pad(h.get("fired",0),7)+("+" if h["enabled"] else "-"))
     return 0
 
@@ -592,27 +507,23 @@ def dispatch(hid: str, rest: list) -> int | None:
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
-    if argv and argv[0] not in ("add", "set", "rm", "on", "off", "list", "-h", "--help"):
+    if argv and argv[0] not in ("add", "rm", "list", "-h", "--help"):
         rc = dispatch(argv[0], argv[1:])
         if rc is not None:
             return rc
-    if not argv or argv[0] not in ("add", "set", "rm", "on", "off", "list", "-h", "--help"):
+    if not argv or argv[0] not in ("add", "rm", "list", "-h", "--help"):
         return run_prompt()          # bare `hook`: the IDE calls this with the payload
 
-    p = argparse.ArgumentParser(prog="hook", description="keyword / similarity / skill triggered context injection")
+    p = argparse.ArgumentParser(prog="hook", description="keyword / predicate triggered context injection")
     sub = p.add_subparsers(dest="cmd")
     d = sub.add_parser("add")
     d.add_argument("--id", required=True); d.add_argument("--ide", default="codebuddy")
-    d.add_argument("--trigger", default="keyword", choices=["keyword", "sim", "fn"])
+    d.add_argument("--trigger", default="keyword", choices=["keyword", "fn"])
     d.add_argument("--fn", default="tools", help="predicate name, e.g. tools")
-    d.add_argument("--keywords"); d.add_argument("--match", default="any", choices=["any", "all"])
-    d.add_argument("--key"); d.add_argument("--threshold", default=0.55)
-    d.add_argument("--inject", default=""); d.add_argument("--cmd")
+    d.add_argument("--keywords")
+    d.add_argument("--inject", default="")
     d.set_defaults(f=cmd_add)
-    d = sub.add_parser("set"); d.add_argument("id"); d.add_argument("--inject"); d.add_argument("--cmd"); d.add_argument("--keywords"); d.add_argument("--threshold"); d.set_defaults(f=cmd_set)
     d = sub.add_parser("rm"); d.add_argument("id", nargs="+"); d.set_defaults(f=cmd_rm)
-    d = sub.add_parser("on"); d.add_argument("id", nargs="*"); d.set_defaults(f=lambda a: cmd_onoff(a, True))
-    d = sub.add_parser("off"); d.add_argument("id", nargs="*"); d.set_defaults(f=lambda a: cmd_onoff(a, False))
     d = sub.add_parser("list"); d.set_defaults(f=cmd_list)
     a = p.parse_args(argv)
     if not getattr(a, "f", None):
