@@ -389,11 +389,112 @@ def cmd_ready(d, args: list) -> int:
     if wrong:
         print("blocked   先易后难不成立（依赖指到了后面的项）：%s" % ", ".join(wrong))
         return 1
+    first = first_open(t)
+    if first is not None and first.get("judged") != "ok":
+        print("blocked   还没判语境：`hook plan judge %s --ok`（不够就 `--short \"<缺什么>\"` 继续获取）" % first["id"])
+        return 1
     t["state"] = "solve"
     save(d, t)
     print("state     solve\n")
     print(next_block(t, d))
     return 0
+
+def cmd_judge(d, args: list) -> int:
+    """构建之后：认定 DFS 第一项的语境够不够；不够就继续获取，不许带着模糊点开工。"""
+    if need(d, "judge"):
+        return 3
+    t = load(d)
+    nid = args[0] if args and not args[0].startswith("-") else ""
+    n = node(t, nid) if nid else first_open(t)
+    if not n:
+        print("plan: judge needs a node id (or an open item to judge)")
+        return 2
+    short = args[args.index("--short") + 1] if "--short" in args else ""
+    if short:
+        n["judged"] = "short"
+        n["judge_note"] = short
+        save(d, t)
+        print("judged    %s 语境不够：%s" % (n["id"], short))
+        print("         继续获取语境（`add --context` 或补充这一项的 --context），补完再 `judge --ok`；不许带着模糊点开工。")
+        return 0
+    if "--ok" not in args:
+        print("plan: judge <id> --ok | --short \"<缺什么>\"")
+        return 2
+    n["judged"] = "ok"
+    n["judged_at"] = now()
+    save(d, t)
+    print("judged    %s 语境够，可以执行：`hook plan start %s`" % (n["id"], n["id"]))
+    return 0
+
+
+def cmd_ack(d, args: list) -> int:
+    """系统 acknowledge：不评估，但要 agent 报一句自己复查了什么，然后重放原话。"""
+    if need(d, "ack"):
+        return 3
+    if not args:
+        print("plan: ack <id> --recheck \"<我复查了哪一处、看到什么>\"")
+        return 2
+    t = load(d)
+    n = node(t, args[0])
+    if not n:
+        print("plan: no node %s" % args[0])
+        return 3
+    if "--recheck" not in args:
+        print("blocked   没有复查句：`ack %s --recheck \"<复查了哪一处、看到什么>\"`；"
+              "系统不替你评估，但要你报出复查依据" % n["id"])
+        return 1
+    recheck = args[args.index("--recheck") + 1]
+    n["state"] = "ack"
+    n["acked"] = now()
+    n["recheck"] = recheck
+    if t["state"] != "done":
+        t["state"] = "drift"
+    save(d, t)
+    prompt = (t.get("prompt") or "").strip()
+    print("v %s" % n["id"])
+    print("recheck   %s\n" % recheck)
+    print("【重放 prompt】以下是这次计划最初要的东西，从头再读一遍：")
+    print("-" * 60)
+    print(prompt or "（没有存到 prompt）")
+    print("-" * 60)
+    print("\n【走偏审视】拿新的视野看这棵树：")
+    print("  1. 已完成的这一项，把后面哪一项的前提改掉了（依赖、数量级、材料）？")
+    print("  2. 剩下未行动的项里，哪些已经不必做、哪些必须拆小、哪些顺序错了？")
+    print("  3. 语境是否掉了：掉了就在这里补，不许凭记忆往下走。")
+    print("  - 都不必改：`hook plan drift --ok \"<一句话：树没偏，因为…>\"`")
+    print("  - 要改：`hook plan replan --reason \"...\"`（只动未行动项）")
+    return 0
+
+
+def cmd_drift(d, args: list) -> int:
+    """走偏审视的结论：认可则回到构建流程看一眼，再 resume 继续。"""
+    if need(d, "drift"):
+        return 3
+    t = load(d)
+    if t["state"] not in ("drift", "review"):
+        print("plan: drift only after ack (state is %s)" % t["state"])
+        return 3
+    if "--ok" not in args:
+        print("blocked   先给结论：`hook plan drift --ok \"<树偏没偏、为什么>\"`，或 `replan --reason \"...\"`")
+        return 1
+    note = args[args.index("--ok") + 1] if len(args) > args.index("--ok") + 1 else ""
+    t["state"] = "rbuild"                     # 重新进入构建流程，只看未行动项
+    t.setdefault("drifts", []).append({"at": now(), "note": note})
+    save(d, t)
+    print("state     rbuild（%s）\n" % (note or "树没偏"))
+    print("回到构建流程：只看得动未行动的项。要改就 add/move/drop/--context，改完 `hook plan resume`。")
+    print(render(t, d, brief=True))
+    return 0
+
+
+def cmd_inject(d, args: list) -> int:
+    print("plan: init / env / add / tree / judge / ready / start / done / ack / drift / "
+          "next / review / replan / resume / drop / move / status / prompt / close")
+    print("  build:   env → add (many) → judge 第一项 → ready")
+    print("  solve:   start → done → ack --recheck → (drift --ok → rbuild → resume | replan)")
+    print("  finish:  close when nothing is open")
+    return 0
+
 
 def cmd_start(d: Path | None, args: list) -> int:
     if need(d, "start"):
@@ -453,35 +554,6 @@ def cmd_done(d: Path | None, args: list) -> int:
     return 0
 
 
-def cmd_ack(d, args: list) -> int:
-    if need(d, "ack"):
-        return 3
-    if not args:
-        print("plan: ack <id>")
-        return 2
-    t = load(d)
-    n = node(t, args[0])
-    if not n:
-        print("plan: no node %s" % args[0])
-        return 3
-    n["state"] = "ack"
-    n["acked"] = now()
-    if t["state"] != "done":
-        t["state"] = "review"        # 完成一项后先进再规划：看清单是否还成立，再继续
-    save(d, t)
-    prompt = (t.get("prompt") or "").strip()
-    print("v %s\n" % n["id"])
-    print("【重放 prompt】以下是这次计划最初要的东西，从头再读一遍：")
-    print("-" * 60)
-    print(prompt or "（没有存到 prompt）")
-    print("-" * 60)
-    print("\n【再规划审视】这一步做完，清单还成立吗：")
-    print("  1. 已完成的这一项，是否改变了后面某项的前提（依赖、数量级、可用材料）？")
-    print("  2. 剩下的项里，有没有已经不必做、或必须拆小的？")
-    print("  3. 语境是否掉了：掉了就 `--context` 补，不许凭记忆往下走。")
-    print("  - 要改：`hook plan replan --reason \"...\"`；不改：`hook plan review --ok` 再 `next`。")
-
-
 def cmd_review(d, args: list) -> int:
     if need(d, "review"):
         return 3
@@ -505,9 +577,14 @@ def cmd_next(d: Path | None, args: list) -> int:
     if need(d, "next"):
         return 3
     t = load(d)
+    if t["state"] == "drift":
+        print("blocked   上一项刚 ack：先 `hook plan drift --ok \"...\"` 或 `replan --reason \"...\"`")
+        return 1
+    if t["state"] == "rbuild":
+        print("blocked   state rbuild：只改未行动项，改完 `hook plan resume`")
+        return 1
     if t["state"] == "review":
-        print("blocked   上一项刚 ack：先 `hook plan review --ok` 或 `hook plan replan --reason \"...\"`，"
-              "不许直接要下一项")
+        print("blocked   上一项刚 ack：先 `hook plan drift --ok \"<树偏没偏>\"`（或 replan），不许直接要下一项")
         return 1
     if t["state"] == "build":
         print("state     build：先把树长完，再 `hook plan ready`")
@@ -537,8 +614,8 @@ def cmd_resume(d: Path | None, args: list) -> int:
     if need(d, "resume"):
         return 3
     t = load(d)
-    if t["state"] != "replan":
-        print("plan: resume only after replan (state is %s)" % t["state"])
+    if t["state"] not in ("replan", "rbuild"):
+        print("plan: resume only after replan or rbuild (state is %s)" % t["state"])
         return 3
     bad = [n for n in t["nodes"] if n["state"] == "pending" and (not n.get("context") or not n.get("criterion"))]
     if bad:
@@ -638,7 +715,8 @@ def cmd_close(d: Path | None, args: list) -> int:
 
 COMMANDS = {"init": cmd_init, "add": cmd_add, "tree": cmd_tree, "ready": cmd_ready,
             "start": cmd_start, "done": cmd_done, "ack": cmd_ack, "next": cmd_next,
-            "env": cmd_env, "review": cmd_review,
+            "env": cmd_env, "review": cmd_review, "judge": cmd_judge,
+            "drift": cmd_drift, "help": cmd_inject,
             "replan": cmd_replan, "resume": cmd_resume, "drop": cmd_drop, "move": cmd_move,
             "status": cmd_status, "prompt": cmd_prompt, "close": cmd_close}
 
@@ -703,8 +781,10 @@ def auto_start(data: Path, prompt: str, matched: str = "") -> str:
             "  a. `hook plan env --note \"<读了哪几处、各是什么读数>\"` —— 先探环境，再谈拆解。\n"
             "  b. `hook plan add --parent n1 --title \"...\" --criterion \"...\" --context \"<path 或命令>\"` × 2–4 条，"
             "先易后难；能拆的再挂 --parent 往下拆。\n"
-            "  c. `hook plan ready` → 对 DFS 放出的每一项 `start` → 真做 → `done --note \"<命令或路径>\"` → `ack`。\n"
-            "  d. 每次 `ack` 后进入再规划：`review --ok` 或 `replan`；子节点全部 ack 后才 `done n1` → `ack n1` → `close`。\n"
+            "  c. `hook plan judge n2 --ok`（不够就 `--short \"<缺什么>\"` 继续获取）→ `hook plan ready`。\n"
+            "  d. 对 DFS 放出的每一项 `start` → 真做 → `done --note \"<命令或路径>\"` → `ack --recheck \"<复查了什么>\"`。\n"
+            "     ack 之后必须 `drift --ok \"<树偏没偏>\"` → rbuild → `resume`，才允许 `next`。\n"
+            "  e. 子节点全部 ack 后才 `done n1` → `ack n1 --recheck \"...\"` → `close`。\n"
             "自检：本轮回复里没有新的 path:line 改动或命令输出，就是空转；`close` 会拒绝没有子节点的根。" % (name, tool_line))
 
 def next_text(data: Path) -> str:
