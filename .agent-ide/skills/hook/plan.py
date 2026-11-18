@@ -548,6 +548,46 @@ COMMANDS = {"init": cmd_init, "add": cmd_add, "tree": cmd_tree, "ready": cmd_rea
             "status": cmd_status, "prompt": cmd_prompt, "close": cmd_close}
 
 
+def auto_start(data: Path, prompt: str) -> str:
+    """Called by the hook on every prompt, after the prompt has been stored.
+
+    An open tree is continued; otherwise one is allocated now, named
+    <project>-<stamp>-<summary>, with the prompt itself as the single root node.
+    """
+    d = instance_dir(data)
+    if d is not None:
+        t = load(d)
+        if t["state"] != "done":
+            n = first_open(t)
+            if not n:
+                return ("【plan｜%s 已分配给这条原话】state %s\n下一项：无（缺前置），`hook plan status` 看谁在等谁。"
+                        % (t["instance"], t["state"]))
+            return ("【plan｜%s 已分配给这条原话】state %s\n接下来这一项：%s  %s\ndone when %s\n"
+                    "→ 语境够就 `hook plan start %s`；结果变了就 `hook plan replan --reason \"...\"`"
+                    % (t["instance"], t["state"], n["id"], n["title"],
+                       n.get("criterion") or "（缺）", n["id"]))
+    head = next((l.strip() for l in prompt.split("\n") if l.strip()), "原话")
+    name = "%s-%s-%s" % (proj_name(data), time.strftime("%Y%m%d-%H%M%S"), slug(head))
+    d = root(data) / name
+    d.mkdir(parents=True, exist_ok=True)
+    import hashlib
+    t = {"instance": name, "created": now(), "state": "build", "summary": head[:60],
+         "prompt": prompt,
+         "provenance": {"at": now(), "matched": "every prompt",
+                        "sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest()},
+         "nodes": [{"id": "n1", "title": head[:60], "parent": None, "after": [],
+                    "context": "原话全文见 tree.json 的 prompt；这一项就是它",
+                    "criterion": "这条 prompt 的每条要求都有子节点，且子节点全部 done/ack/dropped",
+                    "state": "pending", "note": "", "added": now(), "root": True}],
+         "rounds": [{"n": 1, "opened": now()}], "closed": None}
+    save(d, t)
+    return ("【plan｜新实例 %s】这条原话已存成根节点 n1，没有第二条顶层节点。\n"
+            "1. 先探环境（只读与它相关的那几处），把具名依据写进 --context；\n"
+            "2. `hook plan add --parent n1 --title \"...\" --criterion \"...\" --context \"...\" [--after n2]`，"
+            "先易后难、能拆就递归拆；\n"
+            "3. `hook plan ready` 之后按 DFS 逐项 start → done → ack。" % name)
+
+
 def next_text(data: Path) -> str:
     """What the open tree wants next, for the hook to inject on any prompt."""
     d = instance_dir(data)

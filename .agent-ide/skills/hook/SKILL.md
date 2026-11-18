@@ -79,6 +79,11 @@ Code that must travel with the skill lives beside `hook.py` (`plan.py`), because
 is per-project state; a rule may still keep a module of its own inside its package when
 only that project should run it.
 
+**`plan-auto` is the default shape of a rule that wants every prompt**: trigger `fn: always`
+plus `auto_instance: true` (and `capture: true`) means the hook stores the prompt on every
+message and lets the package allocate or resume a tree, injecting the instance number and
+the next node. Nothing waits for a keyword.
+
 **`plan` is the worked example**: `hook plan init → add → ready → start → done → ack →
 (next | replan → add|drop|move → resume) → close`. Instances live in the rule's own data space,
 `data/plan/<project>-<stamp>-<summary>/tree.json`: deleting a project's `tmp` must not

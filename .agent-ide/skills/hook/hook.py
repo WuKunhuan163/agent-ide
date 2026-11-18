@@ -274,6 +274,35 @@ def skill_hits(prompt: str):
     return out
 
 
+def load_pkg(hid: str):
+    h = find(hid)
+    if not h or not h.get("entry"):
+        return None
+    d = pkg_dir(hid)
+    mod_path = d / h["entry"]
+    if not mod_path.exists():
+        mod_path = ROOT / h["entry"]
+    if not mod_path.exists():
+        return None
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("hook_pkg_%s" % hid, mod_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def auto_instance_text(hid: str, prompt: str) -> str:
+    """Store happens already; here the rule's package allocates or resumes the tree."""
+    mod = load_pkg(hid)
+    if mod is None or not hasattr(mod, "auto_start"):
+        return ""
+    try:
+        return mod.auto_start(DATA, prompt) or ""
+    except Exception as exc:
+        log("auto_instance error\t%s" % exc)
+        return ""
+
+
 def plan_state_text(hid: str) -> str:
     """Ask the rule's package what the open tree wants next; empty when nothing is open."""
     h = find(hid)
@@ -299,6 +328,9 @@ def evaluate(prompt: str, rules: list, verbose=False):
     hits = []
     for h in rules:
         if not h.get("enabled", True):
+            continue
+        if h.get("auto_instance"):
+            hits.append((dict(h, inject=""), 1.0, "every prompt"))
             continue
         if h["trigger"] == "fn" and h.get("fn") == "plan":
             text = plan_state_text(h["id"])
@@ -539,6 +571,11 @@ def run_prompt():
         for h, s, why in hits:
             if h.get("capture"):
                 capture_prompt(h["id"], prompt, why)
+            if h.get("auto_instance"):
+                text = auto_instance_text(h["id"], prompt)
+                if text:
+                    blocks.append(cmd_block(h["id"], "instance " + h.get("instance_name", ""), text))
+                continue
             if not str(h.get("inject", "")).strip():
                 continue          # capture-only rule: the prompt is kept, nothing is injected
             blocks.append(cmd_block(h["id"], why, h["inject"]))
